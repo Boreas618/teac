@@ -1,0 +1,84 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include "util.h"
+#include "oldtable.h"
+#include "graph.h"
+#include "symbol.h"
+#include "temp.h"
+#include "assem.h"
+#include "bg.h"
+#include <assert.h>
+
+/* graph on AS_ basic blocks. This is useful to find dominance 
+   relations, etc. */
+
+static G_graph RA_bg;
+static S_table block_env;
+
+static void Bg_empty() {
+    RA_bg=G_Graph();
+}
+
+G_graph Bg_graph() {
+    return RA_bg;
+}
+
+S_table Bg_block_env(){
+    return block_env;
+}
+
+G_node Look_bg(AS_block b){
+    G_node n1=NULL;
+    for (G_nodeList n=G_nodes(RA_bg); n!=NULL; n=n->tail) {
+        if ((AS_block)G_nodeInfo(n->head) == b) {
+            n1=n->head;
+            break;
+        }
+    }
+    if (n1==NULL) return(G_Node(RA_bg, b));
+    else return n1;
+}
+
+static void Enter_bg(AS_block b1, AS_block b2) {
+    G_node n1=Look_bg(b1);
+    G_node n2=Look_bg(b2);
+    G_addEdge(n1, n2);
+    return;
+}
+
+/* input AS_blockList after instruction selection for each block 
+   in the C_Block, generate a graph on the basic blocks */
+
+
+G_nodeList Create_bg(AS_blockList bl) {
+    AS_blockList list=bl;
+
+    RA_bg=G_Graph(); // prepare the empty graph
+    block_env = S_empty(); //build a table of label -> block
+
+    for (AS_blockList l=bl; l; l=l->tail) {
+      S_enter(block_env, l->head->label, l->head);
+      Look_bg(l->head); /* enter the block into graph as a node */
+    }
+
+    for (AS_blockList l=bl; l; l=l->tail) {
+      Temp_labelList tl = l->head->succs;
+      while (tl) {
+        AS_block succ=(AS_block)S_look(block_env, tl->head);
+    //if the succ label doesn't have a block, assume it's the "exit label",
+    //then this doesn't form an edge in the bg graph
+        if (succ) Enter_bg(l->head, succ); 
+        tl=tl->tail;
+      }
+    }
+    return G_nodes(RA_bg);
+}
+
+static void show_AS_Block(void *b, FILE *out) {
+    fprintf(out, "%s, ", Temp_labelstring(((AS_block)b)->label));
+}
+
+void Show_bg(FILE* out, G_nodeList l) {
+    G_show(out, l, show_AS_Block);
+}
+
