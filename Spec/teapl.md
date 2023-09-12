@@ -10,6 +10,8 @@ program := (varDeclStmt | strctDef | fnDeclStmt | fnDef | comment | < ; >)*
 
 <b><u> Q2: 上面关于 program 的定义是不是少了 main 函数（没有 main 函数恐怕有点难搞）</u></b>
 
+<b><u> Q3: 语言中对于函数、变量、struct 自定义类型是否都要求先声明后使用</u></b>
+
 ### Basic Identifiers, Values, Expressions, and Assignments
 
 Each identifier begins with an alphabat and contains only alphabats and digits, e.g., alice, a0.
@@ -57,7 +59,7 @@ rightVal := arithExpr | condExpr
 fnCall := id < ( > (rightVal (< , > rightVal)*) | ϵ< ) >
 ```
 
-<b><u> Q3: 我们的函数是要求至少有一个参数吗（看起来是的，文档其他地方也是这样，只是确认一下）</u></b>
+<b><u> Q4: 我们的函数是要求至少有一个参数吗（看起来是的，文档其他地方也是这样，只是确认一下）</u></b>
 
 ### Variable Declarations
 
