@@ -28,13 +28,12 @@ num := [1-9][0-9]* | 0
 **Arithmatic Expressions**
 An expression is a composd of identifiers, values,  and operators, e.g., 1+2, a*(b+c). For simplicity, we donot support unary operators, such as ++, +=.
 ```
-arithExpr :=  arithExpr addSub arithExpr1 | arithExpr1  
-arithExpr1 :=  arithExpr1 mulDiv arithExpr2 | arithExpr2  
-arithExpr2 :=  exprUnit expOp arithExpr2 | exprUnit  
-exprUnit :=  num | id | < ( > arithExpr < ) > | fnCall
-addSub := < + > | < - >
-mulDiv := < * > | < / >
+arithExpr :=  arithExpr binOp arithExpr | exprUnit
+exprUnit :=  num | id | < ( > arithExpr < ) > | fnCall | exprUnit < [ > exprUnit < ] > | exprUnit < . > id
+binOp := < + > | < - > | < * > | < / >
 ```
+
+<b><u> Q4: exprUnit 这里似乎没有用于访问数组元素的 Expr 和用于访问 struct 中元素的 Expr（导致他们似乎无法参与运算）（已经补上，就是后两种情况）</u></b>
 
 **Condition Expressions**
 
@@ -42,11 +41,12 @@ mulDiv := < * > | < / >
 condExpr := condExpr andOr condUnit | condUnit
 condUnit := exprUnit comOp exprUnit | < ( > condExpr < ) > | < ! >(condExpr) // we restrict the operands of comparison operators to be exprUnit instead of expr to avoid confusing the precedence.
 andOr := < && > | < || >
-comOp := < > > | < < > | < >= > | < <= >
+comOp := < > > | < < > | < >= > | < <= > | < == > | < != >
 ```
 
 **Assignment**
 We restrict neither the left value nor right value can be assignments.
+
 ```
 assignStmt := leftVal < = > rightVal < ; >  
 leftVal := id | id < [ > (id | num) < ] > | fnCall  
@@ -59,7 +59,7 @@ rightVal := arithExpr | condExpr
 fnCall := id < ( > (rightVal (< , > rightVal)*) | ϵ< ) >
 ```
 
-<b><u> Q4: 我们的函数是要求至少有一个参数吗（看起来是的，文档其他地方也是这样，只是确认一下）</u></b>
+<b><u> Q5: 我们的函数是要求至少有一个参数吗（看起来是的，文档其他地方也是这样，只是确认一下）</u></b>
 
 ### Variable Declarations
 
@@ -90,6 +90,7 @@ structType := < struct > id
  ```
 
 ### Define A New Structure
+
 Developers can define new customized types with the preserved keyword struct, e.g., 
 ```
 struct MyStruct { 
@@ -102,6 +103,8 @@ The grammar is defined as follows.
  ```
 structDef := < struct > < { > (varDecl) (< , > varDecl)* < } >
  ```
+
+<b><u> Q6: 我们的变量和数组放在堆上还是栈上</u></b>
 
 ### Function Declaration and Definition
 
@@ -139,10 +142,13 @@ callStmt := fnCall < ; >
 ```
 Next, we define the grammar of each rest statement type.
 
+<b><u> Q7: 我们语言中似乎没有 returnStmt</u></b>
 
 ### Control Flows
+
 **If-Else Statement**
 The condition should be surrounded with a paired parenthesis, and we further restrict the  body should be within a paired bracket. The following shows an example.
+
 ```
 if (x >0) {
     if (y >0) {
@@ -175,8 +181,10 @@ while (x  > 0) {
 
 Definition:
 ```
-whileStmt := < while > < ( > cond < ) > block
+whileStmt := < while > < ( > cond < ) > codeBlock
 ```
+
+<b><u> Q8: 我们语言种是否应该有 continue 和 break 关键字</u></b>
 
 ### Code Comments 
 
