@@ -3,14 +3,14 @@
 Each program is composed of variable declarations, function declarations, function definitions, and comments.
 
 ```
-program := (varDeclStmt | strctDef | fnDeclStmt | fnDef | comment | < ; >)*
+program := (varDeclStmt | structDef | fnDeclStmt | fnDef | comment | < ; >)*
 ```
 
-<b><u> Q1: 上面的 `< ; >` 是否需要，Stmt 和 Def 的语法中已经包含了 `< ; >`</u></b>
+<b><u> Q1: 这样定义 comment 似乎局限性很大，而且也不应该这样做？先写一版吧</u></b>
 
-<b><u> Q2: 上面关于 program 的定义是不是少了 main 函数（没有 main 函数恐怕有点难搞）</u></b>
+<b><u> Q2: 上面关于 program 的定义是不是少了 main 函数（没有 main 函数恐怕有点难搞，不应该在语法上做）</u></b>
 
-<b><u> Q3: 语言中对于函数、变量、struct 自定义类型是否都要求先声明后使用</u></b>
+<b><u> Q3: 语言中对于函数、变量、struct 自定义类型是否都要求先声明后使用；不要求</u></b>
 
 ### Basic Identifiers, Values, Expressions, and Assignments
 
@@ -30,11 +30,11 @@ An expression is a composd of identifiers, values,  and operators, e.g., 1+2, a*
 
 ```
 arithExpr :=  arithExpr binOp arithExpr | exprUnit
-exprUnit :=  num | id | < ( > arithExpr < ) > | fnCall | exprUnit < [ > exprUnit < ] > | exprUnit < . > id | < - > exprUnit | ϵ
+exprUnit :=  num | id | < ( > arithExpr < ) > | fnCall | id < [ > id | num < ] > | id < . > id | < - > exprUnit | ϵ
 binOp := < + > | < - > | < * > | < / >
 ```
 
-<b><u> Q4: exprUnit 这里似乎没有用于访问数组元素的 Expr 和用于访问 struct 中元素的 Expr（导致他们似乎无法参与运算）（已经补上，就是后两种情况）；负号也已经加上</u></b>
+主要可能是优先级的问题
 
 **Condition Expressions**
 
@@ -45,24 +45,20 @@ andOr := < && > | < || >
 comOp := < > > | < < > | < >= > | < <= > | < == > | < != >
 ```
 
-<b><u> Q5: 上面的注释不成立了，因为函数可以 return ，这个返回值算作 arithExpr ，但他也可以 return condExpr；要实现相应效果的话可能要通过类型检测来实现。</u></b>
-
 **Assignment**
 We restrict neither the left value nor right value can be assignments.
 
 ```
 assignStmt := leftVal < = > rightVal < ; >  
-leftVal := id | id < [ > (id | num) < ] > | fnCall  
-rightVal := arithExpr | condExpr
+leftVal := id | id < [ > id | num < ] > | id < . > id
+rightVal := arithExpr | condExpr | fnCall
 ```
 
 **Function Call**
 
 ```
-fnCall := id < ( > (rightVal (< , > rightVal)*) | ϵ< ) >
+fnCall := id < ( > (rightVal (< , > rightVal)*) | ϵ < ) >
 ```
-
-<b><u> Q6: 我们的函数是要求至少有一个参数吗（噢，不是，第一次看错了）</u></b>
 
 ### Variable Declarations
 
@@ -87,7 +83,7 @@ varDeclStmt := < let > (varDecl | varDef) < ; >
 varDecl := id < : > type  
 varDef :=  id < : > type < = > expr  //primitive type
          | id < [ > expr < ] >< : > type < = > < { > expr < } > //array
-type := nativeType | structType 
+type := nativeType | structType | ϵ
 nativeType := < int >
 structType := < struct > id
  ```
@@ -97,7 +93,7 @@ structType := < struct > id
 Developers can define new customized types with the preserved keyword struct, e.g., 
 ```
 struct MyStruct { 
-    node:*int, 
+    node:int, 
     len:int  
 }
 ```
@@ -107,7 +103,7 @@ The grammar is defined as follows.
 structDef := < struct > < { > (varDecl) (< , > varDecl)* < } >
  ```
 
-<b><u> Q7: 我们的变量和数组放在堆上还是栈上</u></b>
+<b><u> Q7: 我们的变量和局部数组放在堆上还是栈上，放在栈上</u></b>
 
 ### Function Declaration and Definition
 
@@ -122,7 +118,7 @@ The grammar is defined as follows.
 fnDeclStmt := fnDecl < ; >
 fnDecl := < fn > id < ( > paramDecl < ) > //without return value
             | < fn > id < ( > paramDecl < ) > < -> > type //with return value
-paramDecl := id < : > type (< , > id < : > type)*    
+paramDecl := id < : > type (< , > id < : > type)* | ϵ
 ```
 
 **Function Definition**
@@ -136,8 +132,10 @@ fn foo(a:int, b:int)->int {
 The grammar is specified as follows.
 ```
 fnDef := fnDecl codeBlock  
-codeBlock :=  < { > (varDeclStmt | assignStmt | callStmt | ifStmt | whileStmt | returnStmt)* < } > 
+codeBlock :=  < { > (varDeclStmt | assignStmt | callStmt | ifStmt | whileStmt | returnStmt | continueStmt | breakStmt | < ; > )* < } > 
 returnStmt ：= (arithExpr | condExpr) < ; >
+continueStmt := continue < ; >
+breakStmt := break < ; >
 ```
 
 <b><u> Q8: 我们语言中似乎没有 returnStmt（已经加上）</u></b>
@@ -187,10 +185,8 @@ while (x  > 0) {
 Definition:
 
 ```
-whileStmt := < while > < ( > cond < ) > whileCodeBlock
-whileCodeBlock :=  < { > (varDeclStmt | assignStmt | callStmt | ifStmt | whileStmt | continueStmt | breakStmt)* < } > 
-continueStmt := continue < ; >
-breakStmt := break < ; >
+whileStmt := < while > < ( > condExpr < ) > whileCodeBlock
+whileCodeBlock :=  < { > (varDeclStmt | assignStmt | callStmt | ifStmt | whileStmt | returnStmt | continueStmt | breakStmt)* < } > 
 ```
 
 <b><u> Q9: 我们语言种是否应该有 continue 和 break 关键字（已经加上）</u></b>
