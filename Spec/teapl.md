@@ -27,13 +27,14 @@ num := [1-9][0-9]* | 0
 
 **Arithmatic Expressions**
 An expression is a composd of identifiers, values,  and operators, e.g., 1+2, a*(b+c). For simplicity, we donot support unary operators, such as ++, +=.
+
 ```
 arithExpr :=  arithExpr binOp arithExpr | exprUnit
-exprUnit :=  num | id | < ( > arithExpr < ) > | fnCall | exprUnit < [ > exprUnit < ] > | exprUnit < . > id
+exprUnit :=  num | id | < ( > arithExpr < ) > | fnCall | exprUnit < [ > exprUnit < ] > | exprUnit < . > id | < - > exprUnit | ϵ
 binOp := < + > | < - > | < * > | < / >
 ```
 
-<b><u> Q4: exprUnit 这里似乎没有用于访问数组元素的 Expr 和用于访问 struct 中元素的 Expr（导致他们似乎无法参与运算）（已经补上，就是后两种情况）</u></b>
+<b><u> Q4: exprUnit 这里似乎没有用于访问数组元素的 Expr 和用于访问 struct 中元素的 Expr（导致他们似乎无法参与运算）（已经补上，就是后两种情况）；负号也已经加上</u></b>
 
 **Condition Expressions**
 
@@ -43,6 +44,8 @@ condUnit := exprUnit comOp exprUnit | < ( > condExpr < ) > | < ! >(condExpr) // 
 andOr := < && > | < || >
 comOp := < > > | < < > | < >= > | < <= > | < == > | < != >
 ```
+
+<b><u> Q5: 上面的注释不成立了，因为函数可以 return ，这个返回值算作 arithExpr ，但他也可以 return condExpr；要实现相应效果的话可能要通过类型检测来实现。</u></b>
 
 **Assignment**
 We restrict neither the left value nor right value can be assignments.
@@ -59,7 +62,7 @@ rightVal := arithExpr | condExpr
 fnCall := id < ( > (rightVal (< , > rightVal)*) | ϵ< ) >
 ```
 
-<b><u> Q5: 我们的函数是要求至少有一个参数吗（看起来是的，文档其他地方也是这样，只是确认一下）</u></b>
+<b><u> Q6: 我们的函数是要求至少有一个参数吗（噢，不是，第一次看错了）</u></b>
 
 ### Variable Declarations
 
@@ -104,7 +107,7 @@ The grammar is defined as follows.
 structDef := < struct > < { > (varDecl) (< , > varDecl)* < } >
  ```
 
-<b><u> Q6: 我们的变量和数组放在堆上还是栈上</u></b>
+<b><u> Q7: 我们的变量和数组放在堆上还是栈上</u></b>
 
 ### Function Declaration and Definition
 
@@ -133,16 +136,18 @@ fn foo(a:int, b:int)->int {
 The grammar is specified as follows.
 ```
 fnDef := fnDecl codeBlock  
-codeBlock :=  < { > (varDeclStmt | assignStmt | callStmt | ifStmt | whileStmt)* < } > 
+codeBlock :=  < { > (varDeclStmt | assignStmt | callStmt | ifStmt | whileStmt | returnStmt)* < } > 
+returnStmt ：= (arithExpr | condExpr) < ; >
 ```
 
+<b><u> Q8: 我们语言中似乎没有 returnStmt（已经加上）</u></b>
+
 We have already defined the grammar of varDeclStmt and assignStmt. The callStmt is simply a function call terminated with an colon.
+
 ```
 callStmt := fnCall < ; >
 ```
 Next, we define the grammar of each rest statement type.
-
-<b><u> Q7: 我们语言中似乎没有 returnStmt</u></b>
 
 ### Control Flows
 
@@ -180,11 +185,15 @@ while (x  > 0) {
 ```
 
 Definition:
+
 ```
-whileStmt := < while > < ( > cond < ) > codeBlock
+whileStmt := < while > < ( > cond < ) > whileCodeBlock
+whileCodeBlock :=  < { > (varDeclStmt | assignStmt | callStmt | ifStmt | whileStmt | continueStmt | breakStmt)* < } > 
+continueStmt := continue < ; >
+breakStmt := break < ; >
 ```
 
-<b><u> Q8: 我们语言种是否应该有 continue 和 break 关键字</u></b>
+<b><u> Q9: 我们语言种是否应该有 continue 和 break 关键字（已经加上）</u></b>
 
 ### Code Comments 
 
