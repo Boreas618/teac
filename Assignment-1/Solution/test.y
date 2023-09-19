@@ -6,13 +6,14 @@ int yylex();
 %}
 
 %left ADD SUB MUL DIV
+%right POW
 
 %union {
 	double floatval;
 }
 
 %token <floatval> NUMBER
-%token ADD SUB MUL DIV
+%token ADD SUB MUL DIV POW
 %token LPar RPar
 %token EOL
 %type <floatval> term exp factor
@@ -29,13 +30,13 @@ exp:exp ADD term { $$ = $1 + $3; }
 	| term
 	;
 
-term:term MUL MUL factor {$$ = pow($1, $4);}
-	| term MUL factor {$$ = $1 * $3;}
+term:term MUL factor {$$ = $1 * $3;}
 	| term DIV factor {$$ = $1 / $3;}
 	| factor
 	;
 
-factor:NUMBER
+factor: factor POW factor {$$ = pow($1, $3);}
+	| NUMBER
 	| LPar exp RPar {$$ = $2;}
 	;
 
