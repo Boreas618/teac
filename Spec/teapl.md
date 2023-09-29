@@ -6,12 +6,6 @@ Each program is composed of variable declarations, function declarations, functi
 program := (varDeclStmt | structDef | fnDeclStmt | fnDef | comment | < ; >)*
 ```
 
-<b><u> Q1: 这样定义 comment 似乎局限性很大，而且也不应该这样做？先写一版吧</u></b>
-
-<b><u> Q2: 上面关于 program 的定义是不是少了 main 函数（没有 main 函数恐怕有点难搞，不应该在语法上做）</u></b>
-
-<b><u> Q3: 语言中对于函数、变量、struct 自定义类型是否都要求先声明后使用；不要求</u></b>
-
 ### Basic Identifiers, Values, Expressions, and Assignments
 
 Each identifier begins with an alphabat and contains only alphabats and digits, e.g., alice, a0.
@@ -29,9 +23,11 @@ num := [1-9][0-9]* | 0
 An expression is a composd of identifiers, values,  and operators, e.g., 1+2, a*(b+c). For simplicity, we donot support unary operators, such as ++, +=.
 
 ```
-arithExpr :=  arithExpr binOp arithExpr | exprUnit
-exprUnit :=  num | id | < ( > arithExpr < ) > | fnCall | id < [ > id | num < ] > | id < . > id | < - > exprUnit | ϵ
-binOp := < + > | < - > | < * > | < / >
+arithExpr :=  arithExpr arithBiOp arithExpr | exprUnit
+arithExprList := arithExpr (< , > arithExpr)* | ϵ
+exprUnit :=  num | id | < ( > arithExpr < ) > | fnCall | id < [ > id | num < ] > | id < . > id | arithUOp exprUnit | ϵ
+arithBiOp := < + > | < - > | < * > | < / >
+arithUOp := < - >
 ```
 
 主要可能是优先级的问题
@@ -39,9 +35,10 @@ binOp := < + > | < - > | < * > | < / >
 **Condition Expressions**
 
 ```
-condExpr := condExpr andOr condUnit | condUnit
-condUnit := exprUnit comOp exprUnit | < ( > condExpr < ) > | < ! >(condExpr) // we restrict the operands of comparison operators to be exprUnit instead of expr to avoid confusing the precedence.
-andOr := < && > | < || >
+condExpr := condExpr logicBiOp condUnit | condUnit
+condUnit := < ( > exprUnit comOp exprUnit < ) > | < ( > condExpr < ) > | logicUOp (condUnit) // we restrict the operands of comparison operators to be exprUnit instead of rightVal to avoid confusing the precedence.
+logicBiOp := < && > | < || >
+logicUOp := < ! >
 comOp := < > > | < < > | < >= > | < <= > | < == > | < != >
 ```
 
@@ -51,13 +48,13 @@ We restrict neither the left value nor right value can be assignments.
 ```
 assignStmt := leftVal < = > rightVal < ; >  
 leftVal := id | id < [ > id | num < ] > | id < . > id
-rightVal := arithExpr | condExpr | fnCall
+rightVal := arithExpr | condExpr
 ```
 
 **Function Call**
 
 ```
-fnCall := id < ( > (rightVal (< , > rightVal)*) | ϵ < ) >
+fnCall := id < ( > rightVal (< , > rightVal)* | ϵ < ) >
 ```
 
 ### Variable Declarations
@@ -74,15 +71,15 @@ let b:int = 0; // declare a variable of int and init it with value 0.
 
 ```
 let c[10]:int; // declear a variable of integer array.
-let d[10]:int = {0};  // declear a variable of integer array and initialize it with zero.
+let d[10]:int = {0}; // declear a variable of integer array and initialize it with zero.
 ```
 
 The grammar is defined as follows.
  ```
 varDeclStmt := < let > (varDecl | varDef) < ; >   
-varDecl := id < : > type  
-varDef :=  id < : > type < = > expr  //primitive type
-         | id < [ > expr < ] >< : > type < = > < { > expr < } > //array
+varDecl := id < : > type |  id < [ > num < ] >< : > type
+varDef :=  id < : > type < = > rightVal  //primitive type
+         | id < [ > num < ] >< : > type < = > < { > rightVal (< , > rightVal)* | ϵ < } > //array
 type := nativeType | structType | ϵ
 nativeType := < int >
 structType := < struct > id
@@ -100,10 +97,8 @@ struct MyStruct {
 
 The grammar is defined as follows.
  ```
-structDef := < struct > < { > (varDecl) (< , > varDecl)* < } >
+structDef := < struct > id < { > (varDecl) (< , > varDecl)* < } >
  ```
-
-<b><u> Q7: 我们的变量和局部数组放在堆上还是栈上，放在栈上</u></b>
 
 ### Function Declaration and Definition
 
@@ -117,8 +112,8 @@ The grammar is defined as follows.
 ```
 fnDeclStmt := fnDecl < ; >
 fnDecl := < fn > id < ( > paramDecl < ) > //without return value
-            | < fn > id < ( > paramDecl < ) > < -> > type //with return value
-paramDecl := id < : > type (< , > id < : > type)* | ϵ
+        | < fn > id < ( > paramDecl < ) > < -> > type //with return value
+paramDecl := varDecl (< , > varDecl)* | ϵ
 ```
 
 **Function Definition**
@@ -133,12 +128,10 @@ The grammar is specified as follows.
 ```
 fnDef := fnDecl codeBlock  
 codeBlock :=  < { > (varDeclStmt | assignStmt | callStmt | ifStmt | whileStmt | returnStmt | continueStmt | breakStmt | < ; > )* < } > 
-returnStmt ：= (arithExpr | condExpr) < ; >
-continueStmt := continue < ; >
-breakStmt := break < ; >
+returnStmt ：= < return > rightVal < ; >
+continueStmt := < continue > < ; >
+breakStmt := < break > < ; >
 ```
-
-<b><u> Q8: 我们语言中似乎没有 returnStmt（已经加上）</u></b>
 
 We have already defined the grammar of varDeclStmt and assignStmt. The callStmt is simply a function call terminated with an colon.
 
@@ -185,11 +178,8 @@ while (x  > 0) {
 Definition:
 
 ```
-whileStmt := < while > < ( > condExpr < ) > whileCodeBlock
-whileCodeBlock :=  < { > (varDeclStmt | assignStmt | callStmt | ifStmt | whileStmt | returnStmt | continueStmt | breakStmt)* < } > 
+whileStmt := < while > < ( > condExpr < ) > codeBlock
 ```
-
-<b><u> Q9: 我们语言种是否应该有 continue 和 break 关键字（已经加上）</u></b>
 
 ### Code Comments 
 
