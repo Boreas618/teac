@@ -6,7 +6,7 @@ typedef struct A_varDecl_* A_varDecl;
 typedef struct A_varDef_* A_varDef;
 typedef struct A_rightVal_* A_rightVal;
 typedef struct A_arithExpr_* A_arithExpr;
-typedef struct A_condExpr_* A_condExpr;
+typedef struct A_boolExpr_* A_boolExpr;
 typedef struct A_arithBiOpExpr_* A_arithBiOpExpr;
 typedef struct A_arithUExpr_* A_arithUExpr;
 typedef struct A_exprUnit_* A_exprUnit;
@@ -14,9 +14,9 @@ typedef struct A_fnCall_* A_fnCall;
 typedef struct A_indexExpr_* A_indexExpr;
 typedef struct A_arrayExpr_* A_arrayExpr;
 typedef struct A_memberExpr_* A_memberExpr;
-typedef struct A_condUnit_* A_condUnit;
-typedef struct A_logicBiOpExpr_* A_logicBiOpExpr;
-typedef struct A_logicUOpExpr_* A_logicUOpExpr;
+typedef struct A_boolUnit_* A_boolUnit;
+typedef struct A_boolBiOpExpr_* A_boolBiOpExpr;
+typedef struct A_boolUOpExpr_* A_boolUOpExpr;
 typedef struct A_comExpr_* A_comExpr;
 typedef struct A_rightVal_* A_rightVal;
 typedef struct A_leftVal_* A_leftVal;
@@ -43,6 +43,9 @@ typedef struct A_returnStmt_* A_returnStmt;
 typedef struct A_programElement_* A_programElement;
 typedef struct A_codeBlockStmtList_* A_codeBlockStmtList;
 typedef struct A_programElementList_* A_programElementList;
+typedef struct A_program_* A_program;
+typedef struct A_tokenId_* A_tokenId;
+typedef struct A_tokenNum_* A_tokenNum;
 
 struct A_pos_ {
     int line, col;
@@ -73,6 +76,7 @@ struct A_rightValList_ {
 };
 
 struct A_fnCall_ {
+    A_pos pos;
     char* fn;
     A_rightValList vals;
 };
@@ -83,6 +87,7 @@ typedef enum {
 } A_indexExprKind;
 
 struct A_indexExpr_ {
+    A_pos pos;
     A_indexExprKind kind;
     union {
         int num;
@@ -91,11 +96,13 @@ struct A_indexExpr_ {
 };
 
 struct A_arrayExpr_ {
+    A_pos pos;
     char* arr;
     A_indexExpr idx;
 };
 
 struct A_memberExpr_ {
+    A_pos pos;
     char* structId;
     char* memberId;
 };
@@ -111,6 +118,7 @@ typedef enum {
 } A_exprUnitType;
 
 struct A_exprUnit_ {
+    A_pos pos;
     A_exprUnitType kind;
     union {
         int num;
@@ -136,12 +144,12 @@ typedef enum {
 
 typedef enum {
     A_not
-} A_logicUOp;
+} A_boolUOp;
 
 typedef enum {
     A_and,
     A_or
-} A_logicBiOp;
+} A_boolBiOp;
 
 typedef enum {
     A_lt, // less than
@@ -158,19 +166,19 @@ typedef enum {
 } A_arithExprType;
 
 typedef enum {
-    A_logicBiOpExprKind,
-    A_condUnitKind
-} A_condExprType;
+    A_boolBiOpExprKind,
+    A_boolUnitKind
+} A_boolExprType;
 
 typedef enum {
     A_comOpExprKind,
-    A_condExprKind,
-    A_logicUOpExprKind
-} A_condUnitType;
+    A_boolExprKind,
+    A_boolUOpExprKind
+} A_boolUnitType;
 
 typedef enum {
     A_arithExprValKind,
-    A_condExprValKind
+    A_boolExprValKind
 } A_rightValType;
 
 typedef enum {
@@ -195,6 +203,7 @@ typedef enum {
 } A_varDefType;
 
 typedef enum {
+    A_programNullStmtKind,
     A_programVarDeclStmtKind,
     A_programStructDefKind,
     A_programFnDeclStmtKind,
@@ -202,16 +211,19 @@ typedef enum {
 } A_programElementType;
 
 struct A_arithBiOpExpr_ {
+    A_pos pos;
     A_arithBiOp op;
     A_arithExpr left, right;
 };
 
 struct A_arithUExpr_ {
+    A_pos pos;
     A_arithUOp op;
     A_exprUnit expr;
 };
 
 struct A_arithExpr_ {
+    A_pos pos;
     A_arithExprType kind;
     union {
         A_arithBiOpExpr arithBiOpExpr;
@@ -219,22 +231,25 @@ struct A_arithExpr_ {
     } u;
 };
 
-struct A_logicBiOpExpr_ {
-    A_logicBiOp op;
-    A_condExpr left;
-    A_condUnit right;
+struct A_boolBiOpExpr_ {
+    A_pos pos;
+    A_boolBiOp op;
+    A_boolExpr left;
+    A_boolUnit right;
 };
 
-struct A_logicUOpExpr_ {
-    A_logicUOp op;
-    A_condUnit cond;
+struct A_boolUOpExpr_ {
+    A_pos pos;
+    A_boolUOp op;
+    A_boolUnit cond;
 };
 
-struct A_condExpr_ {
-    A_condExprType kind;
+struct A_boolExpr_ {
+    A_pos pos;
+    A_boolExprType kind;
     union {
-        A_logicBiOpExpr logicBiOpExpr;
-        A_condUnit condUnit;
+        A_boolBiOpExpr boolBiOpExpr;
+        A_boolUnit boolUnit;
     } u;
 };
 
@@ -244,12 +259,13 @@ struct A_comExpr_ {
     A_exprUnit left, right;
 };
 
-struct A_condUnit_ {
-    A_condUnitType kind;
+struct A_boolUnit_ {
+    A_pos pos;
+    A_boolUnitType kind;
     union {
         A_comExpr comExpr;
-        A_condExpr condExpr;
-        A_logicUOpExpr logicUOpExpr;
+        A_boolExpr boolExpr;
+        A_boolUOpExpr boolUOpExpr;
     } u;
 };
 
@@ -258,7 +274,7 @@ struct A_rightVal_ {
     A_rightValType kind;
     union {
         A_arithExpr arithExpr;
-        A_condExpr condExpr;
+        A_boolExpr boolExpr;
     } u;
 };
 
@@ -325,6 +341,7 @@ struct A_varDef_ {
 };
 
 struct A_varDeclStmt_ {
+    A_pos pos;
     A_varDeclStmtType kind;
     union {
         A_varDecl varDecl;
@@ -338,11 +355,13 @@ struct A_varDeclList_ {
 };
 
 struct A_structDef_ {
+    A_pos pos;
     char* id;
     A_varDeclList varDecls;
 };
 
 struct A_fnDecl_ {
+    A_pos pos;
     char* id;
     A_paramDecl paramDecl;
     A_type type;
@@ -353,26 +372,31 @@ struct A_paramDecl_ {
 };
 
 struct A_fnDef_ {
+    A_pos pos;
     A_fnDecl fnDecl;
     A_codeBlockStmtList stmts;
 };
 
 struct A_ifStmt_ {
-    A_condExpr condExpr;
+    A_pos pos;
+    A_boolExpr boolExpr;
     A_codeBlockStmtList ifStmts, elseStmts;
 };
 
 struct A_whileStmt_ {
-    A_condExpr condExpr;
+    A_pos pos;
+    A_boolExpr boolExpr;
     A_codeBlockStmtList whileStmts;
 };
 
 struct A_callStmt_ {
+    A_pos pos;
     A_fnCall fnCall;
 };
 
 struct A_returnStmt_ {
-    A_rightVal retval;
+    A_pos pos;
+    A_rightVal retVal;
 };
 
 typedef enum {
@@ -407,6 +431,7 @@ struct A_codeBlockStmtList_ {
 };
 
 struct A_fnDeclStmt_ {
+    A_pos pos;
     A_fnDecl fnDecl;
 };
 
@@ -416,7 +441,7 @@ struct A_programElement_ {
     union {
         A_varDeclStmt varDeclStmt;
         A_structDef structDef;
-        A_fnDeclStmt fnDecl;
+        A_fnDeclStmt fnDeclStmt;
         A_fnDef fnDef;
     } u;
 };
@@ -426,66 +451,91 @@ struct A_programElementList_ {
     A_programElementList tail;
 };
 
+struct A_program_ {
+    A_programElementList programElements;
+};
+
+struct A_tokenId_ {
+    A_pos pos;
+    char* id;
+};
+
+struct A_tokenNum_ {
+    A_pos pos;
+    int num;
+};
+
 A_pos A_Pos(int, int);
-A_pos A_Pos(A_pos);
+A_tokenId A_TokenId(A_pos, char*);
+A_tokenNum A_TokenNum(A_pos, int);
 A_type A_NullType(A_pos pos);
 A_type A_NativeType(A_pos pos, A_nativeType ntype);
 A_type A_StructType(A_pos pos, char* stype);
 A_rightValList A_RightValList(A_rightVal head, A_rightValList tail);
-A_fnCall A_FnCall(char* fn, A_rightValList vals);
-A_indexExpr A_NumIndexExpr(int num);
-A_indexExpr A_IdIndexExpr(char* id);
-A_arrayExpr A_ArrayExpr(char* arr, A_indexExpr idx);
-A_memberExpr A_MemberExpr(char* structId, char* memberId);
-A_exprUnit A_NumExprUnit(int num);
-A_exprUnit A_IdExprUnit(char* id);
-A_exprUnit A_ArithExprUnit(A_arithExpr arithExpr);
-A_exprUnit A_CallExprUnit(A_fnCall callExpr);
-A_exprUnit A_ArrayExprUnit(A_arrayExpr arrayExpr);
-A_exprUnit A_MemberExprUnit(A_memberExpr memberExpr);
-A_exprUnit A_ArithUExprUnit(A_arithUExpr arithUExpr);
-A_arithBiOpExpr A_ArithBiOpExpr(A_arithBiOp op, A_arithExpr left, A_arithExpr right);
-A_arithUExpr A_ArithUExpr(A_arithUOp op, A_exprUnit expr);
-A_arithExpr A_ArithBiOpExpr(A_arithBiOpExpr arithBiOpExpr);
-A_arithExpr A_ExprUnit(A_exprUnit exprUnit);
-A_logicBiOpExpr A_LogicBiOpExpr(A_logicBiOp op, A_condExpr left, A_condUnit right);
-A_logicUOpExpr A_LogicUOpExpr(A_logicUOp op, A_condUnit cond);
-A_condExpr A_LogicBiOpExpr(A_logicBiOpExpr logicBiOpExpr);
-A_condExpr A_CondExpr(A_condUnit condUnit);
+A_fnCall A_FnCall(A_pos pos, char* fn, A_rightValList vals);
+A_indexExpr A_NumIndexExpr(A_pos pos, int num);
+A_indexExpr A_IdIndexExpr(A_pos pos, char* id);
+A_arrayExpr A_ArrayExpr(A_pos pos, char* arr, A_indexExpr idx);
+A_memberExpr A_MemberExpr(A_pos pos, char* structId, char* memberId);
+A_exprUnit A_NumExprUnit(A_pos pos, int num);
+A_exprUnit A_IdExprUnit(A_pos pos, char* id);
+A_exprUnit A_ArithExprUnit(A_pos pos, A_arithExpr arithExpr);
+A_exprUnit A_CallExprUnit(A_pos pos, A_fnCall callExpr);
+A_exprUnit A_ArrayExprUnit(A_pos pos, A_arrayExpr arrayExpr);
+A_exprUnit A_MemberExprUnit(A_pos pos, A_memberExpr memberExpr);
+A_exprUnit A_ArithUExprUnit(A_pos pos, A_arithUExpr arithUExpr);
+A_arithBiOpExpr A_ArithBiOpExpr(A_pos pos, A_arithBiOp op, A_arithExpr left, A_arithExpr right);
+A_arithUExpr A_ArithUExpr(A_pos pos, A_arithUOp op, A_exprUnit expr);
+A_arithExpr A_ArithBiOp_Expr(A_pos pos, A_arithBiOpExpr arithBiOpExpr);
+A_arithExpr A_ExprUnit(A_pos pos, A_exprUnit exprUnit);
+A_boolBiOpExpr A_BoolBiOpExpr(A_pos pos, A_boolBiOp op, A_boolExpr left, A_boolUnit right);
+A_boolUOpExpr A_BoolUOpExpr(A_pos pos, A_boolUOp op, A_boolUnit cond);
+A_boolExpr A_BoolBiOp_Expr(A_pos pos, A_boolBiOpExpr boolBiOpExpr);
+A_boolExpr A_BoolExpr(A_pos pos, A_boolUnit boolUnit);
 A_comExpr A_ComExpr(A_pos pos, A_comOp op, A_exprUnit left, A_exprUnit right);
-A_condUnit A_ComExprUnit(A_comExpr comExpr);
-A_condUnit A_CondExprUnit(A_condExpr condExpr);
-A_condUnit A_LogicUOpExprUnit(A_logicUOpExpr logicUOpExpr);
+A_boolUnit A_ComExprUnit(A_pos pos, A_comExpr comExpr);
+A_boolUnit A_BoolExprUnit(A_pos pos, A_boolExpr boolExpr);
+A_boolUnit A_BoolUOpExprUnit(A_pos pos, A_boolUOpExpr boolUOpExpr);
 A_rightVal A_ArithExprRVal(A_pos pos, A_arithExpr arithExpr);
-A_rightVal A_CondExprRVal(A_pos pos, A_condExpr condExpr);
+A_rightVal A_BoolExprRVal(A_pos pos, A_boolExpr boolExpr);
 A_leftVal A_IdExprLVal(A_pos pos, char* id);
 A_leftVal A_ArrExprLVal(A_pos pos, A_arrayExpr arrExpr);
 A_leftVal A_MemberExprLVal(A_pos pos, A_memberExpr memberExpr);
 A_assignStmt A_AssignStmt(A_pos pos, A_leftVal leftVal, A_rightVal rightVal);
 A_varDeclScalar A_VarDeclScalar(A_pos pos, char* id, A_type type);
 A_varDeclArray A_VarDeclArray(A_pos pos, char* id, int len, A_type type);
-A_varDecl A_VarDeclScalar(A_pos pos, A_varDeclScalar declScalar);
-A_varDecl A_VarDeclArray(A_pos pos, A_varDeclArray declArray);
+A_varDecl A_VarDecl_Scalar(A_pos pos, A_varDeclScalar declScalar);
+A_varDecl A_VarDecl_Array(A_pos pos, A_varDeclArray declArray);
 A_varDefScalar A_VarDefScalar(A_pos pos, char* id, A_type type, A_rightVal val);
 A_varDefArray A_VarDefArray(A_pos pos, char* id, int len, A_type type, A_rightValList vals);
-A_varDef A_VarDefScalar(A_pos pos, A_varDefScalar defScalar);
-A_varDef A_VarDefArray(A_pos pos, A_varDefArray defArray);
-A_varDeclStmt A_VarDecl(A_varDecl varDecl);
-A_varDeclStmt A_VarDef(A_varDef varDef);
+A_varDef A_VarDef_Scalar(A_pos pos, A_varDefScalar defScalar);
+A_varDef A_VarDef_Array(A_pos pos, A_varDefArray defArray);
+A_varDeclStmt A_VarDeclStmt(A_pos pos, A_varDecl varDecl);
+A_varDeclStmt A_VarDefStmt(A_pos pos, A_varDef varDef);
 A_varDeclList A_VarDeclList(A_varDecl head, A_varDeclList tail);
-A_structDef A_StructDef(char* id, A_varDeclList varDecls);
-A_fnDecl A_FnDecl(char* id, A_paramDecl paramDecl, A_type type);
+A_structDef A_StructDef(A_pos pos, char* id, A_varDeclList varDecls);
+A_fnDecl A_FnDecl(A_pos pos, char* id, A_paramDecl paramDecl, A_type type);
 A_paramDecl A_ParamDecl(A_varDeclList varDecls);
-A_fnDef A_FnDef(A_fnDecl fnDecl, A_codeBlockStmtList stmts);
-A_ifStmt A_IfStmt(A_condExpr condExpr, A_codeBlockStmtList ifStmts, A_codeBlockStmtList elseStmts);
-A_whileStmt A_WhileStmt(A_condExpr condExpr, A_codeBlockStmtList whileStmts);
-A_codeBlockStmt A_VarDeclStmt(A_pos pos, A_varDeclStmt varDeclStmt);
-A_codeBlockStmt A_AssignStmt(A_pos pos, A_assignStmt assignStmt);
-A_codeBlockStmt A_FnCall(A_pos pos, A_callStmt callStmt);
-A_codeBlockStmt A_IfStmt(A_pos pos, A_ifStmt ifStmt);
-A_codeBlockStmt A_WhileStmt(A_pos pos, A_whileStmt whileStmt);
-A_codeBlockStmt A_ReturnStmt(A_pos pos, A_returnStmt returnStmt);
+A_fnDef A_FnDef(A_pos pos, A_fnDecl fnDecl, A_codeBlockStmtList stmts);
+A_ifStmt A_IfStmt(A_pos pos, A_boolExpr boolExpr, A_codeBlockStmtList ifStmts, A_codeBlockStmtList elseStmts);
+A_whileStmt A_WhileStmt(A_pos pos, A_boolExpr boolExpr, A_codeBlockStmtList whileStmts);
+A_callStmt A_CallStmt(A_pos pos, A_fnCall fnCall);
+A_returnStmt A_ReturnStmt(A_pos pos, A_rightVal retVal);
+A_codeBlockStmt A_BlockNullStmt(A_pos pos);
+A_codeBlockStmt A_BlockVarDeclStmt(A_pos pos, A_varDeclStmt varDeclStmt);
+A_codeBlockStmt A_BlockAssignStmt(A_pos pos, A_assignStmt assignStmt);
+A_codeBlockStmt A_BlockCallStmt(A_pos pos, A_callStmt callStmt);
+A_codeBlockStmt A_BlockIfStmt(A_pos pos, A_ifStmt ifStmt);
+A_codeBlockStmt A_BlockWhileStmt(A_pos pos, A_whileStmt whileStmt);
+A_codeBlockStmt A_BlockReturnStmt(A_pos pos, A_returnStmt returnStmt);
+A_codeBlockStmt A_BlockContinueStmt(A_pos pos);
+A_codeBlockStmt A_BlockBreakStmt(A_pos pos);
+A_fnDeclStmt A_FnDeclStmt(A_fnDecl fnDecl);
+A_programElement A_ProgramNullStmt(A_pos pos);
 A_programElement A_ProgramVarDeclStmt(A_pos pos, A_varDeclStmt varDeclStmt);
 A_programElement A_ProgramStructDef(A_pos pos, A_structDef structDef);
 A_programElement A_ProgramFnDeclStmt(A_pos pos, A_fnDeclStmt fnDecl);
 A_programElement A_ProgramFnDef(A_pos pos, A_fnDef fnDef);
+A_programElementList A_ProgramElementList(A_programElement head, A_programElementList tail);
+A_program A_Program(A_programElementList programElements);
+

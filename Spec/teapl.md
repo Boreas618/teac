@@ -24,8 +24,7 @@ An expression is a composd of identifiers, values,  and operators, e.g., 1+2, a*
 
 ```
 arithExpr :=  arithExpr arithBiOp arithExpr | exprUnit
-arithExprList := arithExpr (< , > arithExpr)* | ϵ
-exprUnit :=  num | id | < ( > arithExpr < ) > | fnCall | id < [ > id | num < ] > | id < . > id | arithUOp exprUnit | ϵ
+exprUnit :=  num | id | < ( > arithExpr < ) > | fnCall | id < [ > id | num < ] > | id < . > id | arithUOp exprUnit
 arithBiOp := < + > | < - > | < * > | < / >
 arithUOp := < - >
 ```
@@ -35,10 +34,10 @@ arithUOp := < - >
 **Condition Expressions**
 
 ```
-condExpr := condExpr logicBiOp condUnit | condUnit
-condUnit := < ( > exprUnit comOp exprUnit < ) > | < ( > condExpr < ) > | logicUOp (condUnit) // we restrict the operands of comparison operators to be exprUnit instead of rightVal to avoid confusing the precedence.
-logicBiOp := < && > | < || >
-logicUOp := < ! >
+boolExpr := boolExpr boolBiOp boolUnit | boolUnit
+boolUnit := < ( > exprUnit comOp exprUnit < ) > | < ( > boolExpr < ) > | boolUOp boolUnit // we restrict the operands of comparison operators to be exprUnit instead of rightVal to avoid confusing the precedence.
+boolBiOp := < && > | < || >
+boolUOp := < ! >
 comOp := < > > | < < > | < >= > | < <= > | < == > | < != >
 ```
 
@@ -48,7 +47,7 @@ We restrict neither the left value nor right value can be assignments.
 ```
 assignStmt := leftVal < = > rightVal < ; >  
 leftVal := id | id < [ > id | num < ] > | id < . > id
-rightVal := arithExpr | condExpr
+rightVal := arithExpr | boolExpr
 ```
 
 **Function Call**
@@ -82,7 +81,7 @@ varDef :=  id < : > type < = > rightVal  //primitive type
          | id < [ > num < ] >< : > type < = > < { > rightVal (< , > rightVal)* | ϵ < } > //array
 type := nativeType | structType | ϵ
 nativeType := < int >
-structType := < struct > id
+structType := id
  ```
 
 ### Define A New Structure
@@ -161,7 +160,7 @@ if (x >0) {
 
 Besides, we restrict the condition expression to be explicit logical operations, e.g., x >0; we donot allow implicit expressions like x, which means.  We define the grammar as follows.
 ```
-ifStmt := < if > < ( > condExpr < ) > codeBlock ( < else > codeBlock | ϵ )
+ifStmt := < if > < ( > boolExpr < ) > codeBlock ( < else > codeBlock | ϵ )
 ```
 
 **While Statemet**
@@ -178,7 +177,7 @@ while (x  > 0) {
 Definition:
 
 ```
-whileStmt := < while > < ( > condExpr < ) > codeBlock
+whileStmt := < while > < ( > boolExpr < ) > codeBlock
 ```
 
 ### Code Comments 
