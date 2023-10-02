@@ -52,7 +52,6 @@ struct A_pos_ {
 };
 
 typedef enum {
-    A_nullTypeKind,
     A_nativeTypeKind,
     A_structTypeKind
 } A_dataType;
@@ -468,7 +467,6 @@ struct A_tokenNum_ {
 A_pos A_Pos(int, int);
 A_tokenId A_TokenId(A_pos, char*);
 A_tokenNum A_TokenNum(A_pos, int);
-A_type A_NullType(A_pos pos);
 A_type A_NativeType(A_pos pos, A_nativeType ntype);
 A_type A_StructType(A_pos pos, char* stype);
 A_rightValList A_RightValList(A_rightVal head, A_rightValList tail);
@@ -516,6 +514,7 @@ A_varDeclList A_VarDeclList(A_varDecl head, A_varDeclList tail);
 A_structDef A_StructDef(A_pos pos, char* id, A_varDeclList varDecls);
 A_fnDecl A_FnDecl(A_pos pos, char* id, A_paramDecl paramDecl, A_type type);
 A_paramDecl A_ParamDecl(A_varDeclList varDecls);
+A_codeBlockStmtList A_CodeBlockStmtList(A_codeBlockStmt head, A_codeBlockStmtList tail);
 A_fnDef A_FnDef(A_pos pos, A_fnDecl fnDecl, A_codeBlockStmtList stmts);
 A_ifStmt A_IfStmt(A_pos pos, A_boolExpr boolExpr, A_codeBlockStmtList ifStmts, A_codeBlockStmtList elseStmts);
 A_whileStmt A_WhileStmt(A_pos pos, A_boolExpr boolExpr, A_codeBlockStmtList whileStmts);
@@ -530,7 +529,7 @@ A_codeBlockStmt A_BlockWhileStmt(A_pos pos, A_whileStmt whileStmt);
 A_codeBlockStmt A_BlockReturnStmt(A_pos pos, A_returnStmt returnStmt);
 A_codeBlockStmt A_BlockContinueStmt(A_pos pos);
 A_codeBlockStmt A_BlockBreakStmt(A_pos pos);
-A_fnDeclStmt A_FnDeclStmt(A_fnDecl fnDecl);
+A_fnDeclStmt A_FnDeclStmt(A_pos pos, A_fnDecl fnDecl);
 A_programElement A_ProgramNullStmt(A_pos pos);
 A_programElement A_ProgramVarDeclStmt(A_pos pos, A_varDeclStmt varDeclStmt);
 A_programElement A_ProgramStructDef(A_pos pos, A_structDef structDef);

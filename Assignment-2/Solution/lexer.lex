@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "TeaplAst.h"
-#include "y.tab.h"
+#include "y.tab.hpp"
 extern int line, col;
 int c;
 int calc(char *s, int len);
@@ -46,6 +46,8 @@ int calc(char *s, int len);
 <INITIAL>"->" { yylval.pos = A_Pos(line, col); col+=2; return ARROW; }
 <INITIAL>"=" { yylval.pos = A_Pos(line, col); ++col; return AS; }
 <INITIAL>"int" { yylval.pos = A_Pos(line, col); col+=3; return INT; }
+<INITIAL>"let" { yylval.pos = A_Pos(line, col); col+=3; return LET; }
+<INITIAL>"fn" { yylval.pos = A_Pos(line, col); col+=2; return FN; }
 <INITIAL>"if" { yylval.pos = A_Pos(line, col); col+=2; return IF; }
 <INITIAL>"else" { yylval.pos = A_Pos(line, col); col+=4; return ELSE; }
 <INITIAL>"while" { yylval.pos = A_Pos(line, col); col+=5; return WHILE; }

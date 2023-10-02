@@ -2,41 +2,47 @@ CXX = clang++
 CXXFLAGS = -std=c++17 -g
 
 TESTCASE_DIR := tests
-TESTCASES = $(wildcard $(TESTCASE_DIR)/*.fmj)
-LLFILES = $(patsubst $(TESTCASE_DIR)/%.fmj,$(TESTCASE_DIR)/%.S,$(TESTCASES))
+TESTCASES = $(wildcard $(TESTCASE_DIR)/*.tea)
+LLFILES = $(patsubst $(TESTCASE_DIR)/%.tea,$(TESTCASE_DIR)/%.ast,$(TESTCASES))
 
-.SECONDARY: $(LLFILES)
+.astECONDARY: $(LLFILES)
 
-run: $(patsubst $(TESTCASE_DIR)/%.fmj,$(TESTCASE_DIR)/%.S,$(TESTCASES))
+run: $(patsubst $(TESTCASE_DIR)/%.tea,$(TESTCASE_DIR)/%.ast,$(TESTCASES))
 
-$(TESTCASE_DIR)/%.S: $(TESTCASE_DIR)/%.fmj compile.out
-	./compile.out $< < $< > $@
+$(TESTCASE_DIR)/%.ast: $(TESTCASE_DIR)/%.tea compiler
+	./compiler $< $@
 
-compile.out: y.tab.o lex.yy.o TeaplAst.o compile.o 
-	$(CXX) $(CXXFLAGS) -o compile.out $^ 
+compiler: y.tab.o lex.yy.o TeaplAst.o TeaplaAst.o PrintTeaplaAst.o compiler.o 
+	$(CXX) $(CXXFLAGS) -o compiler $^ 
 
-y.tab.c: parser.yacc fdmjast.h 
+y.tab.cpp: parser.yacc TeaplAst.h 
 #	yacc --verbose --debug -d $< -o y.tab.cpp
-	yacc -o y.tab.c -d $< -v --debug
+	yacc -o y.tab.cpp -d $< -v --debug
 
-y.tab.h: parser.yacc
+y.tab.hpp: parser.yacc
 #	yacc --verbose --debug -d $< -o y.tab.cpp
-	yacc -o y.tab.c -d $< -v --debug
+	yacc -o y.tab.cpp -d $< -v --debug
 
-lex.yy.c: lexer.lex y.tab.h y.tab.cpp
-	lex -o lex.yy.c $< 
+lex.yy.cpp: lexer.lex y.tab.hpp y.tab.cpp
+	lex -o lex.yy.cpp $< 
 
-y.tab.o: y.tab.c y.tab.h
-	$(CXX) $(CXXFLAGS) -fpermissive -c $<
+y.tab.o: y.tab.cpp y.tab.hpp
+	$(CXX) $(CXXFLAGS) -c $<
 
-lex.yy.o: lex.yy.c y.tab.h
-	$(CXX) $(CXXFLAGS) -fpermissive -c $<
+lex.yy.o: lex.yy.cpp y.tab.hpp
+	$(CXX) $(CXXFLAGS) -c $<
 
-TeaplAst.o: fdmjast.cpp fdmjast.h util.h
-	$(CXX) $(CXXFLAGS) -fpermissive -c $<
+TeaplAst.o: TeaplAst.cpp TeaplAst.h
+	$(CXX) $(CXXFLAGS) -c $<
 
-compile.o: compile.cpp TeaplAst.o y.tab.h y.tab.o lex.yy.o
-	$(CXX) $(CXXFLAGS) -fpermissive -c $<
+TeaplaAst.o: TeaplaAst.cpp TeaplaAst.h
+	$(CXX) $(CXXFLAGS) -c $<
+
+PrintTeaplaAst.o: PrintTeaplaAst.cpp PrintTeaplaAst.h
+	$(CXX) $(CXXFLAGS) -c $<
+
+compiler.o: compiler.cpp TeaplAst.o TeaplaAst.o PrintTeaplaAst.o y.tab.o lex.yy.o
+	$(CXX) $(CXXFLAGS) -c $<
 
 clean:
-	rm 
+	rm *.o *.output y.tab.cpp y.tab.hpp lex.yy.cpp compiler tests/*.ast

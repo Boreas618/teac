@@ -3,16 +3,13 @@
 #include "TeaplAst.h"
 
 extern A_pos pos;
-extern A_prog root;
+extern A_program root;
 
 extern int yylex(void);
-
 extern "C"{
 extern void yyerror(char *s); 
 extern int  yywrap();
 }
-
-// extern int yydebug = 1;
 
 %}
 
@@ -30,6 +27,7 @@ extern int  yywrap();
   A_structDef structDef;
   A_varDeclStmt varDeclStmt;
   A_codeBlockStmt codeBlockStmt;
+  A_codeBlockStmtList codeBlockStmtList;
   A_returnStmt returnStmt;
   A_whileStmt whileStmt;
   A_ifStmt ifStmt;
@@ -54,7 +52,9 @@ extern int  yywrap();
 %token <tokenId> ID
 %token <tokenNum> NUM
 %token <pos> INT
+%token <pos> LET
 %token <pos> STRUCT
+%token <pos> FN
 %token <pos> IF
 %token <pos> ELSE
 %token <pos> WHILE
@@ -95,13 +95,12 @@ extern int  yywrap();
 %left ID
 %left AS
 %left AND OR
-%left LESS LE GREATER GE EQ NE
-%left PLUS MINUS
+%left LT LE GT GE EQ NE
+%left ADD SUB
 %left MUL DIV 
-%left NOT NEG
+%right NOT NEG
 %right LSB 
 %left RSB 
-
 %left DOT
 %right LP
 %left RP
@@ -114,6 +113,8 @@ extern int  yywrap();
 %type <fnDeclStmt> FnDeclStmt
 %type <structDef> StructDef
 %type <varDeclStmt> VarDeclStmt
+%type <codeBlockStmtList> CodeBlockStmtList
+%type <codeBlockStmtList> CodeBlock
 %type <codeBlockStmt> CodeBlockStmt
 %type <returnStmt> ReturnStmt
 %type <whileStmt> WhileStmt
@@ -123,16 +124,20 @@ extern int  yywrap();
 %type <paramDecl> ParamDecl
 %type <fnDecl> FnDecl
 %type <varDeclList> VarDeclList
+%type <varDeclList> VarDeclRestList
 %type <varDef> VarDef
 %type <varDecl> VarDecl
+%type <varDecl> VarDeclRest
 %type <leftVal> LeftVal
 %type <rightVal> RightVal
+%type <rightVal> RightValRest
 %type <boolUnit> BoolUnit
 %type <boolExpr> BoolExpr
 %type <arithExpr> ArithExpr
 %type <exprUnit> ExprUnit
 %type <fnCall> FnCall
 %type <rightValList> RightValList
+%type <rightValList> RightValRestList
 %type <arrayExpr> ArrayExpr
 
 %start Program
@@ -180,19 +185,19 @@ ProgramElement: VarDeclStmt
 
 ArithExpr: ArithExpr ADD ArithExpr
 {
-  $$ = A_ArithBiOp_Expr($1->pos, A_ArithBiOpExpr($1->pos, A_add, $3));
+  $$ = A_ArithBiOp_Expr($1->pos, A_ArithBiOpExpr($1->pos, A_add, $1, $3));
 }
 | ArithExpr SUB ArithExpr
 {
-  $$ = A_ArithBiOp_Expr($1->pos, A_ArithBiOpExpr($1->pos, A_sub, $3));
+  $$ = A_ArithBiOp_Expr($1->pos, A_ArithBiOpExpr($1->pos, A_sub, $1, $3));
 }
 | ArithExpr MUL ArithExpr
 {
-  $$ = A_ArithBiOp_Expr($1->pos, A_ArithBiOpExpr($1->pos, A_mul, $3));
+  $$ = A_ArithBiOp_Expr($1->pos, A_ArithBiOpExpr($1->pos, A_mul, $1, $3));
 }
 | ArithExpr DIV ArithExpr
 {
-  $$ = A_ArithBiOp_Expr($1->pos, A_ArithBiOpExpr($1->pos, A_div, $3));
+  $$ = A_ArithBiOp_Expr($1->pos, A_ArithBiOpExpr($1->pos, A_div, $1, $3));
 }
 | ExprUnit
 {
@@ -202,11 +207,11 @@ ArithExpr: ArithExpr ADD ArithExpr
 
 ArrayExpr: ID LSB ID RSB
 {
-  $$ = A_ArrayExpr($1->pos, $1, A_IdIndexExpr($3->pos, $3->id));
+  $$ = A_ArrayExpr($1->pos, $1->id, A_IdIndexExpr($3->pos, $3->id));
 }
 | ID LSB NUM RSB
 {
-  $$ = A_ArrayExpr($1->pos, $1, A_NumIndexExpr($3->pos, $3->num));
+  $$ = A_ArrayExpr($1->pos, $1->id, A_NumIndexExpr($3->pos, $3->num));
 }
 ;
 
@@ -220,7 +225,7 @@ ExprUnit: NUM
 }
 | LP ArithExpr RP
 {
-  $$ = A_ArithExprUnit($1->pos, $2);
+  $$ = A_ArithExprUnit($1, $2);
 }
 | FnCall
 {
@@ -236,17 +241,17 @@ ExprUnit: NUM
 }
 | SUB ExprUnit %prec NEG
 {
-  $$ = A_ArithUExprUnit($1->pos, A_ArithUExpr($1->pos, A_neg, $2));
+  $$ = A_ArithUExprUnit($1, A_ArithUExpr($1, A_neg, $2));
 }
 ;
 
 BoolExpr: BoolExpr AND BoolUnit
 {
-  $$ = A_BoolBiOp_Expr($1->pos, A_BoolBiOpExpr($1->pos, A_and, $3));
+  $$ = A_BoolBiOp_Expr($1->pos, A_BoolBiOpExpr($1->pos, A_and, $1, $3));
 }
 | BoolExpr OR BoolUnit
 {
-  $$ = A_BoolBiOp_Expr($1->pos, A_BoolBiOpExpr($1->pos, A_or, $3));
+  $$ = A_BoolBiOp_Expr($1->pos, A_BoolBiOpExpr($1->pos, A_or, $1, $3));
 }
 | BoolUnit
 {
@@ -280,11 +285,11 @@ BoolUnit: LP ExprUnit LT ExprUnit RP
 }
 | LP BoolExpr RP
 {
-  $$ = A_BoolExprUnit($1->pos, $2);
+  $$ = A_BoolExprUnit($1, $2);
 }
 | NOT BoolUnit
 {
-  $$ = A_BoolUOpExprUnit($1->pos, A_BoolUOpExpr($1->pos, A_not, $2));
+  $$ = A_BoolUOpExprUnit($1, A_BoolUOpExpr($1, A_not, $2));
 }
 ;
 
@@ -318,387 +323,219 @@ RightVal: ArithExpr
 }
 ;
 
-VarDeclList:  VarDecl VarDeclList
-              {
-                $$ = A_VarDeclList($1, $2);
-              }
-              |
-              {
-                $$ = NULL;
-              }
-              ;
-VarDecl:  CLASS ID ID SEMICOLON
-          {
-            $$ = A_VarDecl($1, A_Type($1, A_idType, $2->u.v), $3->u.v, NULL);
-          }
-          |
-          INT ID SEMICOLON
-          {
-            $$ = A_VarDecl($1, A_Type($1, A_intType, NULL), $2->u.v, NULL);
-          }
-          |
-          INT ID AS IntConst SEMICOLON
-          {
-            $$ = A_VarDecl($1, A_Type($1, A_intType, NULL), $2->u.v, A_ExpList($4, NULL));
-          }
-          |
-          INT LSB RSB ID SEMICOLON
-          {
-            $$ = A_VarDecl($1, A_Type($1, A_intArrType, NULL), $4->u.v, NULL);
-          }
-          |
-          INT LSB RSB ID AS LB IntConstList RB SEMICOLON
-          {
-            $$ = A_VarDecl($1, A_Type($1, A_intArrType, NULL), $4->u.v, $7);
-          }
-          ;
-IntConst:  INT_CONST
-          {
-            $$ = $1;
-          }
-          |
-          MINUS INT_CONST %prec NEG
-          {
-            $$ = A_NumConst($1, -($2->u.num));
-          }
-          ;
-IntConstList: IntConst IntConstRestList
-              {
-                $$ = A_ExpList($1, $2);
-              }
-              |
-              {
-                $$ = NULL;
-              }
-              ;
-IntConstRestList: IntConstRest IntConstRestList
-                  {
-                    $$ = A_ExpList($1, $2);
-                  }
-                  |
-                  {
-                    $$ = NULL;
-                  }
-                  ;
-IntConstRest: COMMA IntConst
-              {
-                $$ = $2;
-              }
-              ;
-MethodDeclList: MethodDecl MethodDeclList
-                {
-                  $$ = A_MethodDeclList($1, $2);
-                }
-                |
-                {
-                  $$ = NULL;
-                }
-                ;
-MethodDecl: PUBLIC Type ID LP FormalList RP LB VarDeclList StatementList RB
-                {
-                  $$ = A_MethodDecl($1, $2, $3->u.v, $5, $8, $9);
-                }
-                ;
-FormalList: Type ID FormalRestList
-            {
-              $$ = A_FormalList(A_Formal($1->pos, $1, $2->u.v), $3);
-            }
-            |
-            {
-              $$ = NULL;
-            }
-            ;
-FormalRestList: FormalRest FormalRestList
-                {
-                  $$ = A_FormalList($1, $2);
-                }
-                |
-                {
-                  $$ = NULL;
-                }
-                ;
-FormalRest: COMMA Type ID
-            {
-              $$ = A_Formal($1, $2, $3->u.v);
-            }
-            ;
-Type: CLASS ID
-      {
-        $$ = A_Type($1, A_idType, $2->u.v);
-      }
-      |
-      INT
-      {
-        $$ = A_Type($1, A_intType, NULL);
-      }
-      |
-      INT LSB RSB
-      {
-        $$ = A_Type($1, A_intArrType, NULL);
-      }
-      ;
-StatementList:  Statement StatementList
-                {
-                  $$ = A_StmList($1, $2);
-                }
-                |
-                {
-                  $$ = NULL;
-                }
-                ;
-Statement:  LB StatementList RB
-            {
-              $$ = A_NestedStm($1, $2);
-            }
-            |
-            IF LP Exp RP Statement ELSE Statement
-            {
-              $$ = A_IfStm($1, $3, $5, $7);
-            }
-            |
-            IF LP Exp RP Statement %prec IF
-            {
-              $$ = A_IfStm($1, $3, $5, NULL);
-            }
-            |
-            WHILE LP Exp RP Statement
-            {
-              $$ = A_WhileStm($1, $3, $5);
-            }
-            |
-            WHILE LP Exp RP SEMICOLON
-            {
-              $$ = A_WhileStm($1, $3, NULL);
-            }
-            |
-            Exp AS Exp SEMICOLON
-            {
-              $$ = A_AssignStm($1->pos, $1, $3);
-            }
-            |
-            Exp LSB RSB AS LB ExpList RB SEMICOLON
-            {
-              $$ = A_ArrayInit($1->pos, $1, $6);
-            }
-            |
-            Exp DOT ID LP ExpList RP SEMICOLON
-            {
-              $$ = A_CallStm($1->pos, $1, $3->u.v, $5);
-            }
-            |
-            CONTINUE SEMICOLON
-            {
-              $$ = A_Continue($1);
-            }
-            |
-            BREAK SEMICOLON
-            {
-              $$ = A_Break($1);
-            }
-            |
-            RETURN Exp SEMICOLON
-            {
-              $$ = A_Return($1, $2);
-            }
-            |
-            PUTINT LP Exp RP SEMICOLON
-            {
-              $$ = A_Putint($1, $3);
-            }
-            |
-            PUTCH LP Exp RP SEMICOLON
-            {
-              $$ = A_Putch($1, $3);
-            }
-            |
-            PUTARRAY LP Exp COMMA Exp RP SEMICOLON
-            {
-              $$ = A_Putarray($1, $3, $5);
-            }
-            |
-            STARTTIME LP RP SEMICOLON
-            {
-              $$ = A_Starttime($1);
-            }
-            |
-            STOPTIME LP RP SEMICOLON
-            {
-              $$ = A_Stoptime($1);
-            }
-            ;
-Exp:  Exp PLUS Exp
-      {
-        $$ = A_OpExp($1->pos, $1, A_plus, $3);
-      }
-      |
-      Exp MINUS Exp
-      {
-        $$ = A_OpExp($1->pos, $1, A_minus, $3);
-      }
-      |
-      Exp MUL Exp
-      {
-        $$ = A_OpExp($1->pos, $1, A_times, $3);
-      }
-      |
-      Exp DIV Exp
-      {
-        $$ = A_OpExp($1->pos, $1, A_div, $3);
-      }
-      |
-      Exp OR Exp
-      {
-        $$ = A_OpExp($1->pos, $1, A_or, $3);
-      }
-      |
-      Exp AND Exp
-      {
-        $$ = A_OpExp($1->pos, $1, A_and, $3);
-      }
-      |
-      Exp LESS Exp
-      {
-        $$ = A_OpExp($1->pos, $1, A_less, $3);
-      }
-      |
-      Exp LE Exp
-      {
-        $$ = A_OpExp($1->pos, $1, A_le, $3);
-      }
-      |
-      Exp GREATER Exp
-      {
-        $$ = A_OpExp($1->pos, $1, A_greater, $3);
-      }
-      |
-      Exp GE Exp
-      {
-        $$ = A_OpExp($1->pos, $1, A_ge, $3);
-      }
-      |
-      Exp EQ Exp
-      {
-        $$ = A_OpExp($1->pos, $1, A_eq, $3);
-      }
-      |
-      Exp NE Exp
-      {
-        $$ = A_OpExp($1->pos, $1, A_ne, $3);
-      }
-      |
-      Exp LSB Exp RSB
-      {
-        $$ = A_ArrayExp($1->pos, $1, $3);
-      }
-      |
-      Exp DOT ID LP ExpList RP
-      {
-        $$ = A_CallExp($1->pos, $1, $3->u.v, $5);
-      }
-      |
-      Exp DOT ID
-      {
-        $$ = A_ClassVarExp($1->pos, $1, $3->u.v);
-      }
-      |
-      INT_CONST
-      {
-        $$ = $1;
-      }
-      |
-      T
-      {
-        $$ = A_BoolConst($1, TRUE);
-      }
-      |
-      F
-      {
-        $$ = A_BoolConst($1, FALSE);
-      }
-      |
-      LENGTH LP Exp RP
-      {
-        $$ = A_LengthExp($1, $3);
-      }
-      |
-      ID
-      {
-        $$ = $1;
-      }
-      |
-      THIS
-      {
-        $$ = A_ThisExp($1);
-      }
-      |
-      NEW INT LSB Exp RSB
-      {
-        $$ = A_NewIntArrExp($1, $4);
-      }
-      |
-      NEW ID LP RP
-      {
-        $$ = A_NewObjExp($1, $2->u.v);
-      }
-      |
-      NOT Exp
-      {
-        $$ = A_NotExp($1, $2);
-      }
-      |
-      MINUS Exp %prec NEG
-      {
-        $$ = A_MinusExp($1, $2);
-      }
-      |
-      LP Exp RP
-      {
-        $$ = $2;
-      }
-      |
-      LP LB StatementList RB Exp RP
-      {
-        $$ = A_EscExp($1, $3, $5);
-      }
-      |
-      GETINT LP RP
-      {
-        $$ = A_Getint($1);
-      }
-      |
-      GETCH LP RP
-      {
-        $$ = A_Getch($1);
-      }
-      |
-      GETARRAY LP Exp RP
-      {
-        $$ = A_Getarray($1, $3);
-      }
-      ;
-ExpList:  Exp ExpRestList
-          {
-            $$ = A_ExpList($1, $2);
-          }
-          |
-          {
-            $$ = NULL;
-          }
-          ;
-ExpRestList:  ExpRest ExpRestList
-              {
-                $$ = A_ExpList($1, $2);
-              }
-              |
-              {
-                $$ = NULL;
-              }
-              ;
-ExpRest:  COMMA Exp
-          {
-            $$ = $2;
-          }
-          ;
+RightValList: RightVal RightValRestList
+{
+  $$ = A_RightValList($1, $2);
+}
+|
+{
+  $$ = NULL;
+}
+;
+RightValRestList: RightValRest RightValRestList
+{
+  $$ = A_RightValList($1, $2);
+}
+|
+{
+  $$ = NULL;
+}
+;
+RightValRest: COMMA RightVal
+{
+  $$ = $2;
+}
+;
+
+FnCall: ID LP RightValList RP
+{
+  $$ = A_FnCall($1->pos, $1->id, $3);
+}
+;
+
+VarDeclStmt: LET VarDecl SEMICOLON
+{
+  $$ = A_VarDeclStmt($1, $2);
+}
+| LET VarDef SEMICOLON
+{
+  $$ = A_VarDefStmt($1, $2);
+}
+;
+
+VarDecl: ID COLON Type
+{
+  $$ = A_VarDecl_Scalar($1->pos, A_VarDeclScalar($1->pos, $1->id, $3));
+}
+| ID LSB NUM RSB COLON Type
+{
+  $$ = A_VarDecl_Array($1->pos, A_VarDeclArray($1->pos, $1->id, $3->num, $6));
+}
+;
+
+VarDef: ID COLON Type AS RightVal
+{
+  $$ = A_VarDef_Scalar($1->pos, A_VarDefScalar($1->pos, $1->id, $3, $5));
+}
+| ID LSB NUM RSB COLON Type AS RightValList
+{
+  $$ = A_VarDef_Array($1->pos, A_VarDefArray($1->pos, $1->id, $3->num, $6, $8));
+}
+;
+
+Type: INT
+{
+  $$ = A_NativeType($1, A_intTypeKind);
+}
+| ID
+{
+  $$ = A_StructType($1->pos, $1->id);
+}
+| 
+{
+  $$ = NULL;
+}
+;
+
+VarDeclList: VarDecl VarDeclRestList
+{
+  $$ = A_VarDeclList($1, $2);
+}
+|
+{
+  $$ = NULL;
+}
+;
+VarDeclRestList: VarDeclRest VarDeclRestList
+{
+  $$ = A_VarDeclList($1, $2);
+}
+|
+{
+  $$ = NULL;
+}
+;
+VarDeclRest: COMMA VarDecl
+{
+  $$ = $2;
+}
+;
+
+StructDef: STRUCT ID LB VarDeclList RB
+{
+  $$ = A_StructDef($1, $2->id, $4);
+}
+;
+
+ParamDecl: VarDeclList
+{
+  $$ = A_ParamDecl($1);
+}
+;
+
+FnDecl: FN ID LP ParamDecl RP
+{
+  $$ = A_FnDecl($1, $2->id, $4, NULL);
+}
+| FN ID LP ParamDecl RP ARROW Type
+{
+  $$ = A_FnDecl($1, $2->id, $4, $7);
+}
+;
+
+FnDeclStmt: FnDecl SEMICOLON
+{
+  $$ = A_FnDeclStmt($1->pos, $1);
+}
+;
+
+ReturnStmt: RETURN RightVal SEMICOLON
+{
+  $$ = A_ReturnStmt($1, $2);
+}
+;
+
+FnDef: FnDecl CodeBlock
+{
+  $$ = A_FnDef($1->pos, $1, $2);
+}
+;
+
+CodeBlockStmt: VarDeclStmt
+{
+  $$ = A_BlockVarDeclStmt($1->pos, $1);
+}
+| AssignStmt
+{
+  $$ = A_BlockAssignStmt($1->pos, $1);
+}
+| CallStmt
+{
+  $$ = A_BlockCallStmt($1->pos, $1);
+}
+| IfStmt
+{
+  $$ = A_BlockIfStmt($1->pos, $1);
+}
+| WhileStmt
+{
+  $$ = A_BlockWhileStmt($1->pos, $1);
+}
+| ReturnStmt
+{
+  $$ = A_BlockReturnStmt($1->pos, $1);
+}
+| CONTINUE SEMICOLON
+{
+  $$ = A_BlockContinueStmt($1);
+}
+| BREAK SEMICOLON
+{
+  $$ = A_BlockBreakStmt($1);
+}
+| SEMICOLON
+{
+  $$ = A_BlockNullStmt($1);
+}
+;
+
+CodeBlockStmtList: CodeBlockStmt CodeBlockStmtList
+{
+  $$ = A_CodeBlockStmtList($1, $2);
+}
+|
+{
+  $$ = NULL;
+}
+;
+
+CodeBlock: LB CodeBlockStmtList RB
+{
+  $$ = $2;
+}
+;
+
+CallStmt: FnCall SEMICOLON
+{
+  $$ = A_CallStmt($1->pos, $1);
+}
+;
+
+IfStmt: IF LP BoolExpr RP CodeBlock
+{
+  $$ = A_IfStmt($1, $3, $5, NULL);
+}
+| IF LP BoolExpr RP CodeBlock ELSE CodeBlock
+{
+  $$ = A_IfStmt($1, $3, $5, $7);
+}
+;
+
+WhileStmt: WHILE LP BoolExpr RP CodeBlock
+{
+  $$ = A_WhileStmt($1, $3, $5);
+}
+;
 
 %%
 
@@ -707,7 +544,6 @@ void yyerror(char * s)
 {
   fprintf(stderr, "%s\n",s);
 }
-
 int yywrap()
 {
   return(1);

@@ -2,13 +2,10 @@
 #include "TeaplaAst.h"
 
 aA_type aA_Type(A_type type){
-    aA_type p = (aA_type)malloc(sizeof(*p));
+    aA_type p = new aA_type_;
     p->pos = type->pos;
     p->type = type->type;
     switch(type->type){
-    case A_nullTypeKind:{
-        break;
-    }
     case A_nativeTypeKind:{
         p->u.nativeType = type->u.nativeType;
         break;
@@ -22,17 +19,17 @@ aA_type aA_Type(A_type type){
 }
 
 aA_fnCall aA_FnCall(A_fnCall fnCall){
-    aA_fnCall p = (aA_fnCall)malloc(sizeof(*p));
+    aA_fnCall p = new aA_fnCall_;
     p->pos = fnCall->pos;
     p->fn= new string(fnCall->fn);
     for(A_rightValList l=fnCall->vals; l; l=l->tail){
-        p->vals.emplace_back(l->head);
+        p->vals.emplace_back(aA_RightVal(l->head));
     }
     return p;
 }
 
 aA_indexExpr aA_IndexExpr(A_indexExpr indexExpr){
-    aA_indexExpr p = (aA_indexExpr)malloc(sizeof(*p));
+    aA_indexExpr p = new aA_indexExpr_;
     p->pos = indexExpr->pos;
     p->kind= indexExpr->kind;
     switch(indexExpr->kind){
@@ -49,7 +46,7 @@ aA_indexExpr aA_IndexExpr(A_indexExpr indexExpr){
 }
 
 aA_arrayExpr aA_ArrayExpr(A_arrayExpr arrayExpr){
-    aA_arrayExpr p = (aA_arrayExpr)malloc(sizeof(*p));
+    aA_arrayExpr p = new aA_arrayExpr_;
     p->pos = arrayExpr->pos;
     p->arr= new string(arrayExpr->arr);
     p->idx = aA_IndexExpr(arrayExpr->idx);
@@ -57,7 +54,7 @@ aA_arrayExpr aA_ArrayExpr(A_arrayExpr arrayExpr){
 }
 
 aA_memberExpr aA_MemberExpr(A_memberExpr memberExpr){
-    aA_memberExpr p = (aA_memberExpr)malloc(sizeof(*p));
+    aA_memberExpr p = new aA_memberExpr_;
     p->pos = memberExpr->pos;
     p->structId= new string(memberExpr->structId);
     p->memberId = new string(memberExpr->memberId);
@@ -65,7 +62,7 @@ aA_memberExpr aA_MemberExpr(A_memberExpr memberExpr){
 }
 
 aA_exprUnit aA_ExprUnit(A_exprUnit exprUnit){
-    aA_exprUnit p = (aA_exprUnit)malloc(sizeof(*p));
+    aA_exprUnit p = new aA_exprUnit_;
     p->pos = exprUnit->pos;
     p->kind= exprUnit->kind;
     switch(exprUnit->kind){
@@ -102,7 +99,7 @@ aA_exprUnit aA_ExprUnit(A_exprUnit exprUnit){
 }
 
 aA_arithBiOpExpr aA_ArithBiOpExpr(A_arithBiOpExpr arithBiOpExpr){
-    aA_arithBiOpExpr p = (aA_arithBiOpExpr)malloc(sizeof(*p));
+    aA_arithBiOpExpr p = new aA_arithBiOpExpr_;
     p->pos = arithBiOpExpr->pos;
     p->op= arithBiOpExpr->op;
     p->left = aA_ArithExpr(arithBiOpExpr->left);
@@ -111,7 +108,7 @@ aA_arithBiOpExpr aA_ArithBiOpExpr(A_arithBiOpExpr arithBiOpExpr){
 }
 
 aA_arithUExpr aA_ArithUExpr(A_arithUExpr arithUExpr){
-    aA_arithUExpr p = (aA_arithUExpr)malloc(sizeof(*p));
+    aA_arithUExpr p = new aA_arithUExpr_;
     p->pos = arithUExpr->pos;
     p->op= arithUExpr->op;
     p->expr = aA_ExprUnit(arithUExpr->expr);
@@ -119,7 +116,7 @@ aA_arithUExpr aA_ArithUExpr(A_arithUExpr arithUExpr){
 }
 
 aA_arithExpr aA_ArithExpr(A_arithExpr arithExpr){
-    aA_arithExpr p = (aA_arithExpr)malloc(sizeof(*p));
+    aA_arithExpr p = new aA_arithExpr_;
     p->pos = arithExpr->pos;
     p->kind= arithExpr->kind;
     switch(arithExpr->kind){
@@ -136,7 +133,7 @@ aA_arithExpr aA_ArithExpr(A_arithExpr arithExpr){
 }
 
 aA_boolBiOpExpr aA_BoolBiOpExpr(A_boolBiOpExpr boolBiOpExpr){
-    aA_boolBiOpExpr p = (aA_boolBiOpExpr)malloc(sizeof(*p));
+    aA_boolBiOpExpr p = new aA_boolBiOpExpr_;
     p->pos = boolBiOpExpr->pos;
     p->op= boolBiOpExpr->op;
     p->left = aA_BoolExpr(boolBiOpExpr->left);
@@ -145,7 +142,7 @@ aA_boolBiOpExpr aA_BoolBiOpExpr(A_boolBiOpExpr boolBiOpExpr){
 }
 
 aA_boolUOpExpr aA_BoolUOpExpr(A_boolUOpExpr boolUOpExpr){
-    aA_boolUOpExpr p = (aA_boolUOpExpr)malloc(sizeof(*p));
+    aA_boolUOpExpr p = new aA_boolUOpExpr_;
     p->pos = boolUOpExpr->pos;
     p->op= boolUOpExpr->op;
     p->cond = aA_BoolUnit(boolUOpExpr->cond);
@@ -153,7 +150,7 @@ aA_boolUOpExpr aA_BoolUOpExpr(A_boolUOpExpr boolUOpExpr){
 }
 
 aA_boolExpr aA_BoolExpr(A_boolExpr boolExpr){
-    aA_boolExpr p = (aA_boolExpr)malloc(sizeof(*p));
+    aA_boolExpr p = new aA_boolExpr_;
     p->pos = boolExpr->pos;
     p->kind= boolExpr->kind;
     switch(boolExpr->kind){
@@ -170,7 +167,7 @@ aA_boolExpr aA_BoolExpr(A_boolExpr boolExpr){
 }
 
 aA_comExpr aA_ComExpr(A_comExpr comExpr){
-    aA_comExpr p = (aA_comExpr)malloc(sizeof(*p));
+    aA_comExpr p = new aA_comExpr_;
     p->pos= comExpr->pos;
     p->op = comExpr->op;
     p->left = aA_ExprUnit(comExpr->left);
@@ -179,7 +176,7 @@ aA_comExpr aA_ComExpr(A_comExpr comExpr){
 }
 
 aA_boolUnit aA_BoolUnit(A_boolUnit boolUnit){
-    aA_boolUnit p = (aA_boolUnit)malloc(sizeof(*p));
+    aA_boolUnit p = new aA_boolUnit_;
     p->pos = boolUnit->pos;
     p->kind= boolUnit->kind;
     switch(boolUnit->kind){
@@ -200,7 +197,7 @@ aA_boolUnit aA_BoolUnit(A_boolUnit boolUnit){
 }
 
 aA_rightVal aA_RightVal(A_rightVal rightVal){
-    aA_rightVal p = (aA_rightVal)malloc(sizeof(*p));
+    aA_rightVal p = new aA_rightVal_;
     p->pos = rightVal->pos;
     p->kind= rightVal->kind;
     switch(rightVal->kind){
@@ -217,7 +214,7 @@ aA_rightVal aA_RightVal(A_rightVal rightVal){
 }
 
 aA_leftVal aA_LeftVal(A_leftVal leftVal){
-    aA_leftVal p = (aA_leftVal)malloc(sizeof(*p));
+    aA_leftVal p = new aA_leftVal_;
     p->pos = leftVal->pos;
     p->kind= leftVal->kind;
     switch(leftVal->kind){
@@ -238,7 +235,7 @@ aA_leftVal aA_LeftVal(A_leftVal leftVal){
 }
 
 aA_assignStmt aA_AssignStmt(A_assignStmt assignStmt){
-    aA_assignStmt p = (aA_assignStmt)malloc(sizeof(*p));
+    aA_assignStmt p = new aA_assignStmt_;
     p->pos = assignStmt->pos;
     p->leftVal= aA_LeftVal(assignStmt->leftVal);
     p->rightVal = aA_RightVal(assignStmt->rightVal);
@@ -246,7 +243,7 @@ aA_assignStmt aA_AssignStmt(A_assignStmt assignStmt){
 }
 
 aA_varDeclScalar aA_VarDeclScalar(A_varDeclScalar varDeclScalar){
-    aA_varDeclScalar p = (aA_varDeclScalar)malloc(sizeof(*p));
+    aA_varDeclScalar p = new aA_varDeclScalar_;
     p->pos = varDeclScalar->pos;
     p->id= new string(varDeclScalar->id);
     p->type = aA_Type(varDeclScalar->type);
@@ -254,7 +251,7 @@ aA_varDeclScalar aA_VarDeclScalar(A_varDeclScalar varDeclScalar){
 }
 
 aA_varDeclArray aA_VarDeclArray(A_varDeclArray varDeclArray){
-    aA_varDeclArray p = (aA_varDeclArray)malloc(sizeof(*p));
+    aA_varDeclArray p = new aA_varDeclArray_;
     p->pos = varDeclArray->pos;
     p->id= new string(varDeclArray->id);
     p->len = varDeclArray->len;
@@ -263,7 +260,7 @@ aA_varDeclArray aA_VarDeclArray(A_varDeclArray varDeclArray){
 }
 
 aA_varDecl aA_VarDecl(A_varDecl varDecl){
-    aA_varDecl p = (aA_varDecl)malloc(sizeof(*p));
+    aA_varDecl p = new aA_varDecl_;
     p->pos = varDecl->pos;
     p->kind = varDecl->kind;
     switch(varDecl->kind){
@@ -280,7 +277,7 @@ aA_varDecl aA_VarDecl(A_varDecl varDecl){
 }
 
 aA_varDefScalar aA_VarDefScalar(A_varDefScalar varDefScalar){
-    aA_varDefScalar p = (aA_varDefScalar)malloc(sizeof(*p));
+    aA_varDefScalar p = new aA_varDefScalar_;
     p->pos = varDefScalar->pos;
     p->id= new string(varDefScalar->id);
     p->type = aA_Type(varDefScalar->type);
@@ -289,19 +286,19 @@ aA_varDefScalar aA_VarDefScalar(A_varDefScalar varDefScalar){
 }
 
 aA_varDefArray aA_VarDefArray(A_varDefArray varDefArray){
-    aA_varDefArray p = (aA_varDefArray)malloc(sizeof(*p));
+    aA_varDefArray p = new aA_varDefArray_;
     p->pos = varDefArray->pos;
     p->id= new string(varDefArray->id);
     p->len = varDefArray->len;
     p->type = aA_Type(varDefArray->type);
     for(A_rightValList l=varDefArray->vals; l; l=l->tail){
-        p->vals.emplace_back(l->head);
+        p->vals.emplace_back(aA_RightVal(l->head));
     }
     return p;
 }
 
 aA_varDef aA_VarDef(A_varDef varDef){
-    aA_varDef p = (aA_varDef)malloc(sizeof(*p));
+    aA_varDef p = new aA_varDef_;
     p->pos = varDef->pos;
     p->kind = varDef->kind;
     switch(varDef->kind){
@@ -318,7 +315,7 @@ aA_varDef aA_VarDef(A_varDef varDef){
 }
 
 aA_varDeclStmt aA_VarDeclStmt(A_varDeclStmt varDeclStmt){
-    aA_varDeclStmt p = (aA_varDeclStmt)malloc(sizeof(*p));
+    aA_varDeclStmt p = new aA_varDeclStmt_;
     p->pos = varDeclStmt->pos;
     p->kind = varDeclStmt->kind;
     switch(varDeclStmt->kind){
@@ -336,25 +333,25 @@ aA_varDeclStmt aA_VarDeclStmt(A_varDeclStmt varDeclStmt){
 }
 
 aA_structDef aA_StructDef(A_structDef structDef){
-    aA_structDef p = (aA_structDef)malloc(sizeof(*p));
+    aA_structDef p = new aA_structDef_;
     p->pos = structDef->pos;
     p->id = new string(structDef->id);
     for(A_varDeclList l=structDef->varDecls; l; l=l->tail){
-        p->varDecls.emplace_back(l->head);
+        p->varDecls.emplace_back(aA_VarDecl(l->head));
     }
     return p;
 }
 
 aA_paramDecl aA_ParamDecl(A_paramDecl paramDecl){
-    aA_paramDecl p = (aA_paramDecl)malloc(sizeof(*p));
+    aA_paramDecl p = new aA_paramDecl_;
     for(A_varDeclList l=paramDecl->varDecls; l; l=l->tail){
-        p->varDecls.emplace_back(l->head);
+        p->varDecls.emplace_back(aA_VarDecl(l->head));
     }
     return p;
 }
 
 aA_fnDecl aA_FnDecl(A_fnDecl fnDecl){
-    aA_fnDecl p = (aA_fnDecl)malloc(sizeof(*p));
+    aA_fnDecl p = new aA_fnDecl_;
     p->pos = fnDecl->pos;
     p->id = new string(fnDecl->id);
     p->paramDecl = aA_ParamDecl(fnDecl->paramDecl);
@@ -363,54 +360,54 @@ aA_fnDecl aA_FnDecl(A_fnDecl fnDecl){
 }
 
 aA_fnDef aA_FnDef(A_fnDef fnDef){
-    aA_fnDef p = (aA_fnDef)malloc(sizeof(*p));
+    aA_fnDef p = new aA_fnDef_;
     p->pos = fnDef->pos;
     p->fnDecl = aA_FnDecl(fnDef->fnDecl);
     for(A_codeBlockStmtList l=fnDef->stmts; l; l=l->tail){
-        p->stmts.emplace_back(l->head);
+        p->stmts.emplace_back(aA_CodeBlockStmt(l->head));
     }
     return p;
 }
 
 aA_ifStmt aA_IfStmt(A_ifStmt ifStmt){
-    aA_ifStmt p = (aA_ifStmt)malloc(sizeof(*p));
+    aA_ifStmt p = new aA_ifStmt_;
     p->pos = ifStmt->pos;
     p->boolExpr = aA_BoolExpr(ifStmt->boolExpr);
     for(A_codeBlockStmtList l=ifStmt->ifStmts; l; l=l->tail){
-        p->ifStmts.emplace_back(l->head);
+        p->ifStmts.emplace_back(aA_CodeBlockStmt(l->head));
     }
     for(A_codeBlockStmtList l=ifStmt->elseStmts; l; l=l->tail){
-        p->elseStmts.emplace_back(l->head);
+        p->elseStmts.emplace_back(aA_CodeBlockStmt(l->head));
     }
     return p;
 }
 
 aA_whileStmt aA_WhileStmt(A_whileStmt whileStmt){
-    aA_whileStmt p = (aA_whileStmt)malloc(sizeof(*p));
+    aA_whileStmt p = new aA_whileStmt_;
     p->pos = whileStmt->pos;
     p->boolExpr = aA_BoolExpr(whileStmt->boolExpr);
     for(A_codeBlockStmtList l=whileStmt->whileStmts; l; l=l->tail){
-        p->whileStmts.emplace_back(l->head);
+        p->whileStmts.emplace_back(aA_CodeBlockStmt(l->head));
     }
     return p;
 }
 
 aA_callStmt aA_CallStmt(A_callStmt callStmt){
-    aA_callStmt p = (aA_callStmt)malloc(sizeof(*p));
+    aA_callStmt p = new aA_callStmt_;
     p->pos = callStmt->pos;
     p->fnCall = aA_FnCall(callStmt->fnCall);
     return p;
 }
 
 aA_returnStmt aA_ReturnStmt(A_returnStmt returnStmt){
-    aA_returnStmt p = (aA_returnStmt)malloc(sizeof(*p));
+    aA_returnStmt p = new aA_returnStmt_;
     p->pos = returnStmt->pos;
     p->retVal = aA_RightVal(returnStmt->retVal);
     return p;
 }
 
 aA_codeBlockStmt aA_CodeBlockStmt(A_codeBlockStmt codeBlockStmt){
-    aA_codeBlockStmt p = (aA_codeBlockStmt)malloc(sizeof(*p));
+    aA_codeBlockStmt p = new aA_codeBlockStmt_;
     p->pos = codeBlockStmt->pos;
     p->kind = codeBlockStmt->kind;
     switch(codeBlockStmt->kind){
@@ -452,14 +449,14 @@ aA_codeBlockStmt aA_CodeBlockStmt(A_codeBlockStmt codeBlockStmt){
 }
 
 aA_fnDeclStmt aA_FnDeclStmt(A_fnDeclStmt fnDeclStmt){
-    aA_fnDeclStmt p = (aA_fnDeclStmt)malloc(sizeof(*p));
+    aA_fnDeclStmt p = new aA_fnDeclStmt_;
     p->pos = fnDeclStmt->pos;
     p->fnDecl = aA_FnDecl(fnDeclStmt->fnDecl);
     return p;
 }
 
 aA_programElement aA_ProgramElement(A_programElement programElement){
-    aA_programElement p = (aA_programElement)malloc(sizeof(*p));
+    aA_programElement p = new aA_programElement_;
     p->pos = programElement->pos;
     p->kind = programElement->kind;
     switch(programElement->kind){
@@ -487,9 +484,9 @@ aA_programElement aA_ProgramElement(A_programElement programElement){
 }
 
 aA_program aA_Program(A_program program){
-    aA_program p = (aA_program)malloc(sizeof(*p));
+    aA_program p = new aA_program_;
     for(A_programElementList l=program->programElements; l; l=l->tail){
-        p->programElements.emplace_back(l->head);
+        p->programElements.emplace_back(aA_ProgramElement(l->head));
     }
     return p;
 }

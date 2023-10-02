@@ -22,14 +22,6 @@ A_tokenNum A_TokenNum(A_pos pos, int num){
     return p;
 }
 
-A_type A_NullType(A_pos pos){
-    A_type p = (A_type)malloc(sizeof(*p));
-    p->pos = pos;
-    p->type = A_nullTypeKind;
-    p->u.structType = nullptr;
-    return p;
-}
-
 A_type A_NativeType(A_pos pos, A_nativeType ntype){
     A_type p = (A_type)malloc(sizeof(*p));
     p->pos = pos;
@@ -408,6 +400,13 @@ A_fnDecl A_FnDecl(A_pos pos, char* id, A_paramDecl paramDecl, A_type type){
 A_paramDecl A_ParamDecl(A_varDeclList varDecls){
     A_paramDecl p = (A_paramDecl)malloc(sizeof(*p));
     p->varDecls = varDecls;
+    return p;
+}
+
+A_codeBlockStmtList A_CodeBlockStmtList(A_codeBlockStmt head, A_codeBlockStmtList tail){
+    A_codeBlockStmtList p = (A_codeBlockStmtList)malloc(sizeof(*p));
+    p->head = head;
+    p->tail = tail;
     return p;
 }
 

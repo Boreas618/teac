@@ -1,21 +1,37 @@
+#include <fstream>
 #include "TeaplAst.h"
 #include "TeaplaAst.h"
 #include "PrintTeaplaAst.h"
-#include "y.tab.h"
+#include "y.tab.hpp"
+
+#define YACCDEBUG 0
+
+using namespace std;
 
 extern int yyparse();
 extern YYSTYPE yylval;
+extern int yydebug;
 
 int line, col;
 
-A_prog root;
+A_program root;
+aA_program aroot;
 
-int main(int argc, const char * argv[]) {
+int main(int argc, char * argv[]) {
+
+    #if YACCDEBUG
+        yydebug = 1;
+    #endif
+
     line = 1;
     col = 1;
-    yyparse();
-//  print_slpis testing purpose:
-    printA_Prog(stdout, root);
     
+    freopen(argv[1], "r", stdin);  
+    ofstream ASTStream;
+    ASTStream.open(argv[2]);
+
+    yyparse();
+    aroot = aA_Program(root);
+    print_aA_Program(aroot, ASTStream);
     return 0;
 }

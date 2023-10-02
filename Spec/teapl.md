@@ -127,7 +127,7 @@ The grammar is specified as follows.
 ```
 fnDef := fnDecl codeBlock  
 codeBlock :=  < { > (varDeclStmt | assignStmt | callStmt | ifStmt | whileStmt | returnStmt | continueStmt | breakStmt | < ; > )* < } > 
-returnStmt ：= < return > rightVal < ; >
+returnStmt ：= < ret > rightVal < ; >
 continueStmt := < continue > < ; >
 breakStmt := < break > < ; >
 ```

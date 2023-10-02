@@ -6,10 +6,8 @@
 using namespace std;
 
 void print_aA_Type(aA_type type, ostream& os){
+    if(!type) return;
     switch(type->type){
-    case A_nullTypeKind:{
-        break;
-    }
     case A_nativeTypeKind:{
         switch(type->u.nativeType){
         case A_intTypeKind:{
@@ -27,6 +25,7 @@ void print_aA_Type(aA_type type, ostream& os){
 }
 
 void print_aA_FnCall(aA_fnCall fnCall, ostream& os){
+    if(!fnCall) return;
     os << *(fnCall->fn);
     os << "(";
     if(!fnCall->vals.empty()){
@@ -36,10 +35,11 @@ void print_aA_FnCall(aA_fnCall fnCall, ostream& os){
             print_aA_RightVal(fnCall->vals[i], os);
         }
     }
-    os << "(";
+    os << ")";
 }
 
 void print_aA_IndexExpr(aA_indexExpr indexExpr, ostream& os){
+    if(!indexExpr) return;
     switch(indexExpr->kind){
     case A_numIndexKind:{
         os << indexExpr->u.num;
@@ -53,17 +53,20 @@ void print_aA_IndexExpr(aA_indexExpr indexExpr, ostream& os){
 }
 
 void print_aA_ArrayExpr(aA_arrayExpr arrayExpr, ostream& os){
+    if(!arrayExpr) return;
     os << *(arrayExpr->arr) << "[";
     print_aA_IndexExpr(arrayExpr->idx, os);
     os << "]";
 }
 
 void print_aA_MemberExpr(aA_memberExpr memberExpr, ostream& os){
+    if(!memberExpr) return;
     os << *(memberExpr->structId) << ".";
     os << *(memberExpr->memberId);
 }
 
 void print_aA_ExprUnit(aA_exprUnit exprUnit, ostream& os){
+    if(!exprUnit) return;
     switch(exprUnit->kind){
     case A_numExprKind:{
         os << exprUnit->u.num;
@@ -101,6 +104,7 @@ void print_aA_ExprUnit(aA_exprUnit exprUnit, ostream& os){
 static const string arithBiOps[] = {"+", "-", "*", "/"};
 
 void print_aA_ArithBiOpExpr(aA_arithBiOpExpr arithBiOpExpr, ostream& os){
+    if(!arithBiOpExpr) return;
     print_aA_ArithExpr(arithBiOpExpr->left, os);
     os << arithBiOps[arithBiOpExpr->op];
     print_aA_ArithExpr(arithBiOpExpr->right, os);
@@ -109,11 +113,13 @@ void print_aA_ArithBiOpExpr(aA_arithBiOpExpr arithBiOpExpr, ostream& os){
 static const string arithUOps[] = {"-"};
 
 void print_aA_ArithUExpr(aA_arithUExpr arithUExpr, ostream& os){
+    if(!arithUExpr) return;
     os << arithUOps[arithUExpr->op];
     print_aA_ExprUnit(arithUExpr->expr, os);
 }
 
 void print_aA_ArithExpr(aA_arithExpr arithExpr, ostream& os){
+    if(!arithExpr) return;
     switch(arithExpr->kind){
     case A_arithBiOpExprKind:{
         print_aA_ArithBiOpExpr(arithExpr->u.arithBiOpExpr, os);
@@ -129,6 +135,7 @@ void print_aA_ArithExpr(aA_arithExpr arithExpr, ostream& os){
 static const string boolBiOps[] = {"&&", "||"};
 
 void print_aA_BoolBiOpExpr(aA_boolBiOpExpr boolBiOpExpr, ostream& os){
+    if(!boolBiOpExpr) return;
     print_aA_BoolExpr(boolBiOpExpr->left, os);
     os << boolBiOps[boolBiOpExpr->op];
     print_aA_BoolUnit(boolBiOpExpr->right, os);
@@ -137,11 +144,13 @@ void print_aA_BoolBiOpExpr(aA_boolBiOpExpr boolBiOpExpr, ostream& os){
 static const string boolUOps[] = {"!"};
 
 void print_aA_BoolUOpExpr(aA_boolUOpExpr boolUOpExpr, ostream& os){
+    if(!boolUOpExpr) return;
     os << boolUOps[boolUOpExpr->op];
     print_aA_BoolUnit(boolUOpExpr->cond, os);
 }
 
 void print_aA_BoolExpr(aA_boolExpr boolExpr, ostream& os){
+    if(!boolExpr) return;
     switch(boolExpr->kind){
     case A_boolBiOpExprKind:{
         print_aA_BoolBiOpExpr(boolExpr->u.boolBiOpExpr, os);
@@ -157,12 +166,14 @@ void print_aA_BoolExpr(aA_boolExpr boolExpr, ostream& os){
 static const string comOps[] = {"<", "<=", ">", ">=", "==", "!="};
 
 void print_aA_ComExpr(aA_comExpr comExpr, ostream& os){
+    if(!comExpr) return;
     print_aA_ExprUnit(comExpr->left, os);
     os << comOps[comExpr->op];
     print_aA_ExprUnit(comExpr->right, os);
 }
 
 void print_aA_BoolUnit(aA_boolUnit boolUnit, ostream& os){
+    if(!boolUnit) return;
     switch(boolUnit->kind){
     case A_comOpExprKind:{
         os << "(";
@@ -184,6 +195,7 @@ void print_aA_BoolUnit(aA_boolUnit boolUnit, ostream& os){
 }
 
 void print_aA_RightVal(aA_rightVal rightVal, ostream& os){
+    if(!rightVal) return;
     switch(rightVal->kind){
     case A_arithExprValKind:{
         print_aA_ArithExpr(rightVal->u.arithExpr, os);
@@ -197,6 +209,7 @@ void print_aA_RightVal(aA_rightVal rightVal, ostream& os){
 }
 
 void print_aA_LeftVal(aA_leftVal leftVal, ostream& os){
+    if(!leftVal) return;
     switch(leftVal->kind){
     case A_varValKind:{
         os << *(leftVal->u.id);
@@ -214,6 +227,7 @@ void print_aA_LeftVal(aA_leftVal leftVal, ostream& os){
 }
 
 void print_aA_AssignStmt(aA_assignStmt assignStmt, ostream& os){
+    if(!assignStmt) return;
     print_aA_LeftVal(assignStmt->leftVal, os);
     os << " = ";
     print_aA_RightVal(assignStmt->rightVal, os);
@@ -221,17 +235,20 @@ void print_aA_AssignStmt(aA_assignStmt assignStmt, ostream& os){
 }
 
 void print_aA_VarDeclScalar(aA_varDeclScalar varDeclScalar, ostream& os){
-    os << *(varDeclScalar->id) << " : ";
+    if(!varDeclScalar) return;
+    os << *(varDeclScalar->id) << ":";
     print_aA_Type(varDeclScalar->type, os);
 }
 
 void print_aA_VarDeclArray(aA_varDeclArray varDeclArray, ostream& os){
+    if(!varDeclArray) return;
     os << *(varDeclArray->id) << "[";
-    os << varDeclArray->len << "] : ";
+    os << varDeclArray->len << "]:";
     print_aA_Type(varDeclArray->type, os);
 }
 
 void print_aA_VarDecl(aA_varDecl varDecl, ostream& os){
+    if(!varDecl) return;
     switch(varDecl->kind){
     case A_varDeclScalarKind:{
         print_aA_VarDeclScalar(varDecl->u.declScalar, os);
@@ -245,15 +262,17 @@ void print_aA_VarDecl(aA_varDecl varDecl, ostream& os){
 }
 
 void print_aA_VarDefScalar(aA_varDefScalar varDefScalar, ostream& os){
-    os << *(varDefScalar->id) << " : ";
+    if(!varDefScalar) return;
+    os << *(varDefScalar->id) << ":";
     print_aA_Type(varDefScalar->type, os);
     os << " = ";
     print_aA_RightVal(varDefScalar->val, os);
 }
 
 void print_aA_VarDefArray(aA_varDefArray varDefArray, ostream& os){
+    if(!varDefArray) return;
     os << *(varDefArray->id) << "[";
-    os << varDefArray->len << "] : ";
+    os << varDefArray->len << "]:";
     print_aA_Type(varDefArray->type, os);
     os << " = {";
     if(!varDefArray->vals.empty()){
@@ -267,6 +286,7 @@ void print_aA_VarDefArray(aA_varDefArray varDefArray, ostream& os){
 }
 
 void print_aA_VarDef(aA_varDef varDef, ostream& os){
+    if(!varDef) return;
     switch(varDef->kind){
     case A_varDefScalarKind:{
         print_aA_VarDefScalar(varDef->u.defScalar, os);
@@ -280,6 +300,7 @@ void print_aA_VarDef(aA_varDef varDef, ostream& os){
 }
 
 void print_aA_VarDeclStmt(aA_varDeclStmt varDeclStmt, ostream& os){
+    if(!varDeclStmt) return;
     os << "let ";
     switch(varDeclStmt->kind){
     case A_varDeclKind:{
@@ -295,6 +316,7 @@ void print_aA_VarDeclStmt(aA_varDeclStmt varDeclStmt, ostream& os){
 }
 
 void print_aA_StructDef(aA_structDef structDef, ostream& os){
+    if(!structDef) return;
     os << "struct " << *(structDef->id) << " {";
     if(!structDef->varDecls.empty()){
         os << "\n";
@@ -308,6 +330,7 @@ void print_aA_StructDef(aA_structDef structDef, ostream& os){
 }
 
 void print_aA_ParamDecl(aA_paramDecl paramDecl, ostream& os){
+    if(!paramDecl) return;
     if(!paramDecl->varDecls.empty()){
         print_aA_VarDecl(paramDecl->varDecls[0], os);
         for(int i=1; i<paramDecl->varDecls.size(); ++i){
@@ -318,26 +341,29 @@ void print_aA_ParamDecl(aA_paramDecl paramDecl, ostream& os){
 }
 
 void print_aA_FnDecl(aA_fnDecl fnDecl, ostream& os){
+    if(!fnDecl) return;
     os << "fn " << *(fnDecl->id) << "(";
     print_aA_ParamDecl(fnDecl->paramDecl, os);
     os << ")";
-    if(fnDecl->type->type != A_nullTypeKind){
-        os << " -> ";
+    if(fnDecl->type){
+        os << "->";
         print_aA_Type(fnDecl->type, os);
     }
 }
 
 void print_aA_FnDef(aA_fnDef fnDef, ostream& os){
+    if(!fnDef) return;
     print_aA_FnDecl(fnDef->fnDecl, os);
-    os << " {";
+    os << "{";
     for(auto &stmt : fnDef->stmts){
         os << "\n";
         print_aA_CodeBlockStmt(stmt, os);
     }
-    os << "}\n";
+    os << "\n}";
 }
 
 void print_aA_IfStmt(aA_ifStmt ifStmt, ostream& os){
+    if(!ifStmt) return;
     os << "if(";
     print_aA_BoolExpr(ifStmt->boolExpr, os);
     os << "){";
@@ -357,6 +383,7 @@ void print_aA_IfStmt(aA_ifStmt ifStmt, ostream& os){
 }
 
 void print_aA_WhileStmt(aA_whileStmt whileStmt, ostream& os){
+    if(!whileStmt) return;
     os << "while(";
     print_aA_BoolExpr(whileStmt->boolExpr, os);
     os << "){";
@@ -368,17 +395,20 @@ void print_aA_WhileStmt(aA_whileStmt whileStmt, ostream& os){
 }
 
 void print_aA_CallStmt(aA_callStmt callStmt, ostream& os){
+    if(!callStmt) return;
     print_aA_FnCall(callStmt->fnCall, os);
     os << ";";
 }
 
 void print_aA_ReturnStmt(aA_returnStmt returnStmt, ostream& os){
+    if(!returnStmt) return;
     os << "ret ";
     print_aA_RightVal(returnStmt->retVal, os);
     os << ";";
 }
 
 void print_aA_CodeBlockStmt(aA_codeBlockStmt codeBlockStmt, ostream& os){
+    if(!codeBlockStmt) return;
     switch(codeBlockStmt->kind){
     case A_nullStmtKind:{
         os << ";";
@@ -420,11 +450,13 @@ void print_aA_CodeBlockStmt(aA_codeBlockStmt codeBlockStmt, ostream& os){
 }
 
 void print_aA_FnDeclStmt(aA_fnDeclStmt fnDeclStmt, ostream& os){
+    if(!fnDeclStmt) return;
     print_aA_FnDecl(fnDeclStmt->fnDecl, os);
     os << ";";
 }
 
 void print_aA_ProgramElement(aA_programElement programElement, ostream& os){
+    if(!programElement) return;
     switch(programElement->kind){
     case A_programNullStmtKind:{
         os << ";";
@@ -450,8 +482,9 @@ void print_aA_ProgramElement(aA_programElement programElement, ostream& os){
 }
 
 void print_aA_Program(aA_program program, ostream& os){
+    if(!program) return;
     for(auto &programElement : program->programElements){
         print_aA_ProgramElement(programElement, os);
-        os << "\n";
+        os << "\n\n";
     }
 }
