@@ -85,6 +85,7 @@ typedef enum {
     A_idIndexKind
 } A_indexExprKind;
 
+// [id|num]
 struct A_indexExpr_ {
     A_pos pos;
     A_indexExprKind kind;
@@ -94,12 +95,14 @@ struct A_indexExpr_ {
     } u;
 };
 
+// arr[idx]
 struct A_arrayExpr_ {
     A_pos pos;
     char* arr;
     A_indexExpr idx;
 };
 
+// structId.memberId
 struct A_memberExpr_ {
     A_pos pos;
     char* structId;
@@ -209,12 +212,14 @@ typedef enum {
     A_programFnDefKind
 } A_programElementType;
 
+// left op right (eg: 1+2)
 struct A_arithBiOpExpr_ {
     A_pos pos;
     A_arithBiOp op;
     A_arithExpr left, right;
 };
 
+// op expr (eg: -1)
 struct A_arithUExpr_ {
     A_pos pos;
     A_arithUOp op;
@@ -230,6 +235,7 @@ struct A_arithExpr_ {
     } u;
 };
 
+// left op right (eg: a && b)
 struct A_boolBiOpExpr_ {
     A_pos pos;
     A_boolBiOp op;
@@ -237,6 +243,7 @@ struct A_boolBiOpExpr_ {
     A_boolUnit right;
 };
 
+// op cond (eg: !a)
 struct A_boolUOpExpr_ {
     A_pos pos;
     A_boolUOp op;
@@ -252,6 +259,7 @@ struct A_boolExpr_ {
     } u;
 };
 
+// left op right (eg: 1 < 2)
 struct A_comExpr_ {
     A_pos pos;
     A_comOp op;
@@ -293,12 +301,14 @@ struct A_assignStmt_ {
     A_rightVal rightVal;
 };
 
+// id:type (eg: a:int)
 struct A_varDeclScalar_ {
     A_pos pos;
     char* id;
     A_type type;
 };
 
+// id[len]:type (eg: a[10]:int)
 struct A_varDeclArray_ {
     A_pos pos;
     char* id;
@@ -315,6 +325,7 @@ struct A_varDecl_ {
     } u;
 };
 
+// id:type = val (eg: a:int = 10)
 struct A_varDefScalar_ {
     A_pos pos;
     char* id;
@@ -322,6 +333,7 @@ struct A_varDefScalar_ {
     A_rightVal val;
 };
 
+// id[len]:type = {vals} (eg: a[10]:int = {1, 2})
 struct A_varDefArray_ {
     A_pos pos;
     char* id;
@@ -376,12 +388,20 @@ struct A_fnDef_ {
     A_codeBlockStmtList stmts;
 };
 
+// if(boolExpr){
+//     ifStmts
+// }else{
+//     elseStmts
+// }
 struct A_ifStmt_ {
     A_pos pos;
     A_boolExpr boolExpr;
     A_codeBlockStmtList ifStmts, elseStmts;
 };
 
+// while(boolExpr){
+//     whileStmts
+// }
 struct A_whileStmt_ {
     A_pos pos;
     A_boolExpr boolExpr;
@@ -434,6 +454,7 @@ struct A_fnDeclStmt_ {
     A_fnDecl fnDecl;
 };
 
+// programElement = varDeclStmt | structDef | fnDeclStmt | fnDef | comment | < ; >
 struct A_programElement_ {
     A_pos pos;
     A_programElementType kind;
@@ -445,11 +466,13 @@ struct A_programElement_ {
     } u;
 };
 
+// programElementList := programElement*
 struct A_programElementList_ {
     A_programElement head;
     A_programElementList tail;
 };
 
+// program := programElementList
 struct A_program_ {
     A_programElementList programElements;
 };

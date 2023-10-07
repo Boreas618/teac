@@ -2,10 +2,13 @@ fn main(a:int, b:int)->int{
     let a:int;
     let b:int = 0;
     let c:MyStruct;
+    ;
     c.node = 1;
     c.len = 3;
     ret foo(c.node, c.len);
 }
+
+;
 
 struct MyStruct { 
     node:int,
