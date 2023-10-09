@@ -4,6 +4,7 @@
 #include "PrintTeaplaAst.h"
 #include "y.tab.hpp"
 
+// set YACCDEBUG 1 to turn on yydebug
 #define YACCDEBUG 0
 
 using namespace std;
@@ -33,5 +34,7 @@ int main(int argc, char * argv[]) {
     yyparse();
     aroot = aA_Program(root);
     print_aA_Program(aroot, ASTStream);
+
+    ASTStream.close();
     return 0;
 }
