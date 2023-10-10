@@ -5,12 +5,15 @@ TESTCASE_DIR := tests
 TESTCASES = $(wildcard $(TESTCASE_DIR)/*.tea)
 LLFILES = $(patsubst $(TESTCASE_DIR)/%.tea,$(TESTCASE_DIR)/%.ast,$(TESTCASES))
 
-.astECONDARY: $(LLFILES)
+.SECONDARY: $(LLFILES)
 
 run: $(patsubst $(TESTCASE_DIR)/%.tea,$(TESTCASE_DIR)/%.ast,$(TESTCASES))
 
-$(TESTCASE_DIR)/%.ast: $(TESTCASE_DIR)/%.tea compiler
-	./compiler $< $@
+$(TESTCASE_DIR)/%.ast: $(TESTCASE_DIR)/%.tea $(TESTCASE_DIR)/%.refast compiler
+	@./compiler $< $@
+	@diff $@ $(word 2,$^)
+	@echo PASS $*
+	@echo
 
 compiler: y.tab.o lex.yy.o TeaplAst.o TeaplaAst.o PrintTeaplaAst.o compiler.o 
 	$(CXX) $(CXXFLAGS) -o compiler $^ 
