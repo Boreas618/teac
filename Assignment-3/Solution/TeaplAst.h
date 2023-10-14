@@ -57,9 +57,7 @@ typedef enum {
 } A_dataType;
 
 typedef enum {
-    A_intTypeKind,
-    A_boolTypeKind,
-    A_voidTypeKind
+    A_intTypeKind
 } A_nativeType;
 
 struct A_type_ {

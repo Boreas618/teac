@@ -28,9 +28,6 @@ void print_token_map(typeMap* map){
             case A_nativeType::A_intTypeKind:
                 std::cout << "int";
                 break;
-            case A_nativeType::A_boolTypeKind:
-                std::cout << "bool";
-                break;
             default:
                 break;
             }
@@ -117,10 +114,7 @@ void check_LeftRightVal(std::ostream* out, aA_type lefttype, aA_rightVal val){
         right_type = check_ArithExpr(out, val->u.arithExpr);
         break;
     case A_rightValType::A_boolExprValKind:
-        right_type = new aA_type_;
-        right_type->pos = val->pos;
-        right_type->type = A_dataType::A_nativeTypeKind;
-        right_type->u.nativeType = A_nativeType::A_boolTypeKind;
+        error_print(out, val->pos, "The expression of right value doesn't match the given left type!");
         break;
     default:
         break;
