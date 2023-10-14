@@ -46,8 +46,6 @@ int calc(char *s, int len);
 <INITIAL>"->" { yylval.pos = A_Pos(line, col); col+=2; return ARROW; }
 <INITIAL>"=" { yylval.pos = A_Pos(line, col); ++col; return AS; }
 <INITIAL>"int" { yylval.pos = A_Pos(line, col); col+=3; return INT; }
-<INITIAL>"bool" { yylval.pos = A_Pos(line, col); col+=4; return BOOL; }
-<INITIAL>"void" { yylval.pos = A_Pos(line, col); col+=4; return VOID; }
 <INITIAL>"let" { yylval.pos = A_Pos(line, col); col+=3; return LET; }
 <INITIAL>"fn" { yylval.pos = A_Pos(line, col); col+=2; return FN; }
 <INITIAL>"if" { yylval.pos = A_Pos(line, col); col+=2; return IF; }

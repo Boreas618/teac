@@ -26,9 +26,6 @@ void print_token_map(typeMap* map){
             case A_nativeType::A_intTypeKind:
                 std::cout << "int";
                 break;
-            case A_nativeType::A_boolTypeKind:
-                std::cout << "bool";
-                break;
             default:
                 break;
             }
@@ -107,7 +104,7 @@ void check_StructDef(std::ostream* out, aA_structDef sd)
     // Example:
     //      struct A{
     //          a:int;
-    //          b:bool;
+    //          b:int;
     //      }
     
     /* write your code here */
