@@ -2,8 +2,14 @@
 
 //global tabels
 typeMap func2retType; // function name to return type
-typeMap g_token2Type; // global token ids to type
-typeMap l_token2Type; // local token ids to type, local tokens are prior to global tokens in a function definition
+
+// global token ids to type
+typeMap g_token2Type; 
+// local token ids to type, local tokens are prior to 
+// global tokens in a function definition
+typeMap l_token2Type; 
+
+
 bool isGlobal = true;
 paramMemberMap func2Param;
 paramMemberMap struct2Members;
@@ -114,7 +120,7 @@ void check_LeftRightVal(std::ostream* out, aA_type lefttype, aA_rightVal val){
         right_type = check_ArithExpr(out, val->u.arithExpr);
         break;
     case A_rightValType::A_boolExprValKind:
-        error_print(out, val->pos, "The expression of right value doesn't match the given left type!");
+    
         break;
     default:
         break;
@@ -362,7 +368,8 @@ void check_ArrayExpr(std::ostream* out, aA_arrayExpr ae){
         if(!find_token(idx_name))
             error_print(out, ae->pos, "The arrat index id is not defined!");
         aA_type idx_type = get_token_type(idx_name);
-        if(idx_type->type != A_dataType::A_nativeTypeKind || idx_type->u.nativeType != A_nativeType::A_intTypeKind)
+        if(idx_type->type != A_dataType::A_nativeTypeKind || 
+            idx_type->u.nativeType != A_nativeType::A_intTypeKind)
             error_print(out, ae->pos, "This array index is not an int!");
     }else if (ae->idx->kind == A_indexExprKind::A_numIndexKind){
         // in index is num, should be >= 0
@@ -372,7 +379,7 @@ void check_ArrayExpr(std::ostream* out, aA_arrayExpr ae){
     return;
 }
 
-
+ 
 aA_type check_MemberExpr(std::ostream* out, aA_memberExpr me){
     // check if the member exists and return the tyep of the member
     if(!me)

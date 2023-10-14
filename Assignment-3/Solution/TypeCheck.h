@@ -8,9 +8,11 @@
 #include "TeaplaAst.h"
 #include <unordered_map>
 
+// token id to token type, including function name to return type
+typedef std::unordered_map<string, aA_type> typeMap; 
 
-typedef std::unordered_map<string, aA_type> typeMap; // token id to token type, including function name to return type
-typedef std::unordered_map<string, vector<aA_varDecl>*> paramMemberMap; // func name to params
+// func name to params
+typedef std::unordered_map<string, vector<aA_varDecl>*> paramMemberMap; 
 
 
 void check_Prog(std::ostream* out, aA_program p);

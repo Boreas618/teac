@@ -389,14 +389,6 @@ Type: INT
 {
   $$ = A_NativeType($1, A_intTypeKind);
 }
-| BOOL
-{
-  $$ = A_NativeType($1, A_boolTypeKind);
-}
-| VOID
-{
-  $$ = A_NativeType($1, A_voidTypeKind);
-}
 | ID
 {
   $$ = A_StructType($1->pos, $1->id);
