@@ -52,8 +52,6 @@ extern int  yywrap();
 %token <tokenId> ID
 %token <tokenNum> NUM
 %token <pos> INT
-%token <pos> BOOL // bool
-%token <pos> VOID // void
 %token <pos> LET
 %token <pos> STRUCT
 %token <pos> FN
