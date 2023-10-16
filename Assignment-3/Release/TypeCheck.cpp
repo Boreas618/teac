@@ -62,6 +62,9 @@ void check_Prog(std::ostream* out, aA_program p)
             case A_programElementType::A_programFnDefKind:
                 check_FnDef(out, ele->u.fnDef);
                 break;
+            case A_programElementType::A_programNullStmtKind:
+                // do nothing
+                break;
             default:
                 break;
         }
@@ -88,7 +91,6 @@ void check_VarDecl(std::ostream* out, aA_varDeclStmt vd)
         // if both declaration and initialization 
         // Example:
         //   let a:int = 5;
-        //   let a[5]:int = {1, 2, 3, 4, 5};
         
         /* write your code here */
     }

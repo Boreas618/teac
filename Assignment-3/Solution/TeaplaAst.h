@@ -24,6 +24,7 @@ typedef struct aA_boolUnit_* aA_boolUnit;
 typedef struct aA_boolBiOpExpr_* aA_boolBiOpExpr;
 typedef struct aA_boolUOpExpr_* aA_boolUOpExpr;
 typedef struct aA_comExpr_* aA_comExpr;
+typedef struct aA_rightVal_* aA_rightVal;
 typedef struct aA_leftVal_* aA_leftVal;
 typedef struct aA_assignStmt_* aA_assignStmt;
 typedef struct aA_varDefScalar_* aA_varDefScalar;
