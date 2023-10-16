@@ -149,6 +149,9 @@ void check_Prog(std::ostream* out, aA_program p)
             case A_programElementType::A_programFnDefKind:
                 check_FnDef(out, ele->u.fnDef);
                 break;
+            case A_programElementType::A_programNullStmtKind:
+                // do nothing
+                break;
             default:
                 break;
         }

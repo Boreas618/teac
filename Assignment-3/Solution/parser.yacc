@@ -52,8 +52,6 @@ extern int  yywrap();
 %token <tokenId> ID
 %token <tokenNum> NUM
 %token <pos> INT
-%token <pos> BOOL // bool
-%token <pos> VOID // void
 %token <pos> LET
 %token <pos> STRUCT
 %token <pos> FN
@@ -159,7 +157,7 @@ ProgramElementList: ProgramElement ProgramElementList
 }
 |
 {
-  $$ = NULL;
+  $$ = nullptr;
 }
 ;
 
@@ -331,7 +329,7 @@ RightValList: RightVal RightValRestList
 }
 |
 {
-  $$ = NULL;
+  $$ = nullptr;
 }
 ;
 RightValRestList: RightValRest RightValRestList
@@ -340,7 +338,7 @@ RightValRestList: RightValRest RightValRestList
 }
 |
 {
-  $$ = NULL;
+  $$ = nullptr;
 }
 ;
 RightValRest: COMMA RightVal
@@ -369,9 +367,17 @@ VarDecl: ID COLON Type
 {
   $$ = A_VarDecl_Scalar($1->pos, A_VarDeclScalar($1->pos, $1->id, $3));
 }
+| ID
+{
+  $$ = A_VarDecl_Scalar($1->pos, A_VarDeclScalar($1->pos, $1->id, nullptr));
+}
 | ID LSB NUM RSB COLON Type
 {
   $$ = A_VarDecl_Array($1->pos, A_VarDeclArray($1->pos, $1->id, $3->num, $6));
+}
+| ID LSB NUM RSB
+{
+  $$ = A_VarDecl_Array($1->pos, A_VarDeclArray($1->pos, $1->id, $3->num, nullptr));
 }
 ;
 
@@ -379,9 +385,17 @@ VarDef: ID COLON Type AS RightVal
 {
   $$ = A_VarDef_Scalar($1->pos, A_VarDefScalar($1->pos, $1->id, $3, $5));
 }
+| ID AS RightVal
+{
+  $$ = A_VarDef_Scalar($1->pos, A_VarDefScalar($1->pos, $1->id, nullptr, $3));
+}
 | ID LSB NUM RSB COLON Type AS RightValList
 {
   $$ = A_VarDef_Array($1->pos, A_VarDefArray($1->pos, $1->id, $3->num, $6, $8));
+}
+| ID LSB NUM RSB AS RightValList
+{
+  $$ = A_VarDef_Array($1->pos, A_VarDefArray($1->pos, $1->id, $3->num, nullptr, $6));
 }
 ;
 
@@ -393,12 +407,7 @@ Type: INT
 {
   $$ = A_StructType($1->pos, $1->id);
 }
-| 
-{
-  $$ = NULL;
-}
 ;
-
 
 VarDeclList: VarDecl VarDeclRestList
 {
@@ -406,7 +415,7 @@ VarDeclList: VarDecl VarDeclRestList
 }
 |
 {
-  $$ = NULL;
+  $$ = nullptr;
 }
 ;
 VarDeclRestList: VarDeclRest VarDeclRestList
@@ -415,7 +424,7 @@ VarDeclRestList: VarDeclRest VarDeclRestList
 }
 |
 {
-  $$ = NULL;
+  $$ = nullptr;
 }
 ;
 VarDeclRest: COMMA VarDecl
@@ -438,7 +447,7 @@ ParamDecl: VarDeclList
 
 FnDecl: FN ID LP ParamDecl RP
 {
-  $$ = A_FnDecl($1, $2->id, $4, NULL);
+  $$ = A_FnDecl($1, $2->id, $4, nullptr);
 }
 | FN ID LP ParamDecl RP ARROW Type
 {
@@ -508,7 +517,7 @@ CodeBlockStmtList: CodeBlockStmt CodeBlockStmtList
 }
 |
 {
-  $$ = NULL;
+  $$ = nullptr;
 }
 ;
 
@@ -526,7 +535,7 @@ CallStmt: FnCall SEMICOLON
 
 IfStmt: IF LP BoolExpr RP CodeBlock
 {
-  $$ = A_IfStmt($1, $3, $5, NULL);
+  $$ = A_IfStmt($1, $3, $5, nullptr);
 }
 | IF LP BoolExpr RP CodeBlock ELSE CodeBlock
 {
