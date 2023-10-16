@@ -42,4 +42,4 @@ compiler.o: compiler.cpp TypeCheck.o TeaplAst.o TeaplaAst.o PrintTeaplaAst.o y.t
 
 ### 提交和评分
 
-请不要修改工程结构和 makefile，以学号命名提交压缩包，如 `22110240012.zip`。评分时会使用更多测试用例进行测试，按通过的测试数量进行评分。
+以学号命名提交压缩包，如 `22110240012.zip`。评分时会使用更多测试用例进行测试，按通过的测试数量进行评分。
