@@ -91,7 +91,6 @@ void check_VarDecl(std::ostream* out, aA_varDeclStmt vd)
         // if both declaration and initialization 
         // Example:
         //   let a:int = 5;
-        //   let a[5]:int = {1, 2, 3, 4, 5};
         
         /* write your code here */
     }

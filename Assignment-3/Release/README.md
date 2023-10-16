@@ -1,6 +1,6 @@
 # 实验三：类型检查
 
-## 实验介绍
+### 实验介绍
 
 在生成AST后，对程序进行类型检查。这次实验需要做的只是类型检查，程序运行时的正确性并不需要保证。
 
@@ -17,7 +17,18 @@ flex 2.6.4
 make
 ```
 
-即可编译所有文件，并对所有 testcase 进行测试。在你开始编写本作业的代码之前，可以运行 make 测试你的环境是否可以运行。
+即可编译所有文件，并对所有 testcase 进行测试。在你开始编写本作业的代码之前，可以运行 make 测试你的环境是否可以运行。本次实验工程提供了实验二 Solution 的 `.o` 文件，你可以直接在本工程里进行编写；你也可以copy 本次实验提供的新文件，然后在你自己编写的实验二的基础上继续开发，但可能需要对 makefile 进行调整。需要调整的编译命令是：
+
+```
+compiler: y.tab.o lex.yy.o TypeCheck.o TeaplAst.o TeaplaAst.o PrintTeaplaAst.o compiler.o 
+	$(CXX) $(CXXFLAGS) -o compiler $^ 
+
+TypeCheck.o: TypeCheck.cpp TypeCheck.h
+	$(CXX) $(CXXFLAGS) -c $<
+
+compiler.o: compiler.cpp TypeCheck.o TeaplAst.o TeaplaAst.o PrintTeaplaAst.o y.tab.o lex.yy.o
+	$(CXX) $(CXXFLAGS) -c $<
+```
 
 ### 上手
 

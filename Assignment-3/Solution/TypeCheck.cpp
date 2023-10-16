@@ -120,7 +120,7 @@ void check_LeftRightVal(std::ostream* out, aA_type lefttype, aA_rightVal val){
         right_type = check_ArithExpr(out, val->u.arithExpr);
         break;
     case A_rightValType::A_boolExprValKind:
-    
+        error_print(out, val->pos, "The expression of right value doesn't match the given left type!");
         break;
     default:
         break;
