@@ -1,5 +1,7 @@
 let a;
 
+let a[10]:int = {0};
+
 fn main(a:int, b:int)->int{
 let a:int;
 let b:int = 0;

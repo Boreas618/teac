@@ -389,13 +389,13 @@ VarDef: ID COLON Type AS RightVal
 {
   $$ = A_VarDef_Scalar($1->pos, A_VarDefScalar($1->pos, $1->id, nullptr, $3));
 }
-| ID LSB NUM RSB COLON Type AS RightValList
+| ID LSB NUM RSB COLON Type AS LB RightValList RB
 {
-  $$ = A_VarDef_Array($1->pos, A_VarDefArray($1->pos, $1->id, $3->num, $6, $8));
+  $$ = A_VarDef_Array($1->pos, A_VarDefArray($1->pos, $1->id, $3->num, $6, $9));
 }
-| ID LSB NUM RSB AS RightValList
+| ID LSB NUM RSB AS LB RightValList RB
 {
-  $$ = A_VarDef_Array($1->pos, A_VarDefArray($1->pos, $1->id, $3->num, nullptr, $6));
+  $$ = A_VarDef_Array($1->pos, A_VarDefArray($1->pos, $1->id, $3->num, nullptr, $7));
 }
 ;
 
