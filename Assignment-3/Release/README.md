@@ -36,6 +36,15 @@ compiler.o: compiler.cpp TypeCheck.o TeaplAst.o TeaplaAst.o PrintTeaplaAst.o y.t
 
 如果需要额外的数据结构或者函数定义，可以自行设计。
 
+变量声明时的类型推断不需要支持。即
+```
+let a = 5;
+```
+只需要支持明确提供类型的变量声明
+```
+let a:int = 5;
+```
+
 ### 测试
 
 测试样例在 `tests/` 文件中，其中每个文件的末尾都以注释的形式提供了参考输出。直接在工程目录下运行 `make` 即可测试所有测试用例。
