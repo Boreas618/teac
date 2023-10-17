@@ -40,6 +40,12 @@ compiler.o: compiler.cpp TypeCheck.o TeaplAst.o TeaplaAst.o PrintTeaplaAst.o y.t
 ```
 let a = 5;
 ```
+或
+```
+let a;
+let b:int = 10;
+a = b;
+```
 只需要支持明确提供类型的变量声明
 ```
 let a:int = 5;

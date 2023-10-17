@@ -5,12 +5,11 @@ typeMap func2retType; // function name to return type
 
 // global token ids to type
 typeMap g_token2Type; 
-// local token ids to type, local tokens are prior to 
-// global tokens in a function definition
-typeMap l_token2Type; 
+// local token ids to type
+typeMap funcparam_token2Type;
+vector<typeMap*> local_token2Type;
 
 
-bool isGlobal = true;
 paramMemberMap func2Param;
 paramMemberMap struct2Members;
 
@@ -53,14 +52,23 @@ void print_token_maps(){
     std::cout << "global token2Type:" << std::endl;
     print_token_map(&g_token2Type);
     std::cout << "local token2Type:" << std::endl;
-    print_token_map(&l_token2Type);
+    print_token_map(&funcparam_token2Type);
 }
 
 
 bool find_token(string name){
-    if(l_token2Type.find(name) != l_token2Type.end()){
+    // find from the most inner codeblock
+    for(auto it = local_token2Type.rbegin(); it != local_token2Type.rend(); it++){
+        if((*it)->find(name) != (*it)->end()){
+            return true;
+        }
+        
+    }
+
+    if(funcparam_token2Type.find(name) != funcparam_token2Type.end()){
         return true;
     }
+
     if(g_token2Type.find(name) != g_token2Type.end()){
         return true;
     }
@@ -69,16 +77,25 @@ bool find_token(string name){
 
 
 void set_token(string name, aA_type type){
-    if (isGlobal)
-        g_token2Type[name] = type;
-    else
-        l_token2Type[name] = type;
+    // insert to the most inner codeblock
+    if (local_token2Type.size() > 0){
+        local_token2Type.back()->insert({name, type});
+        return;
+    }
+
+    g_token2Type[name] = type;
 }
 
 
 aA_type get_token_type(string name){
-    if(l_token2Type.find(name) != l_token2Type.end()){
-        return l_token2Type[name];
+    // find from the most inner codeblock
+    for(auto it = local_token2Type.rbegin(); it != local_token2Type.rend(); it++){
+        if((*it)->find(name) != (*it)->end()){
+            return (*it)->at(name);
+        }
+    }
+    if(funcparam_token2Type.find(name) != funcparam_token2Type.end()){
+        return funcparam_token2Type[name];
     }
     if(g_token2Type.find(name) != g_token2Type.end()){
         return g_token2Type[name];
@@ -97,6 +114,9 @@ string& get_varDecl_id(aA_varDecl vd){
 
 
 bool comp_aA_type(aA_type t1, aA_type t2){
+    if(!t1 || !t2)
+        return false;
+
     if(t1->type != t2->type)
         return false;
 
@@ -125,8 +145,9 @@ void check_LeftRightVal(std::ostream* out, aA_type lefttype, aA_rightVal val){
     default:
         break;
     }
-    if(!comp_aA_type(lefttype, right_type))
+    if(!comp_aA_type(lefttype, right_type)){
         error_print(out, val->pos, "The expression of right value doesn't match the given left type!");
+    }
 }
 
 
@@ -272,29 +293,29 @@ void check_FnDef(std::ostream* out, aA_fnDef fd)
         return;
     // should match if declared
     check_FnDecl(out, fd->fnDecl);
-    // return value matches
-    isGlobal = false;
     // add params to local tokenmap
     for (aA_varDecl vd : fd->fnDecl->paramDecl->varDecls)
     {
         if(vd->kind == A_varDeclType::A_varDeclScalarKind)
-            l_token2Type[*vd->u.declScalar->id] = vd->u.declScalar->type;
+            funcparam_token2Type[*vd->u.declScalar->id] = vd->u.declScalar->type;
         else if(vd->kind == A_varDeclType::A_varDeclArrayKind)
-            l_token2Type[*vd->u.declArray->id] = vd->u.declArray->type;
+            funcparam_token2Type[*vd->u.declArray->id] = vd->u.declArray->type;
     }
 
+    local_token2Type.push_back(new typeMap());
     for (aA_codeBlockStmt stmt : fd->stmts)
     {
         check_CodeblockStmt(out, stmt);
+        // return value type should match
         if(stmt->kind == A_codeBlockStmtType::A_returnStmtKind)
             check_LeftRightVal(out, fd->fnDecl->type, stmt->u.returnStmt->retVal);
         // else if (stmt->kind == A_codeBlockStmtType::A_varDeclStmtKind)
         //     local_vars.push_back(*stmt->u.varDeclStmt->u.varDecl->u.declArray->id);
     }
+    local_token2Type.pop_back();
 
     // erase local vars defined in this function
-    l_token2Type.clear();
-    isGlobal = true;
+    funcparam_token2Type.clear();
     return;
 }
 
@@ -302,6 +323,7 @@ void check_FnDef(std::ostream* out, aA_fnDef fd)
 void check_CodeblockStmt(std::ostream* out, aA_codeBlockStmt cs){
     if(!cs)
         return;
+    // variables declared in a code block should not duplicate with outer ones.
     switch (cs->kind)
     {
     case A_codeBlockStmtType::A_varDeclStmtKind:
@@ -419,12 +441,17 @@ void check_IfStmt(std::ostream* out, aA_ifStmt is){
     if(!is)
         return;
     check_BoolExpr(out, is->boolExpr);
+    local_token2Type.push_back(new typeMap());
     for(aA_codeBlockStmt s : is->ifStmts){
         check_CodeblockStmt(out, s);
     }
+    local_token2Type.pop_back();
+
+    local_token2Type.push_back(new typeMap());
     for(aA_codeBlockStmt s : is->elseStmts){
         check_CodeblockStmt(out, s);
     }
+    local_token2Type.pop_back();
     return;
 }
 
@@ -571,9 +598,11 @@ void check_WhileStmt(std::ostream* out, aA_whileStmt ws){
     if(!ws)
         return;
     check_BoolExpr(out, ws->boolExpr);
+    local_token2Type.push_back(new typeMap());
     for(aA_codeBlockStmt s : ws->whileStmts){
         check_CodeblockStmt(out, s);
     }
+    local_token2Type.pop_back();
     return;
 }
 

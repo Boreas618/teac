@@ -18,9 +18,12 @@ compiler: y.tab.o lex.yy.o TypeCheck.o TeaplAst.o TeaplaAst.o PrintTeaplaAst.o c
 TypeCheck.o: TypeCheck.cpp TypeCheck.h
 	$(CXX) $(CXXFLAGS) -c $<
 
-compiler.o: compiler.cpp TypeCheck.o TeaplAst.o TeaplaAst.o PrintTeaplaAst.o y.tab.o lex.yy.o
+PrintTeaplaAst.o: PrintTeaplaAst.cpp PrintTeaplaAst.h
 	$(CXX) $(CXXFLAGS) -c $<
 
+compiler.o: compiler.cpp TypeCheck.o TeaplAst.o TeaplaAst.o PrintTeaplaAst.o y.tab.o lex.yy.o
+	$(CXX) $(CXXFLAGS) -c $<
+	
 clean:
-	rm TypeCheck.o compiler.o compiler tests/*.ast
+	rm TypeCheck.o compiler.o PrintTeaplaAst.o compiler tests/*.ast
 

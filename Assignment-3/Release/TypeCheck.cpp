@@ -2,7 +2,8 @@
 
 // maps to store the type information. Feel free to design new data structures if you need.
 typeMap g_token2Type; // global token ids to type
-typeMap l_token2Type; // local token ids to type, local tokens are prior to global tokens in a function definition
+typeMap funcparam_token2Type; // func params token ids to type
+
 paramMemberMap func2Param;
 paramMemberMap struct2Members;
 
