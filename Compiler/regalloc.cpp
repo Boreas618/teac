@@ -1,6 +1,6 @@
 #include "assem.h"
 #include "flowgraph.h"
-#include "graph.h"
+#include "graph.hpp"
 #include "regalloc.h"
 #include "temp.h"
 #include "util.h"

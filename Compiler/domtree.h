@@ -1,7 +1,7 @@
 #ifndef __DOMTREE__
 #define __DOMTREE__
 
-#include "graph.h"
+#include "graph.hpp"
 #include "assemblock.h"
 #include "deadce.h"
 #include <unordered_set>

@@ -1,6 +1,6 @@
 #ifndef __REGALLOC
 #define __REGALLOC
-#include "graph.h"
+#include "graph.hpp"
 #include "assem.h"
 #include "treep.hpp"
 

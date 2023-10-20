@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include "util.h"
 #include "oldtable.h"
-#include "graph.h"
+#include "graph.hpp"
 #include "symbol.h"
 #include "temp.h"
 #include "assem.h"

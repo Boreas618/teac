@@ -1,7 +1,7 @@
 #include "assem.h"
 #include "temp.h"
 #include "symbol.h"
-#include "graph.h"
+#include "graph.hpp"
 #include "assemblock.h"
 #include "util.h"
 #include "bg.h"

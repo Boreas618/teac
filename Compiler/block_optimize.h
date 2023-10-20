@@ -5,7 +5,7 @@
 #include "bg.h"
 #include "canon.h"
 #include "deadce.h"
-#include "graph.h"
+#include "graph.hpp"
 #include "llvm_assemblock.h"
 #include "symbol.h"
 #include "temp.h"

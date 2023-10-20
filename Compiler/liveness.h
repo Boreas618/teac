@@ -2,7 +2,7 @@
 #define __LIVENESS
 
 #include "temp.h"
-#include "graph.h"
+#include "graph.hpp"
 
 G_nodeList Liveness(G_nodeList);
 void Show_Liveness(FILE*, G_nodeList);

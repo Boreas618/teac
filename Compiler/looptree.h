@@ -3,7 +3,7 @@
 
 
 #include "deadce.h"
-#include "graph.h"
+#include "graph.hpp"
 #include "bg_llvm.h"
 #include "flowgraph_llvm.h"
 #include "assemblock.h"

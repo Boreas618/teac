@@ -1,6 +1,6 @@
 #ifndef __SSA
 #define __SSA
-#include "graph.h"
+#include "graph.hpp"
 #include "temp.h"
 #include "assem.h"
 #include "assemblock.h"

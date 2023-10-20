@@ -72,22 +72,22 @@ oldtable.o: oldtable.cpp oldtable.h util.o
 canon.o: canon.cpp canon.h temp.h treep.hpp templabel.hpp
 	@clang++ -g -gdwarf-4 -std=c++17 -O2  -c $<
 
-bg.o: bg.cpp bg.h oldtable.h util.h graph.h symbol.h temp.h assem.h
+bg.o: bg.cpp bg.h oldtable.h util.h graph.hpp symbol.h temp.h assem.h
 	@clang++ -g -fpermissive -std=c++17 -O2  -c $<
 
-bg_llvm.o: bg_llvm.cpp bg_llvm.h oldtable.h util.h graph.h symbol.h temp.h assem.h
+bg_llvm.o: bg_llvm.cpp bg_llvm.h oldtable.h util.h graph.hpp symbol.h temp.h assem.h
 	@clang++ -g -fpermissive -std=c++17 -O2  -c $<
 
-flowgraph.o: flowgraph.cpp flowgraph.h oldtable.h util.h graph.h symbol.h temp.h assem.h
+flowgraph.o: flowgraph.cpp flowgraph.h oldtable.h util.h graph.hpp symbol.h temp.h assem.h
 	@clang++ -g -fpermissive -std=c++17 -O2  -c $<
 
-flowgraph_llvm.o: flowgraph_llvm.cpp flowgraph_llvm.h oldtable.h util.h graph.h symbol.h temp.h assem.h
+flowgraph_llvm.o: flowgraph_llvm.cpp flowgraph_llvm.h oldtable.h util.h graph.hpp symbol.h temp.h assem.h
 	@clang++ -g -fpermissive -std=c++17 -O2  -c $<
 
 gen_as.o: gen_as.cpp gen_as.h treep.hpp util.h temp.h assem.h
 	@clang++ -g -fpermissive -std=c++17 -O2  -c $<
 
-graph.o: graph.cpp graph.h symbol.h util.h temp.h assem.h oldtable.h
+graph.o: graph.cpp graph.hpp symbol.h util.h temp.h assem.h oldtable.h
 	@clang++ -g -fpermissive -std=c++17 -O2  -c $<
 
 liveness.o: liveness.cpp liveness.h

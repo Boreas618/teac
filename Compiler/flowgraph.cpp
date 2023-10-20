@@ -15,7 +15,7 @@
 #include "symbol.h"
 #include "temp.h"
 #include "flowgraph.h"
-#include "graph.h"
+#include "graph.hpp"
 #include "assem.h"
 
 /* Interfaces */
