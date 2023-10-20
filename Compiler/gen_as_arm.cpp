@@ -8,7 +8,7 @@
 #include "gen_as_arm.h"
 #include "util.h"
 #include "temp.h"
-#include "graph.h"
+#include "graph.hpp"
 #include "assemblock.h"
 #include "bg.h"
 #include "llvm_assem.h"

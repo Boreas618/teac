@@ -1,7 +1,7 @@
 #pragma once
 
 #include "deadce.h"
-#include "graph.h"
+#include "graph.hpp"
 
 /* Block graph */
 namespace BG_LLVM_2 {

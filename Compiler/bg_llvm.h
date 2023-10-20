@@ -1,7 +1,7 @@
 #pragma once
 
 #include "llvm_assemblock.h"
-#include "graph.h"
+#include "graph.hpp"
 #include "temp.h"
 
 /* Block graph */

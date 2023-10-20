@@ -1,7 +1,7 @@
 #pragma once
 
 #include "temp.h"
-#include "graph.h"
+#include "graph.hpp"
 
 namespace LI_LLVM {
     

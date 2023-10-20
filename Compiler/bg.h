@@ -2,7 +2,7 @@
 #define __BG
 
 #include "assemblock.h"
-#include "graph.h"
+#include "graph.hpp"
 
 /* Block graph */
 

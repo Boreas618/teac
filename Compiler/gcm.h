@@ -1,7 +1,7 @@
 #ifndef __GCM__
 #define __GCM__
 
-#include "graph.h"
+#include "graph.hpp"
 #include "llvm_assem.h"
 #include "llvm_assemblock.h"
 #include "deadce.h"

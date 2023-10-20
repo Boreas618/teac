@@ -7,7 +7,7 @@
 #include "gen_as.h"
 #include "util.h"
 #include "temp.h"
-#include "graph.h"
+#include "graph.hpp"
 #include "assemblock.h"
 #include "bg.h"
 #include "llvm_assem.h"

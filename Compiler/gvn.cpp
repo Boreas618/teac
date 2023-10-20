@@ -1,5 +1,5 @@
 #include "gvn.h"
-#include "graph.h"
+#include "graph.hpp"
 #include "deadce.h"
 #include <stack>
 #include <unordered_map>
