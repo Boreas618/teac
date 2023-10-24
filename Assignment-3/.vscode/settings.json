@@ -1,7 +1,0 @@
-{
-    "C_Cpp.default.compilerPath": "d:\\Program Files\\Microsoft Visual Studio\\VC\\Tools\\MSVC\\14.35.32215\\bin\\Hostx64\\x64\\cl.exe",
-    "files.associations": {
-        "vector": "cpp",
-        "cwchar": "cpp"
-    }
-}

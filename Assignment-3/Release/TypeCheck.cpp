@@ -49,27 +49,27 @@ void check_Prog(std::ostream* out, aA_program p)
     // p is the root of AST tree.
     for (auto ele : p->programElements)
     {
-        switch (ele->kind)
-        {
-            case A_programElementType::A_programVarDeclStmtKind:
-                check_VarDecl(out, ele->u.varDeclStmt);
-                break;
-            case A_programElementType::A_programStructDefKind:
-                check_StructDef(out, ele->u.structDef);
-                break;
-            case A_programElementType::A_programFnDeclStmtKind:
-                check_FnDeclStmt(out, ele->u.fnDeclStmt);
-                break;
-            case A_programElementType::A_programFnDefKind:
-                check_FnDef(out, ele->u.fnDef);
-                break;
-            case A_programElementType::A_programNullStmtKind:
-                // do nothing
-                break;
-            default:
-                break;
-        }
+    /*
+        Write your code here.
+
+        Hint: 
+        1. Design the order of checking the program elements to meet the requirements that funtion declaration and global variable declaration can be used anywhere in the program.
+
+        2. Many types of statements indeed collapse to some same units, so a good abstract design will help you reduce the amount of your code.
+    */    
     }
+
+    for (auto ele : p->programElements)
+    {
+
+    }
+    
+    for (auto ele : p->programElements)
+    {
+            
+    }
+
+    (*out) << "Typecheck passed!" << std::endl;
     return;
 }
 
@@ -154,7 +154,7 @@ void check_FnDef(std::ostream* out, aA_fnDef fd)
     check_FnDecl(out, fd->fnDecl);
     /*  
         write your code here 
-        Hint: you may pay attention to the local variables and global variables.
+        Hint: you may pay attention to the function parameters, local variables and global variables.
     */
     return;
 }
@@ -234,9 +234,7 @@ aA_type check_MemberExpr(std::ostream* out, aA_memberExpr me){
         return nullptr;
     /*
         Example:
-            a.b = 0;
-        Hint:
-            check if the member exists, and if the member type matches its leftvalue or rightvalue.
+            a.b
     */
     return nullptr;
 }
@@ -297,9 +295,10 @@ void check_BoolUnit(std::ostream* out, aA_boolUnit bu){
 
 
 aA_type check_ExprUnit(std::ostream* out, aA_exprUnit eu){
-    // validate the expression unit and 
-    // return the aA_type of it
-    // you may need to check if the type of this expression matches with its leftvalue or rightvalue, so return its aA_type would be a good way. Feel free to change the design pattern if you need.
+    // validate the expression unit and return the aA_type of it
+    // you may need to check if the type of this expression matches with its 
+    // leftvalue or rightvalue, so return its aA_type would be a good way. 
+    // Feel free to change the design pattern if you need.
     if(!eu)
         return nullptr;
     aA_type ret;
@@ -342,7 +341,7 @@ void check_FuncCall(std::ostream* out, aA_fnCall fc){
     if(!fc)
         return;
     // Example:
-    //      a = main(1, 2);
+    //      foo(1, 2);
 
     /* write your code here */
     return ;

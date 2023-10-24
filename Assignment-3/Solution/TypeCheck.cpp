@@ -156,27 +156,31 @@ void check_Prog(std::ostream* out, aA_program p)
 {
     for (auto ele : p->programElements)
     {
-        switch (ele->kind)
-        {
-            case A_programElementType::A_programVarDeclStmtKind:
-                check_VarDecl(out, ele->u.varDeclStmt);
-                break;
-            case A_programElementType::A_programStructDefKind:
-                check_StructDef(out, ele->u.structDef);
-                break;
-            case A_programElementType::A_programFnDeclStmtKind:
-                check_FnDeclStmt(out, ele->u.fnDeclStmt);
-                break;
-            case A_programElementType::A_programFnDefKind:
-                check_FnDef(out, ele->u.fnDef);
-                break;
-            case A_programElementType::A_programNullStmtKind:
-                // do nothing
-                break;
-            default:
-                break;
+        if(ele->kind == A_programVarDeclStmtKind){
+            check_VarDecl(out, ele->u.varDeclStmt);
         }
     }
+    
+    for (auto ele : p->programElements){
+        if(ele->kind == A_programFnDeclStmtKind){
+            check_FnDeclStmt(out, ele->u.fnDeclStmt);
+        }
+        else if (ele->kind == A_programFnDefKind){
+            check_FnDecl(out, ele->u.fnDef->fnDecl);
+        }
+    }
+
+    for (auto ele : p->programElements){
+        if(ele->kind == A_programFnDefKind){
+            check_FnDef(out, ele->u.fnDef);
+        }
+        else if (ele->kind == A_programStructDefKind){
+            check_StructDef(out, ele->u.structDef);
+        }else if (ele->kind == A_programNullStmtKind){
+            // do nothing
+        }
+    }
+
     (*out) << "Typecheck passed!" << std::endl;
     return;
 }
@@ -249,11 +253,13 @@ void check_FnDecl(std::ostream* out, aA_fnDecl fd)
         if(!comp_aA_type(func2retType[name], fd->type))
             error_print(out, fd->pos, "The function return type doesn't match the declaration!");
         // is function params matches decl
-        if(func2Param[name]->size() != fd->paramDecl->varDecls.size())
-            error_print(out, fd->pos, "The function param list doesn't match the declaration!");
-        for (int i = 0; i<func2Param[name]->size(); i++){
-            if(!comp_aA_type(func2Param[name]->at(i)->u.declScalar->type, fd->paramDecl->varDecls[i]->u.declScalar->type))
-                error_print(out, fd->pos, "The function param type doesn't match the declaration!");
+        if(fd->paramDecl->varDecls.size() != 0){
+            if(func2Param[name]->size() != fd->paramDecl->varDecls.size())
+                error_print(out, fd->pos, "The function param list doesn't match the declaration!");
+            for (int i = 0; i<func2Param[name]->size(); i++){
+                if(!comp_aA_type(func2Param[name]->at(i)->u.declScalar->type, fd->paramDecl->varDecls[i]->u.declScalar->type))
+                    error_print(out, fd->pos, "The function param type doesn't match the declaration!");
+            }
         }
     }else{
         // if not defined as a function
