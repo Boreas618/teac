@@ -259,29 +259,29 @@ BoolExpr: BoolExpr AND BoolUnit
 }
 ;
 
-BoolUnit: LP ExprUnit LT ExprUnit RP
+BoolUnit: ExprUnit LT ExprUnit
 {
-  $$ = A_ComExprUnit($1, A_ComExpr($2->pos, A_lt, $2, $4));
+  $$ = A_ComExprUnit($1->pos, A_ComExpr($1->pos, A_lt, $1, $3));
 }
-| LP ExprUnit LE ExprUnit RP
+| ExprUnit LE ExprUnit
 {
-  $$ = A_ComExprUnit($1, A_ComExpr($2->pos, A_le, $2, $4));
+  $$ = A_ComExprUnit($1->pos, A_ComExpr($1->pos, A_le, $1, $3));
 }
-| LP ExprUnit GT ExprUnit RP
+| ExprUnit GT ExprUnit
 {
-  $$ = A_ComExprUnit($1, A_ComExpr($2->pos, A_gt, $2, $4));
+  $$ = A_ComExprUnit($1->pos, A_ComExpr($1->pos, A_gt, $1, $3));
 }
-| LP ExprUnit GE ExprUnit RP
+| ExprUnit GE ExprUnit
 {
-  $$ = A_ComExprUnit($1, A_ComExpr($2->pos, A_ge, $2, $4));
+  $$ = A_ComExprUnit($1->pos, A_ComExpr($1->pos, A_ge, $1, $3));
 }
-| LP ExprUnit EQ ExprUnit RP
+| ExprUnit EQ ExprUnit
 {
-  $$ = A_ComExprUnit($1, A_ComExpr($2->pos, A_eq, $2, $4));
+  $$ = A_ComExprUnit($1->pos, A_ComExpr($1->pos, A_eq, $1, $3));
 }
-| LP ExprUnit NE ExprUnit RP
+| ExprUnit NE ExprUnit
 {
-  $$ = A_ComExprUnit($1, A_ComExpr($2->pos, A_ne, $2, $4));
+  $$ = A_ComExprUnit($1->pos, A_ComExpr($1->pos, A_ne, $1, $3));
 }
 | LP BoolExpr RP
 {
