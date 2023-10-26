@@ -469,7 +469,7 @@ void check_BoolExpr(std::ostream* out, aA_boolExpr be){
     {
     case A_boolExprType::A_boolBiOpExprKind:
         check_BoolExpr(out, be->u.boolBiOpExpr->left);
-        check_BoolUnit(out, be->u.boolBiOpExpr->right);
+        check_BoolExpr(out, be->u.boolBiOpExpr->right);
         break;
     case A_boolExprType::A_boolUnitKind:
         check_BoolUnit(out, be->u.boolUnit);
