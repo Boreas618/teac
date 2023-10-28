@@ -158,6 +158,8 @@ void check_Prog(std::ostream* out, aA_program p)
     {
         if(ele->kind == A_programVarDeclStmtKind){
             check_VarDecl(out, ele->u.varDeclStmt);
+        }else if (ele->kind == A_programStructDefKind){
+            check_StructDef(out, ele->u.structDef);
         }
     }
     
@@ -174,9 +176,7 @@ void check_Prog(std::ostream* out, aA_program p)
         if(ele->kind == A_programFnDefKind){
             check_FnDef(out, ele->u.fnDef);
         }
-        else if (ele->kind == A_programStructDefKind){
-            check_StructDef(out, ele->u.structDef);
-        }else if (ele->kind == A_programNullStmtKind){
+        else if (ele->kind == A_programNullStmtKind){
             // do nothing
         }
     }
