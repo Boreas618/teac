@@ -253,13 +253,11 @@ void check_FnDecl(std::ostream* out, aA_fnDecl fd)
         if(!comp_aA_type(func2retType[name], fd->type))
             error_print(out, fd->pos, "The function return type doesn't match the declaration!");
         // is function params matches decl
-        if(fd->paramDecl->varDecls.size() != 0){
-            if(func2Param[name]->size() != fd->paramDecl->varDecls.size())
-                error_print(out, fd->pos, "The function param list doesn't match the declaration!");
-            for (int i = 0; i<func2Param[name]->size(); i++){
-                if(!comp_aA_type(func2Param[name]->at(i)->u.declScalar->type, fd->paramDecl->varDecls[i]->u.declScalar->type))
-                    error_print(out, fd->pos, "The function param type doesn't match the declaration!");
-            }
+        if(func2Param[name]->size() != fd->paramDecl->varDecls.size())
+            error_print(out, fd->pos, "The function param list doesn't match the declaration!");
+        for (int i = 0; i<func2Param[name]->size(); i++){
+            if(!comp_aA_type(func2Param[name]->at(i)->u.declScalar->type, fd->paramDecl->varDecls[i]->u.declScalar->type))
+                error_print(out, fd->pos, "The function param type doesn't match the declaration!");
         }
     }else{
         // if not defined as a function
