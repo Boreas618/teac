@@ -1,6 +1,6 @@
 let a;
 
-fn main(a:int, b:int)->int{
+fn main()->int{
 let a:int;
 let b:int = 0;
 while((a>b)||(a<c)&&(c<9)){
