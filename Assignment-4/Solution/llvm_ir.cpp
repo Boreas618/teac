@@ -1,6 +1,7 @@
 #include "llvm_ir.h"
 #include <string>
 #include <vector>
+#include <cassert>
 
 using namespace std;
 using namespace LLVMIR;
@@ -53,11 +54,11 @@ LLVMIR::L_label::L_label(Temp_label *_label)
 LLVMIR::L_jump::L_jump(Temp_label *_jump)
     : jump(_jump) {}
 
-LLVMIR::L_cmp::L_cmp(L_relopKind _op,AS_operand *_left,AS_operand *_right)
-    : op(_op), left(_left), right(_right) {}
+LLVMIR::L_cmp::L_cmp(L_relopKind _op,AS_operand *_left,AS_operand *_right,AS_operand *_dst)
+    : op(_op), left(_left), right(_right), dst(_dst) {}
 
-LLVMIR::L_cjump::L_cjump(L_relopKind _op,Temp_label *_true_label,Temp_label *_false_label)
-    : op(_op), true_label(_true_label), false_label(_false_label) {}
+LLVMIR::L_cjump::L_cjump(AS_operand *_dst,Temp_label *_true_label,Temp_label *_false_label)
+    : dst(_dst), true_label(_true_label), false_label(_false_label) {}
 
 LLVMIR::L_move::L_move(AS_operand *_src,AS_operand *_dst)
     : src(_src), dst(_dst) {}
@@ -120,19 +121,19 @@ L_stm* LLVMIR::L_Jump(Temp_label *jump)
     return p;
 }
 
-L_stm* LLVMIR::L_Cmp(L_relopKind op,AS_operand *left,AS_operand *right)
+L_stm* LLVMIR::L_Cmp(L_relopKind op,AS_operand *left,AS_operand *right,AS_operand *dst)
 {
     auto p = new L_stm();
     p->type = L_StmKind::T_CMP;
-    p->u.CMP = new L_cmp(op,left,right);
+    p->u.CMP = new L_cmp(op,left,right,dst);
     return p;
 }
 
-L_stm* LLVMIR::L_Cjump(L_relopKind op,Temp_label *true_label,Temp_label *false_label)
+L_stm* LLVMIR::L_Cjump(AS_operand *dst,Temp_label *true_label,Temp_label *false_label)
 {
     auto p = new L_stm();
     p->type = L_StmKind::T_CJUMP;
-    p->u.CJUMP = new L_cjump(op,true_label,false_label);
+    p->u.CJUMP = new L_cjump(dst,true_label,false_label);
     return p;
 }
 
@@ -191,3 +192,42 @@ L_stm* LLVMIR::L_Gep(AS_operand *new_ptr,AS_operand *base_ptr,AS_operand *index)
     p->u.GEP = new L_gep(new_ptr,base_ptr,index);
     return p;
 }
+
+LLVMIR::L_block::L_block(Temp_label *_label,const std::unordered_set<Temp_label*> &_succs,const std::list<L_stm*> &_instrs)
+    : label(_label), succs(_succs), instrs(_instrs) {}
+
+LLVMIR::L_func::L_func(const std::string &_name,FuncType _ret,const std::vector<Temp_temp*> _args,const std::list<LLVMIR::L_block*> &_blocks)
+    : name(_name), ret(_ret), args(_args), blocks(_blocks) {}
+
+L_block* LLVMIR::L_Block(const std::list<L_stm*> instrs)
+{
+    auto label_ins = instrs.front();
+    if(label_ins->type != L_StmKind::T_LABEL)
+    {
+        assert(0);
+    }
+    auto label = label_ins->u.LABEL->label;
+    auto jump_ins = instrs.back();
+    unordered_set<Temp_label*> succs;
+    if(jump_ins->type == L_StmKind::T_CJUMP)
+    {
+        succs.emplace(jump_ins->u.CJUMP->true_label);
+        succs.emplace(jump_ins->u.CJUMP->false_label);
+    }
+    else if(jump_ins->type == L_StmKind::T_JUMP)
+    {
+        succs.emplace(jump_ins->u.JUMP->jump);
+    }
+    else if(jump_ins->type == L_StmKind::T_RETURN)
+    {
+
+    }
+    else
+    {
+        assert(0);
+    }
+    return new L_block(label,succs,instrs);
+}
+
+LLVMIR::L_prog::L_prog(const std::vector<L_def*> &_defs,const std::vector<L_func*> &_funcs)
+    : defs(_defs), funcs(_funcs) {}

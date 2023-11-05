@@ -47,5 +47,14 @@ PrintTeaplaAst.o: PrintTeaplaAst.cpp PrintTeaplaAst.h
 compiler.o: compiler.cpp TeaplAst.o TeaplaAst.o PrintTeaplaAst.o y.tab.o lex.yy.o
 	$(CXX) $(CXXFLAGS) -c $<
 
+llvm_ir.o: llvm_ir.cpp llvm_ir.h
+	$(CXX) $(CXXFLAGS) -c $<
+
+ast2llvm.o: ast2llvm.cpp ast2llvm.h llvm_ir.cpp llvm_ir.h
+	$(CXX) $(CXXFLAGS) -c $<
+
+printLLVM.o: printLLVM.cpp printLLVM/h llvm_ir.cpp llvm_ir.h
+	$(CXX) $(CXXFLAGS) -c $<
+
 clean:
 	rm *.o *.output y.tab.cpp y.tab.hpp lex.yy.cpp compiler tests/*.ast
