@@ -6,10 +6,10 @@ struct MyStruct1 {
 let gad[10]:MyStruct1;
 
 fn foo(gad[10]:MyStruct1)->int;
-fn bar_null();
+fn barnull();
 
 fn main()->int{
-    bar_null();
+    barnull();
     foo(gad);
     ret 0;
 }
@@ -25,7 +25,7 @@ fn foo(gad[10]:MyStruct1)->int{
     ret r;
 }
 
-fn bar_null(){
+fn barnull(){
     let ls1:MyStruct1;
     let i:int = 0;
     while(i<10){

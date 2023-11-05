@@ -1,20 +1,20 @@
 let gad[10]:int = {gb+26};
 
-fn foo_null();
-fn bar_null();
+fn fooll();
+fn barnull();
 fn putint(num:int);
 fn putch(ch:int);
 
 fn main()->int{
     let lb:int = ((1+2) <= 3);
     let lc:int = 0;
-    foo_null();
-    bar_null();
-    foo_null();
+    foonull();
+    barnull();
+    foonull();
     ret 1+-lb+lc;
 }
 
-fn foo_null(){
+fn foonull(){
     let i:int = 0;
     while((i<10)){
         putint(gad[i]);
@@ -23,7 +23,7 @@ fn foo_null(){
     putch(10); // enter
 }
 
-fn bar_null(){
+fn barnull(){
     let i:int = 1;
     while((i<10)){
         gad[i] = i;

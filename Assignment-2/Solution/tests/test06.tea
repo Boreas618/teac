@@ -9,7 +9,7 @@ let gs2:MyStruct2;
 
 let gad[10]:int = {gb+26};
 
-fn sbar_null()->MyStruct2;
+fn sbarnull()->MyStruct2;
 
 fn main()->int{
     let lb:int = 0;
@@ -20,13 +20,13 @@ fn main()->int{
     gs2.temp = lb+lc;
 
     gad[0] = 56+-32*gs2.temp;
-    gs2 = sbar_null();
+    gs2 = sbarnull();
 
 
     ret -gs2.node+gs2.val;
 }
 
-fn sbar_null()->MyStruct2{
+fn sbarnull()->MyStruct2{
     gs2.temp = 0;
     gs2.node = 1;
     gs2.val = 2;

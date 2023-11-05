@@ -1,6 +1,6 @@
 let count:int = 0;
 
-fn foo_null()->int;
+fn foonull()->int;
 
 fn main()->int{
     let l1 = 1;
@@ -18,7 +18,7 @@ fn main()->int{
 
     count = 0;
 
-    if(((l1+foo_null()) < 10100) || ((l2+foo_null()) < 10100)){
+    if(((l1+foonull()) < 10100) || ((l2+foonull()) < 10100)){
         if(count == 1){
             ret 0;
         }
@@ -27,7 +27,7 @@ fn main()->int{
     }
 }
 
-fn foo_null()->int{
+fn foonull()->int{
     count = count + 1;
     ret 10086;
 }

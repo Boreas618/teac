@@ -16,12 +16,12 @@ ret parent[root];
 }
 
 fn merge(p:int, q:int){
-let root_p:int;
-let root_q:int;
-root_p = find(p);
-root_q = find(q);
-if((root_p!=root_q)){
-parent[root_q] = root_p;
+let rootp:int;
+let rootq:int;
+rootp = find(p);
+rootq = find(q);
+if((rootp!=rootq)){
+parent[rootq] = rootp;
 }
 }
 
