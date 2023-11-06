@@ -18,8 +18,8 @@ LLVMIR::L_globaldef::L_globaldef(const std::string &_name,TempDef _def, const st
 L_def* LLVMIR::L_Structdef(const std::string &name,const std::vector<TempDef> &members)
 {
     auto p = new L_def();
-    p->kind = L_DefKind::STRUCT;
-    p->u.STRUCT = new L_structdef(name,members);
+    p->kind = L_DefKind::SRT;
+    p->u.SRT = new L_structdef(name,members);
     return p;
 }
 

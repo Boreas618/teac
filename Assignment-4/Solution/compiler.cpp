@@ -34,21 +34,21 @@ int main(int argc, char * argv[]) {
     
     freopen(argv[1], "r", stdin);  
     ofstream ASTStream;
-    ASTStream.open(argv[2]);
+    // ASTStream.open(argv[2]);
 
     yyparse();
     
     aroot = aA_Program(root);
-    print_aA_Program(aroot, ASTStream);
-    ASTStream.close();
+    // print_aA_Program(aroot, ASTStream);
+    // ASTStream.close();
 
-    check_Prog(&std::cout, aroot);
+    // check_Prog(&std::cout, aroot);
     string input_name = argv[1];
     auto dot_pos = input_name.find('.');
     if(dot_pos == input_name.npos)
     {
         cout << "input error";
-        return 0;
+        return -1;
     }
     string file_name(input_name.substr(0,dot_pos));
 

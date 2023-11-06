@@ -94,7 +94,8 @@ extern int  yywrap();
 %left ELSE
 %left ID
 %left AS
-%left AND OR
+%left OR
+%left AND
 %left LT LE GT GE EQ NE
 %left ADD SUB
 %left MUL DIV 
@@ -245,11 +246,11 @@ ExprUnit: NUM
 }
 ;
 
-BoolExpr: BoolExpr AND BoolUnit
+BoolExpr: BoolExpr AND BoolExpr
 {
   $$ = A_BoolBiOp_Expr($1->pos, A_BoolBiOpExpr($1->pos, A_and, $1, $3));
 }
-| BoolExpr OR BoolUnit
+| BoolExpr OR BoolExpr
 {
   $$ = A_BoolBiOp_Expr($1->pos, A_BoolBiOpExpr($1->pos, A_or, $1, $3));
 }

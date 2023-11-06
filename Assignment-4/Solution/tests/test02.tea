@@ -1,0 +1,19 @@
+struct Node {
+    l:int,
+    r:int
+}
+
+fn foo(c:Node)->int {
+    c.l = getint();
+    c.r = getint();
+    ret 0;
+}
+
+fn main()->int{
+    let c:Node;
+    c.l = 1;
+    c.r = 2;
+    foo(c);
+    putint(c.l+c.r);
+    ret 0;
+}

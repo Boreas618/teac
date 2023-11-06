@@ -31,7 +31,7 @@ struct TempDef
     TempType kind;
     int len;
     std::string structname;
-    TempDef(TempType _kind,int _len = 0,const std::string &_structname = std::string());
+    TempDef(TempType _kind = TempType::INT_TEMP,int _len = 0,const std::string &_structname = std::string());
 };
 
 struct Temp_label
@@ -49,7 +49,7 @@ struct Name_name
     TempType type;
     std::string structname;
     int len;
-    Name_name(Temp_label *_name,TempType _type,int _len = 0,const std::string &_structname);
+    Name_name(Temp_label *_name,TempType _type,int _len = 0,const std::string &_structname = std::string());
 };
 
 Name_name *Name_newname_int(Temp_label *name);

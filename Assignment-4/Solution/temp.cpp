@@ -5,7 +5,7 @@ using namespace std;
 
 static int temps = 100;
 
-Temp_temp::Temp_temp(int _num,TempType _type,int _len,const string& _sname = string())
+Temp_temp::Temp_temp(int _num,TempType _type,int _len,const string& _sname)
     : num(_num), type(_type), structname(_sname), len(_len),varname() {}
 
 Temp_temp* Temp_newtemp_int()

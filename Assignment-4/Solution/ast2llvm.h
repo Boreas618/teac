@@ -13,7 +13,7 @@ struct MemberInfo
 {
     int offset;
     TempDef def;
-    MemberInfo(int off,TempDef d)
+    MemberInfo(int off = 0,TempDef d = TempDef())
         : offset(off), def(d) {}
 };
 
@@ -49,5 +49,6 @@ Temp_temp* ast2llvmExprUnit(aA_exprUnit e);
 
 LLVMIR::L_prog* ast2llvm(aA_program p);
 LLVMIR::L_func* ast2llvmFuncBlock(Func_local *f);
+void ast2llvm_moveAlloca(LLVMIR::L_func *f);
 
 #endif

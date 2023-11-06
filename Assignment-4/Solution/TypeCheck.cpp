@@ -158,6 +158,8 @@ void check_Prog(std::ostream* out, aA_program p)
     {
         if(ele->kind == A_programVarDeclStmtKind){
             check_VarDecl(out, ele->u.varDeclStmt);
+        }else if (ele->kind == A_programStructDefKind){
+            check_StructDef(out, ele->u.structDef);
         }
     }
     
@@ -174,9 +176,7 @@ void check_Prog(std::ostream* out, aA_program p)
         if(ele->kind == A_programFnDefKind){
             check_FnDef(out, ele->u.fnDef);
         }
-        else if (ele->kind == A_programStructDefKind){
-            check_StructDef(out, ele->u.structDef);
-        }else if (ele->kind == A_programNullStmtKind){
+        else if (ele->kind == A_programNullStmtKind){
             // do nothing
         }
     }
@@ -253,13 +253,11 @@ void check_FnDecl(std::ostream* out, aA_fnDecl fd)
         if(!comp_aA_type(func2retType[name], fd->type))
             error_print(out, fd->pos, "The function return type doesn't match the declaration!");
         // is function params matches decl
-        if(fd->paramDecl->varDecls.size() != 0){
-            if(func2Param[name]->size() != fd->paramDecl->varDecls.size())
-                error_print(out, fd->pos, "The function param list doesn't match the declaration!");
-            for (int i = 0; i<func2Param[name]->size(); i++){
-                if(!comp_aA_type(func2Param[name]->at(i)->u.declScalar->type, fd->paramDecl->varDecls[i]->u.declScalar->type))
-                    error_print(out, fd->pos, "The function param type doesn't match the declaration!");
-            }
+        if(func2Param[name]->size() != fd->paramDecl->varDecls.size())
+            error_print(out, fd->pos, "The function param list doesn't match the declaration!");
+        for (int i = 0; i<func2Param[name]->size(); i++){
+            if(!comp_aA_type(func2Param[name]->at(i)->u.declScalar->type, fd->paramDecl->varDecls[i]->u.declScalar->type))
+                error_print(out, fd->pos, "The function param type doesn't match the declaration!");
         }
     }else{
         // if not defined as a function
@@ -469,7 +467,7 @@ void check_BoolExpr(std::ostream* out, aA_boolExpr be){
     {
     case A_boolExprType::A_boolBiOpExprKind:
         check_BoolExpr(out, be->u.boolBiOpExpr->left);
-        check_BoolUnit(out, be->u.boolBiOpExpr->right);
+        check_BoolExpr(out, be->u.boolBiOpExpr->right);
         break;
     case A_boolExprType::A_boolUnitKind:
         check_BoolUnit(out, be->u.boolUnit);

@@ -23,12 +23,24 @@ LLVMIR::L_prog* ast2llvm(aA_program p)
     {
         funcs_block.push_back(ast2llvmFuncBlock(f));
     }
+    for(auto &f : funcs_block)
+    {
+        ast2llvm_moveAlloca(f);
+    }
     return new L_prog(defs,funcs_block);
 }
 
 std::vector<LLVMIR::L_def*> ast2llvmProg_first(aA_program p)
 {
     vector<L_def*> defs;
+    defs.push_back(L_Funcdecl("getch",vector<TempDef>(),FuncType(ReturnType::INT_TYPE)));
+    defs.push_back(L_Funcdecl("getint",vector<TempDef>(),FuncType(ReturnType::INT_TYPE)));
+    defs.push_back(L_Funcdecl("getarray",vector<TempDef>{TempDef(TempType::INT_PTR,-1)},FuncType(ReturnType::INT_TYPE)));
+    defs.push_back(L_Funcdecl("putch",vector<TempDef>{TempDef(TempType::INT_TEMP)},FuncType(ReturnType::VOID_TYPE)));
+    defs.push_back(L_Funcdecl("putint",vector<TempDef>{TempDef(TempType::INT_TEMP)},FuncType(ReturnType::VOID_TYPE)));
+    defs.push_back(L_Funcdecl("putarray",vector<TempDef>{TempDef(TempType::INT_TEMP),TempDef(TempType::INT_PTR,-1)},FuncType(ReturnType::VOID_TYPE)));
+    defs.push_back(L_Funcdecl("_sysy_starttime",vector<TempDef>{TempDef(TempType::INT_TEMP)},FuncType(ReturnType::VOID_TYPE)));
+    defs.push_back(L_Funcdecl("_sysy_stoptime",vector<TempDef>{TempDef(TempType::INT_TEMP)},FuncType(ReturnType::VOID_TYPE)));
     for(const auto &v : p->programElements)
     {
         switch (v->kind)
@@ -115,14 +127,14 @@ std::vector<LLVMIR::L_def*> ast2llvmProg_first(aA_program p)
                     {
                         globalVarMap.emplace(*v->u.varDeclStmt->u.varDef->u.defArray->id,
                             Name_newname_int_ptr(Temp_newlabel_named(*v->u.varDeclStmt->u.varDef->u.defArray->id),v->u.varDeclStmt->u.varDef->u.defArray->len));
-                        TempDef def(TempType::INT_PTR,v->u.varDeclStmt->u.varDecl->u.declArray->len);
+                        TempDef def(TempType::INT_PTR,v->u.varDeclStmt->u.varDef->u.defArray->len);
                         vector<int> init;
                         for(auto &el : v->u.varDeclStmt->u.varDef->u.defArray->vals)
                         {
                             //
                             init.push_back(el->u.arithExpr->u.exprUnit->u.num);
                         }
-                        defs.push_back(L_Globaldef(*v->u.varDeclStmt->u.varDecl->u.declArray->id,def,init));
+                        defs.push_back(L_Globaldef(*v->u.varDeclStmt->u.varDef->u.defArray->id,def,init));
                     }
                 }
                 else
@@ -432,7 +444,7 @@ void ast2llvmBlock(aA_codeBlockStmt b,Temp_label *con_label,Temp_label *bre_labe
         }
         else
         {
-            if(b->u.varDeclStmt->u.varDef->kind = A_varDefScalarKind)
+            if(b->u.varDeclStmt->u.varDef->kind == A_varDefScalarKind)
             {
                 if(b->u.varDeclStmt->u.varDef->u.defScalar->type->type == A_nativeTypeKind)
                 {
@@ -529,7 +541,7 @@ void ast2llvmBlock(aA_codeBlockStmt b,Temp_label *con_label,Temp_label *bre_labe
                         if(localVarMap.find(*b->u.assignStmt->leftVal->u.arrExpr->idx->u.id) != localVarMap.end())
                         {
                             auto id_temp = localVarMap[*b->u.assignStmt->leftVal->u.arrExpr->idx->u.id];
-                            if(id_temp->type == TempType::INT_TEMP)
+                            if(id_temp->type == TempType::INT_PTR)
                             {
                                 auto index_temp = Temp_newtemp_int();
                                 emit_irs.push_back(L_Load(AS_Operand_Temp(index_temp),AS_Operand_Temp(id_temp)));
@@ -582,7 +594,7 @@ void ast2llvmBlock(aA_codeBlockStmt b,Temp_label *con_label,Temp_label *bre_labe
                         if(localVarMap.find(*b->u.assignStmt->leftVal->u.arrExpr->idx->u.id) != localVarMap.end())
                         {
                             auto id_temp = localVarMap[*b->u.assignStmt->leftVal->u.arrExpr->idx->u.id];
-                            if(id_temp->type == TempType::INT_TEMP)
+                            if(id_temp->type == TempType::INT_PTR)
                             {
                                 auto index_temp = Temp_newtemp_int();
                                 emit_irs.push_back(L_Load(AS_Operand_Temp(index_temp),AS_Operand_Temp(id_temp)));
@@ -765,7 +777,7 @@ Temp_temp* ast2llvmRightVal(aA_rightVal r)
     {
     case A_arithExprValKind:
     {
-
+        return ast2llvmArithExpr(r->u.arithExpr);
         break;
     }
     case A_boolExprValKind:
@@ -1033,9 +1045,24 @@ Temp_temp* ast2llvmExprUnit(aA_exprUnit e)
             auto alloca_temp = localVarMap[*e->u.id];
             if(alloca_temp->type == TempType::INT_PTR)
             {
-                auto dst_temp = Temp_newtemp_int();
-                emit_irs.push_back(L_Load(AS_Operand_Temp(dst_temp),AS_Operand_Temp(alloca_temp)));
-                return dst_temp;
+                if(alloca_temp->len == 0)
+                {
+                    auto dst_temp = Temp_newtemp_int();
+                    emit_irs.push_back(L_Load(AS_Operand_Temp(dst_temp),AS_Operand_Temp(alloca_temp)));
+                    return dst_temp;
+                }
+                else
+                {
+                    return alloca_temp;
+                }
+            }
+            else if(alloca_temp->type == TempType::STRUCT_PTR)
+            {
+                if(alloca_temp->len > 0)
+                {
+                    assert(0);
+                }
+                return alloca_temp;
             }
             else
             {
@@ -1253,11 +1280,10 @@ LLVMIR::L_func* ast2llvmFuncBlock(Func_local *f)
             }
             else if(ir->type == L_StmKind::T_LABEL)
             {
-                auto label = Temp_newlabel();
-                block_list.push_back(L_Jump(label));
+                block_list.push_back(L_Jump(ir->u.LABEL->label));
                 blocks.push_back(L_Block(block_list));
                 block_list.clear();
-                block_list.push_back(L_Label(label));
+                block_list.push_back(ir);
             }
             else
             {
@@ -1281,4 +1307,24 @@ LLVMIR::L_func* ast2llvmFuncBlock(Func_local *f)
         }
     }
     return new L_func(f->name,f->ret,f->args,blocks);
+}
+
+void ast2llvm_moveAlloca(LLVMIR::L_func *f)
+{
+    auto first_block = f->blocks.front();
+    for(auto i = ++f->blocks.begin();i != f->blocks.end();++i)
+    {
+        for(auto it = (*i)->instrs.begin();it != (*i)->instrs.end();)
+        {
+            if((*it)->type == L_StmKind::T_ALLOCA)
+            {
+                first_block->instrs.insert(++first_block->instrs.begin(),*it);
+                it = (*i)->instrs.erase(it);
+            }
+            else
+            {
+                ++it;
+            }
+        }
+    }
 }

@@ -10,11 +10,11 @@ void LLVMIR::printL_def(ostream &os,L_def *def)
 {
     switch (def->kind)
     {
-    case L_DefKind::STRUCT:
+    case L_DefKind::SRT:
     {
-        os << "%" << def->u.STRUCT->name << " = type {";
+        os << "%" << def->u.SRT->name << " = type {";
         bool first = true;
-        for(const auto &m : def->u.STRUCT->members)
+        for(const auto &m : def->u.SRT->members)
         {
             if(first)
             {
@@ -29,7 +29,7 @@ void LLVMIR::printL_def(ostream &os,L_def *def)
             {
             case TempType::INT_TEMP:
             {
-                cout << "i32";
+                os << "i32";
                 break;
             }
             case TempType::INT_PTR:
@@ -38,12 +38,12 @@ void LLVMIR::printL_def(ostream &os,L_def *def)
                 {
                     assert(0);
                 }
-                cout << "[" << m.len << " x " << "i32 ]";
+                os << "[" << m.len << " x " << "i32 ]";
                 break;
             }
             case TempType::STRUCT_TEMP:
             {
-                cout << "%" << m.structname;
+                os << "%" << m.structname;
                 break;
             }
             case TempType::STRUCT_PTR:
@@ -52,13 +52,15 @@ void LLVMIR::printL_def(ostream &os,L_def *def)
                 {
                     assert(0);
                 }
-                cout << "[" << m.len << " x " << "%" << m.structname << " ]";
+                os << "[" << m.len << " x " << "%" << m.structname << " ]";
                 break;
             }
             default:
+                assert(0);
                 break;
             }
         }
+        os << " }";
         break;
     }
     case L_DefKind::GLOBAL:
@@ -77,7 +79,7 @@ void LLVMIR::printL_def(ostream &os,L_def *def)
         }
         case TempType::INT_PTR:
         {
-            os << "[ i32 x " << def->u.GLOBAL->def.len << " ]";
+            os << "[ " << def->u.GLOBAL->def.len << " x i32 ]";
             if(def->u.GLOBAL->init.size() == 0)
             {
                 os << " zeroinitializer";
@@ -112,7 +114,7 @@ void LLVMIR::printL_def(ostream &os,L_def *def)
         }
         case TempType::STRUCT_PTR:
         {
-            os << "[ %" << def->u.GLOBAL->def.structname << " x " << def->u.GLOBAL->def.len << " ] zeroinitializer";
+            os << "[ "<< def->u.GLOBAL->def.len << " x %" << def->u.GLOBAL->def.structname << " ] zeroinitializer";
             break;  
         }
         default:
@@ -206,12 +208,15 @@ void LLVMIR::printL_stm(std::ostream &os,LLVMIR::L_stm *stm)
             {
             case TempType::INT_TEMP:
             {
-                os << "i32";
+                assert(0);
                 break;
             }
             case TempType::INT_PTR:
             {
-                os << "[ i32 x " << stm->u.ALLOCA->dst->u.TEMP->len << " ]";
+                if(stm->u.ALLOCA->dst->u.TEMP->len == 0)
+                    os << "i32";
+                else
+                    os << "[ " << stm->u.ALLOCA->dst->u.TEMP->len << " x i32 ]";
                 break;
             }
             case TempType::STRUCT_TEMP:
@@ -221,7 +226,10 @@ void LLVMIR::printL_stm(std::ostream &os,LLVMIR::L_stm *stm)
             }
             case TempType::STRUCT_PTR:
             {
-                os << "[ %" << stm->u.ALLOCA->dst->u.TEMP->structname << " x " << stm->u.ALLOCA->dst->u.TEMP->len << " ]";
+                if(stm->u.ALLOCA->dst->u.TEMP->len == 0)
+                    os << "%" << stm->u.ALLOCA->dst->u.TEMP->structname;
+                else
+                    os << "[ " << stm->u.ALLOCA->dst->u.TEMP->len << " x %" << stm->u.ALLOCA->dst->u.TEMP->structname << " ]";
                 break;
             }
             default:
@@ -285,11 +293,37 @@ void LLVMIR::printL_stm(std::ostream &os,LLVMIR::L_stm *stm)
             if(first)
             {
                 first = false;
-                os << " ";
             }
             else
             {
                 os << ", ";
+            }
+            if(v->kind == OperandKind::TEMP)
+            {
+                if(v->u.TEMP->type == TempType::INT_TEMP)
+                {
+                    os << "i32 ";
+                }
+                else if(v->u.TEMP->type == TempType::INT_PTR)
+                {
+                    os << "i32* ";
+                }
+                else if(v->u.TEMP->type == TempType::STRUCT_TEMP)
+                {
+                    os << "%" << v->u.TEMP->structname << " ";
+                }
+                else
+                {
+                    os << "%" << v->u.TEMP->structname << "* ";
+                }
+            }
+            else if(v->kind == OperandKind::ICONST)
+            {
+                os << "i32 ";
+            }
+            else
+            {
+                assert(0);
             }
             printL_oper(os,v);
         }
@@ -365,7 +399,7 @@ void LLVMIR::printL_stm(std::ostream &os,LLVMIR::L_stm *stm)
             }
             case TempType::INT_PTR:
             {
-                if(stm->u.GEP->base_ptr->u.TEMP->len == -1)
+                if(stm->u.GEP->base_ptr->u.TEMP->len == -1 || stm->u.GEP->base_ptr->u.TEMP->len == 0)
                 {
                     os << "i32, i32* ";
                     printL_oper(os,stm->u.GEP->base_ptr);
@@ -386,7 +420,7 @@ void LLVMIR::printL_stm(std::ostream &os,LLVMIR::L_stm *stm)
             }
             case TempType::STRUCT_PTR:
             {
-                if(stm->u.GEP->base_ptr->u.TEMP->len == -1)
+                if(stm->u.GEP->base_ptr->u.TEMP->len == -1 || stm->u.GEP->base_ptr->u.TEMP->len == 0)
                 {
                     os << "%" << stm->u.GEP->base_ptr->u.TEMP->structname << ", %" << stm->u.GEP->base_ptr->u.TEMP->structname << "* ";
                     printL_oper(os,stm->u.GEP->base_ptr);
@@ -418,15 +452,15 @@ void LLVMIR::printL_stm(std::ostream &os,LLVMIR::L_stm *stm)
             }
             case TempType::INT_PTR:
             {
-                if(stm->u.GEP->base_ptr->u.TEMP->len == -1)
+                if(stm->u.GEP->base_ptr->u.NAME->len == -1 || stm->u.GEP->base_ptr->u.NAME->len == 0)
                 {
                     os << "i32, i32* ";
                     printL_oper(os,stm->u.GEP->base_ptr);
                 }
                 else
                 {
-                    os << "[" << stm->u.GEP->base_ptr->u.TEMP->len << " x i32 ], ";
-                    os << "[" << stm->u.GEP->base_ptr->u.TEMP->len << " x i32 ]* ";
+                    os << "[" << stm->u.GEP->base_ptr->u.NAME->len << " x i32 ], ";
+                    os << "[" << stm->u.GEP->base_ptr->u.NAME->len << " x i32 ]* ";
                     printL_oper(os,stm->u.GEP->base_ptr);
                     os << ", i32 0";
                 }
@@ -439,16 +473,16 @@ void LLVMIR::printL_stm(std::ostream &os,LLVMIR::L_stm *stm)
             }
             case TempType::STRUCT_PTR:
             {
-                if(stm->u.GEP->base_ptr->u.TEMP->len == -1)
+                if(stm->u.GEP->base_ptr->u.NAME->len == -1 || stm->u.GEP->base_ptr->u.NAME->len == 0)
                 {
-                    os << "%" << stm->u.GEP->base_ptr->u.TEMP->structname << ", %" << stm->u.GEP->base_ptr->u.TEMP->structname << "* ";
+                    os << "%" << stm->u.GEP->base_ptr->u.NAME->structname << ", %" << stm->u.GEP->base_ptr->u.NAME->structname << "* ";
                     printL_oper(os,stm->u.GEP->base_ptr);
                     os << ", i32 0";
                 }
                 else
                 {
-                    os << "[" << stm->u.GEP->base_ptr->u.TEMP->len << " x " << "%" << stm->u.GEP->base_ptr->u.TEMP->structname << " ], ";
-                    os << "[" << stm->u.GEP->base_ptr->u.TEMP->len << " x " << "%" << stm->u.GEP->base_ptr->u.TEMP->structname << " ]* ";
+                    os << "[" << stm->u.GEP->base_ptr->u.NAME->len << " x " << "%" << stm->u.GEP->base_ptr->u.NAME->structname << " ], ";
+                    os << "[" << stm->u.GEP->base_ptr->u.NAME->len << " x " << "%" << stm->u.GEP->base_ptr->u.NAME->structname << " ]* ";
                     printL_oper(os,stm->u.GEP->base_ptr);
                     os << ", i32 0";
                 }
@@ -473,7 +507,7 @@ void LLVMIR::printL_stm(std::ostream &os,LLVMIR::L_stm *stm)
     }
     case L_StmKind::T_LABEL:
     {
-        os << "%" << stm->u.LABEL->label->name << ":";
+        os << stm->u.LABEL->label->name << ":";
         break;
     }
     case L_StmKind::T_LOAD:
@@ -544,16 +578,42 @@ void LLVMIR::printL_stm(std::ostream &os,LLVMIR::L_stm *stm)
     {
         os << "  call void @" << stm->u.VOID_CALL->fun << "(";
         bool first = true;
-        for(const auto &v : stm->u.CALL->args)
+        for(const auto &v : stm->u.VOID_CALL->args)
         {
             if(first)
             {
                 first = false;
-                os << " ";
             }
             else
             {
                 os << ", ";
+            }
+            if(v->kind == OperandKind::TEMP)
+            {
+                if(v->u.TEMP->type == TempType::INT_TEMP)
+                {
+                    os << "i32 ";
+                }
+                else if(v->u.TEMP->type == TempType::INT_PTR)
+                {
+                    os << "i32* ";
+                }
+                else if(v->u.TEMP->type == TempType::STRUCT_TEMP)
+                {
+                    os << "%" << v->u.TEMP->structname << " ";
+                }
+                else
+                {
+                    os << "%" << v->u.TEMP->structname << "* ";
+                }
+            }
+            else if(v->kind == OperandKind::ICONST)
+            {
+                os << "i32 ";
+            }
+            else
+            {
+                assert(0);
             }
             printL_oper(os,v);
         }

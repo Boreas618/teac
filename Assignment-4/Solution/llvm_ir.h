@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 #include <unordered_set>
+#include <list>
 
 namespace LLVMIR
 {
@@ -19,11 +20,13 @@ struct FuncType
 {
     ReturnType type;
     std::string structname;
+    FuncType(ReturnType _type = ReturnType::INT_TYPE,const std::string _name = std::string())
+        : type(_type), structname(_name) {}
 };
 
 enum class L_DefKind
 {
-    STRUCT,
+    SRT,
     GLOBAL,
     FUNC
 };
@@ -57,7 +60,7 @@ struct L_def
     union 
     {
         L_funcdecl *FUNC;
-        L_structdef *STRUCT;
+        L_structdef *SRT;
         L_globaldef *GLOBAL;
     } u;
 };
