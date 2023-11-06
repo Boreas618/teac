@@ -75,6 +75,10 @@ void LLVMIR::printL_def(ostream &os,L_def *def)
             {
                 os << def->u.GLOBAL->init[0];
             }
+            else
+            {
+                os << "0";
+            }
             break;
         }
         case TempType::INT_PTR:

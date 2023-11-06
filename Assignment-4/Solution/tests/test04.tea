@@ -1,0 +1,17 @@
+let a:int = 1;
+
+fn foo(b:int)->int {
+    a = b;
+    ret 1;
+}
+
+fn main()->int {
+    let i:int = 1;
+    if(foo(2) > 0 || foo(3) > 0)
+    {
+        i = 2;
+    }
+    putint(a);
+    putint(i);
+    ret 0;
+}
