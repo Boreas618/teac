@@ -8,6 +8,7 @@ fn foo(a[10]:int)->int{
 }
 
 fn main()->int{
+    _sysy_starttime(11);
     let a[10]:int;
     let i:int = 0;
     let sum:int = 0;
@@ -19,5 +20,6 @@ fn main()->int{
     }
     putarray(10,a);
     putint(sum);
+    _sysy_stoptime(23);
     ret 0;
 }

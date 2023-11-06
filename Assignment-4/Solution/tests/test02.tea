@@ -10,10 +10,12 @@ fn foo(c:Node)->int {
 }
 
 fn main()->int{
+    _sysy_starttime(13);
     let c:Node;
     c.l = 1;
     c.r = 2;
     foo(c);
     putint(c.l+c.r);
+    _sysy_stoptime(19);
     ret 0;
 }
