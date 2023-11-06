@@ -1,7 +1,7 @@
 #include <stdio.h>
 int aa;
 int bb = 1;
-int cc[4000] = {1};
+int cc[4] = {1};
 
 struct Ca
 {
@@ -41,6 +41,7 @@ int sum(int x,int y,int z)
 int main()
 {
     int a[10] = {1,2,3};
+    cc[2] = 1;
     printf("%d\n",sum1(a,10));
     return 0;
 }

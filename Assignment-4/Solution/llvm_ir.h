@@ -4,6 +4,8 @@
 #include "temp.h"
 #include <string>
 #include <vector>
+#include <unordered_set>
+#include <list>
 
 namespace LLVMIR
 {
@@ -18,11 +20,13 @@ struct FuncType
 {
     ReturnType type;
     std::string structname;
+    FuncType(ReturnType _type = ReturnType::INT_TYPE,const std::string _name = std::string())
+        : type(_type), structname(_name) {}
 };
 
 enum class L_DefKind
 {
-    STRUCT,
+    SRT,
     GLOBAL,
     FUNC
 };
@@ -56,7 +60,7 @@ struct L_def
     union 
     {
         L_funcdecl *FUNC;
-        L_structdef *STRUCT;
+        L_structdef *SRT;
         L_globaldef *GLOBAL;
     } u;
 };
@@ -123,14 +127,15 @@ struct L_cmp
 {
     L_relopKind op;
     AS_operand *left,*right;
-    L_cmp(L_relopKind _op,AS_operand *_left,AS_operand *_right);
+    AS_operand *dst;
+    L_cmp(L_relopKind _op,AS_operand *_left,AS_operand *_right,AS_operand *_dst);
 };
 
 struct L_cjump
 {
-    L_relopKind op;
+    AS_operand *dst;
     Temp_label *true_label,*false_label;
-    L_cjump(L_relopKind _op,Temp_label *_true_label,Temp_label *_false_label);
+    L_cjump(AS_operand *_dst,Temp_label *_true_label,Temp_label *_false_label);
 };
 
 struct L_move
@@ -205,8 +210,8 @@ L_stm* L_Load(AS_operand *dst,AS_operand *ptr);
 L_stm* L_Store(AS_operand *src,AS_operand *ptr);
 L_stm* L_Label(Temp_label *label);
 L_stm* L_Jump(Temp_label *jump);
-L_stm* L_Cmp(L_relopKind op,AS_operand *left,AS_operand *right);
-L_stm* L_Cjump(L_relopKind op,Temp_label *true_label,Temp_label *false_label);
+L_stm* L_Cmp(L_relopKind op,AS_operand *left,AS_operand *right,AS_operand *dst);
+L_stm* L_Cjump(AS_operand *dst,Temp_label *true_label,Temp_label *false_label);
 L_stm* L_Move(AS_operand *src,AS_operand *dst);
 L_stm* L_Call(const std::string &fun,AS_operand *res,const std::vector<AS_operand*> &args);
 L_stm* L_Voidcall(const std::string &fun,const std::vector<AS_operand*> &args);
@@ -214,6 +219,32 @@ L_stm* L_Ret(AS_operand *ret);
 L_stm* L_Phi(AS_operand *dst,const std::vector<std::pair<AS_operand*,Temp_label*>> &phis);
 L_stm* L_Alloca(AS_operand *dst);
 L_stm* L_Gep(AS_operand *new_ptr,AS_operand *base_ptr,AS_operand *index);
+
+struct L_block
+{
+    Temp_label *label;
+    std::unordered_set<Temp_label*> succs;
+    std::list<L_stm*> instrs;
+    L_block(Temp_label *_label,const std::unordered_set<Temp_label*> &_succs,const std::list<L_stm*> &_instrs);
+};
+
+struct L_func
+{
+    std::string name;
+    FuncType ret;
+    std::vector<Temp_temp*> args;
+    std::list<L_block*> blocks;
+    L_func(const std::string &_name,FuncType _ret,const std::vector<Temp_temp*> _args,const std::list<L_block*> &_blocks);
+};
+
+struct L_prog
+{
+    std::vector<L_def*> defs;
+    std::vector<L_func*> funcs;
+    L_prog(const std::vector<L_def*> &_defs,const std::vector<L_func*> &_funcs);
+};
+
+L_block* L_Block(const std::list<L_stm*> instrs);
 
 }
 

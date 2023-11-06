@@ -1,0 +1,25 @@
+fn foo(a[10]:int)->int{
+    let i:int = 0;
+    while(i < 10) {
+        a[i] = getint();
+        i = i + 1;
+    }
+    ret 0;
+}
+
+fn main()->int{
+    _sysy_starttime(11);
+    let a[10]:int;
+    let i:int = 0;
+    let sum:int = 0;
+    foo(a);
+    while(i < 10)
+    {
+        sum = sum + a[i];
+        i = i + 1;
+    }
+    putarray(10,a);
+    putint(sum);
+    _sysy_stoptime(23);
+    ret 0;
+}
