@@ -1,0 +1,25 @@
+let a[10]:int = {0};
+
+struct MyStruct1 {
+arr[20]:int,
+node:int,
+len:int
+}
+
+struct MyStruct2 {
+temp[20]:MyStruct1,
+node:int,
+len:int
+}
+
+fn main(a:int, b:int)->int{
+let a:int;
+let b:int = 0;
+let d:MyStruct2;
+d.node = 1;
+d.temp[1].node = 1;
+d.temp[1].arr[1] = 1;
+ret a+b;
+ret ;
+}
+

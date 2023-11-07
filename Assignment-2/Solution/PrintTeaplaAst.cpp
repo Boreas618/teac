@@ -54,14 +54,16 @@ void print_aA_IndexExpr(aA_indexExpr indexExpr, ostream& os){
 
 void print_aA_ArrayExpr(aA_arrayExpr arrayExpr, ostream& os){
     if(!arrayExpr) return;
-    os << *(arrayExpr->arr) << "[";
+    print_aA_LeftVal(arrayExpr->arr, os);
+    os << "[";
     print_aA_IndexExpr(arrayExpr->idx, os);
     os << "]";
 }
 
 void print_aA_MemberExpr(aA_memberExpr memberExpr, ostream& os){
     if(!memberExpr) return;
-    os << *(memberExpr->structId) << ".";
+    print_aA_LeftVal(memberExpr->structId, os);
+    os << ".";
     os << *(memberExpr->memberId);
 }
 
