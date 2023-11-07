@@ -30,12 +30,228 @@ LLVMIR::L_prog* ast2llvm(aA_program p)
     return new L_prog(defs,funcs_block);
 }
 
+int ast2llvmRightVal_first(aA_rightVal r)
+{
+    if(r == nullptr)
+    {
+        return 0;
+    }
+    switch (r->kind)
+    {
+    case A_arithExprValKind:
+    {
+        return ast2llvmArithExpr_first(r->u.arithExpr);
+        break;
+    }
+    case A_boolExprValKind:
+    {
+        return ast2llvmBoolExpr_first(r->u.boolExpr);
+        break;
+    }
+    default:
+        break;
+    }
+    return 0;
+}
+
+int ast2llvmBoolExpr_first(aA_boolExpr b)
+{
+    switch (b->kind)
+    {
+    case A_boolBiOpExprKind:
+    {
+        return ast2llvmBoolBiOpExpr_first(b->u.boolBiOpExpr);
+        break;
+    }
+    case A_boolUnitKind:
+    {
+        return ast2llvmBoolUnit_first(b->u.boolUnit);
+        break;
+    }
+    default:
+         break;
+    }
+    return 0;
+}
+
+int ast2llvmBoolBiOpExpr_first(aA_boolBiOpExpr b)
+{
+    int l = ast2llvmBoolExpr_first(b->left);
+    int r = ast2llvmBoolExpr_first(b->right);
+    if(b->op == A_and)
+    {
+        return l && r;
+    }
+    else
+    {
+        return l || r;
+    }
+}
+
+int ast2llvmBoolUOpExpr_first(aA_boolUOpExpr b)
+{
+    if(b->op == A_not)
+    {
+        return !ast2llvmBoolUnit_first(b->cond);
+    }
+    return 0;
+}
+
+int ast2llvmBoolUnit_first(aA_boolUnit b)
+{
+    switch (b->kind)
+    {
+    case A_comOpExprKind:
+    {
+        return ast2llvmComOpExpr_first(b->u.comExpr);
+        break;
+    }
+    case A_boolExprKind:
+    {
+        return ast2llvmBoolExpr_first(b->u.boolExpr);
+        break;
+    }
+    case A_boolUOpExprKind:
+    {
+        return ast2llvmBoolUOpExpr_first(b->u.boolUOpExpr);
+        break;
+    }
+    default:
+        break;
+    }
+    return 0;
+}
+
+int ast2llvmComOpExpr_first(aA_comExpr c)
+{
+    auto l = ast2llvmExprUnit_first(c->left);
+    auto r = ast2llvmExprUnit_first(c->right);
+    switch (c->op)
+    {
+    case A_lt:
+    {
+        return l < r;
+        break;
+    }
+    case A_le:
+    {
+        return l <= r;
+        break;
+    }
+    case A_gt:
+    {
+        return l > r;
+        break;
+    }
+    case A_ge:
+    {
+        return l >= r;
+        break;
+    }
+    case A_eq:
+    {
+        return l == r;
+        break;
+    }
+    case A_ne:
+    {
+        return l != r;
+        break;
+    }
+    default:
+        break;
+    }
+    return 0;
+}
+
+int ast2llvmArithBiOpExpr_first(aA_arithBiOpExpr a)
+{
+    auto l= ast2llvmArithExpr_first(a->left);
+    auto r = ast2llvmArithExpr_first(a->right);
+    switch (a->op)
+    {
+    case A_add:
+    {
+        return l + r;
+        break;
+    }
+    case A_sub:
+    {
+        return l - r;
+        break;
+    }
+    case A_mul:
+    {
+        return l * r;
+        break;
+    }
+    case A_div:
+    {
+        return l / r;
+        break;
+    }
+    default:
+        break;
+    }
+    return 0;
+}
+
+int ast2llvmArithUExpr_first(aA_arithUExpr a)
+{
+    if(a->op == A_neg)
+    {
+        return -ast2llvmExprUnit_first(a->expr);
+    }
+    return 0;
+}
+
+int ast2llvmArithExpr_first(aA_arithExpr a)
+{
+    switch (a->kind)
+    {
+    case A_arithBiOpExprKind:
+    {
+        return ast2llvmArithBiOpExpr_first(a->u.arithBiOpExpr);
+        break;
+    }
+    case A_exprUnitKind:
+    {
+        return ast2llvmExprUnit_first(a->u.exprUnit);
+        break;
+    }
+    default:
+        assert(0);
+        break;
+    }
+    return 0;
+}
+
+int ast2llvmExprUnit_first(aA_exprUnit e)
+{
+    if(e->kind == A_numExprKind)
+    {
+        return e->u.num;
+    }
+    else if(e->kind == A_arithExprKind)
+    {
+        return ast2llvmArithExpr_first(e->u.arithExpr);
+    }
+    else if(e->kind == A_arithUExprKind)
+    {
+        return ast2llvmArithUExpr_first(e->u.arithUExpr);
+    }
+    else
+    {
+        assert(0);
+    }
+    return 0;
+}
+
 std::vector<LLVMIR::L_def*> ast2llvmProg_first(aA_program p)
 {
     vector<L_def*> defs;
     defs.push_back(L_Funcdecl("getch",vector<TempDef>(),FuncType(ReturnType::INT_TYPE)));
     defs.push_back(L_Funcdecl("getint",vector<TempDef>(),FuncType(ReturnType::INT_TYPE)));
-    defs.push_back(L_Funcdecl("getarray",vector<TempDef>{TempDef(TempType::INT_PTR,-1)},FuncType(ReturnType::INT_TYPE)));
     defs.push_back(L_Funcdecl("putch",vector<TempDef>{TempDef(TempType::INT_TEMP)},FuncType(ReturnType::VOID_TYPE)));
     defs.push_back(L_Funcdecl("putint",vector<TempDef>{TempDef(TempType::INT_TEMP)},FuncType(ReturnType::VOID_TYPE)));
     defs.push_back(L_Funcdecl("putarray",vector<TempDef>{TempDef(TempType::INT_TEMP),TempDef(TempType::INT_PTR,-1)},FuncType(ReturnType::VOID_TYPE)));
@@ -109,8 +325,7 @@ std::vector<LLVMIR::L_def*> ast2llvmProg_first(aA_program p)
                             Name_newname_int(Temp_newlabel_named(*v->u.varDeclStmt->u.varDef->u.defScalar->id)));
                         TempDef def(TempType::INT_TEMP,0);
                         vector<int> init;
-                        //
-                        init.push_back(v->u.varDeclStmt->u.varDef->u.defScalar->val->u.arithExpr->u.exprUnit->u.num);
+                        init.push_back(ast2llvmRightVal_first(v->u.varDeclStmt->u.varDef->u.defScalar->val));
                         defs.push_back(L_Globaldef(*v->u.varDeclStmt->u.varDef->u.defScalar->id,def,init));
                     }
                 }
@@ -131,8 +346,7 @@ std::vector<LLVMIR::L_def*> ast2llvmProg_first(aA_program p)
                         vector<int> init;
                         for(auto &el : v->u.varDeclStmt->u.varDef->u.defArray->vals)
                         {
-                            //
-                            init.push_back(el->u.arithExpr->u.exprUnit->u.num);
+                            init.push_back(ast2llvmRightVal_first(el));
                         }
                         defs.push_back(L_Globaldef(*v->u.varDeclStmt->u.varDef->u.defArray->id,def,init));
                     }
@@ -266,7 +480,7 @@ std::vector<LLVMIR::L_def*> ast2llvmProg_first(aA_program p)
                 {
                     type.type = ReturnType::VOID_TYPE;
                 }
-                if(v->u.fnDef->fnDecl->type->type == A_nativeTypeKind)
+                else if(v->u.fnDef->fnDecl->type->type == A_nativeTypeKind)
                 {
                     type.type = ReturnType::INT_TYPE;
                 }
@@ -338,7 +552,7 @@ Func_local* ast2llvmFunc(aA_fnDef f)
     {
         ret.type = ReturnType::VOID_TYPE;
     }
-    if(f->fnDecl->type->type == A_nativeTypeKind)
+    else if(f->fnDecl->type->type == A_nativeTypeKind)
     {
         ret.type = ReturnType::INT_TYPE;
     }
@@ -450,8 +664,8 @@ void ast2llvmBlock(aA_codeBlockStmt b,Temp_label *con_label,Temp_label *bre_labe
                 {
                     Temp_temp *alloca_temp = Temp_newtemp_int_ptr(0);
                     emit_irs.push_back(L_Alloca(AS_Operand_Temp(alloca_temp)));
-                    Temp_temp *res = ast2llvmRightVal(b->u.varDeclStmt->u.varDef->u.defScalar->val);
-                    emit_irs.push_back(L_Store(AS_Operand_Temp(res),AS_Operand_Temp(alloca_temp)));
+                    auto res = ast2llvmRightVal(b->u.varDeclStmt->u.varDef->u.defScalar->val);
+                    emit_irs.push_back(L_Store(res,AS_Operand_Temp(alloca_temp)));
                     localVarMap.emplace(*b->u.varDeclStmt->u.varDef->u.defScalar->id,alloca_temp);
                 }
                 else
@@ -470,9 +684,10 @@ void ast2llvmBlock(aA_codeBlockStmt b,Temp_label *con_label,Temp_label *bre_labe
                     for(int i = 0;i < b->u.varDeclStmt->u.varDef->u.defArray->vals.size();++i)
                     {
                         const auto &val = b->u.varDeclStmt->u.varDef->u.defArray->vals[i];
-                        Temp_temp *res = ast2llvmRightVal(val);
+                        auto res = ast2llvmRightVal(val);
                         Temp_temp *gep_temp = Temp_newtemp_int_ptr(0);
                         emit_irs.push_back(L_Gep(AS_Operand_Temp(gep_temp),AS_Operand_Temp(alloca_temp),AS_Operand_Const(i)));
+                        emit_irs.push_back(L_Store(res,AS_Operand_Temp(gep_temp)));
                     }
                     localVarMap.emplace(*b->u.varDeclStmt->u.varDef->u.defArray->id,alloca_temp);
                 }
@@ -488,207 +703,9 @@ void ast2llvmBlock(aA_codeBlockStmt b,Temp_label *con_label,Temp_label *bre_labe
     }
     case A_assignStmtKind:
     {
-        switch (b->u.assignStmt->leftVal->kind)
-        {
-        case A_varValKind:
-        {
-            if(localVarMap.find(*b->u.assignStmt->leftVal->u.id) != localVarMap.end())
-            {
-                auto ptr_temp = localVarMap[*b->u.assignStmt->leftVal->u.id];
-                if(ptr_temp->type == TempType::INT_PTR)
-                {
-                    auto right_temp = ast2llvmRightVal(b->u.assignStmt->rightVal);
-                    emit_irs.push_back(L_Store(AS_Operand_Temp(right_temp),AS_Operand_Temp(ptr_temp)));
-                }
-                else
-                {
-                    assert(0);
-                }
-            }
-            else if(globalVarMap.find(*b->u.assignStmt->leftVal->u.id) != globalVarMap.end())
-            {
-                auto ptr_name = globalVarMap[*b->u.assignStmt->leftVal->u.id];
-                if(ptr_name->type == TempType::INT_TEMP)
-                {
-                    auto right_temp = ast2llvmRightVal(b->u.assignStmt->rightVal);
-                    emit_irs.push_back(L_Store(AS_Operand_Temp(right_temp),AS_Operand_Name(ptr_name)));
-                }
-                else
-                {
-                    assert(0);
-                }
-            }
-            else
-            {
-                assert(0);
-            }
-            break;
-        }
-        case A_arrValKind:
-        {
-            if(localVarMap.find(*b->u.assignStmt->leftVal->u.arrExpr->arr) != localVarMap.end())
-            {
-                auto ptr_temp = localVarMap[*b->u.assignStmt->leftVal->u.arrExpr->arr];
-                if(ptr_temp->type == TempType::INT_PTR)
-                {
-                    auto left_temp = Temp_newtemp_int_ptr(0);
-                    if(b->u.assignStmt->leftVal->u.arrExpr->idx->kind == A_numIndexKind)
-                    {
-                        emit_irs.push_back(L_Gep(AS_Operand_Temp(left_temp),AS_Operand_Temp(ptr_temp),AS_Operand_Const(b->u.assignStmt->leftVal->u.arrExpr->idx->u.num)));
-                    }
-                    else
-                    {
-                        if(localVarMap.find(*b->u.assignStmt->leftVal->u.arrExpr->idx->u.id) != localVarMap.end())
-                        {
-                            auto id_temp = localVarMap[*b->u.assignStmt->leftVal->u.arrExpr->idx->u.id];
-                            if(id_temp->type == TempType::INT_PTR)
-                            {
-                                auto index_temp = Temp_newtemp_int();
-                                emit_irs.push_back(L_Load(AS_Operand_Temp(index_temp),AS_Operand_Temp(id_temp)));
-                                emit_irs.push_back(L_Gep(AS_Operand_Temp(left_temp),AS_Operand_Temp(ptr_temp),AS_Operand_Temp(index_temp)));
-                            }
-                            else
-                            {
-                                assert(0);
-                            }
-                        }
-                        else if(globalVarMap.find(*b->u.assignStmt->leftVal->u.arrExpr->idx->u.id) != globalVarMap.end())
-                        {
-                            auto id_name = globalVarMap[*b->u.assignStmt->leftVal->u.arrExpr->idx->u.id];
-                            if(id_name->type == TempType::INT_TEMP)
-                            {
-                                auto index_temp = Temp_newtemp_int();
-                                emit_irs.push_back(L_Load(AS_Operand_Temp(index_temp),AS_Operand_Name(id_name)));
-                                emit_irs.push_back(L_Gep(AS_Operand_Temp(left_temp),AS_Operand_Temp(ptr_temp),AS_Operand_Temp(index_temp)));
-                            }
-                            else
-                            {
-                                assert(0);
-                            }
-                        }
-                    }
-                    auto right_temp = ast2llvmRightVal(b->u.assignStmt->rightVal);
-                    emit_irs.push_back(L_Store(AS_Operand_Temp(right_temp),AS_Operand_Temp(left_temp)));
-                }
-                else if(ptr_temp->type == TempType::STRUCT_PTR)
-                {
-                    assert(0);
-                }
-                else
-                {
-                    assert(0);
-                }
-            }
-            else if(globalVarMap.find(*b->u.assignStmt->leftVal->u.arrExpr->arr) != globalVarMap.end())
-            {
-                auto ptr_name = globalVarMap[*b->u.assignStmt->leftVal->u.arrExpr->arr];
-                if(ptr_name->type == TempType::INT_PTR)
-                {
-                    auto left_temp = Temp_newtemp_int_ptr(0);
-                    if(b->u.assignStmt->leftVal->u.arrExpr->idx->kind == A_numIndexKind)
-                    {
-                        emit_irs.push_back(L_Gep(AS_Operand_Temp(left_temp),AS_Operand_Name(ptr_name),AS_Operand_Const(b->u.assignStmt->leftVal->u.arrExpr->idx->u.num)));
-                    }
-                    else
-                    {
-                        if(localVarMap.find(*b->u.assignStmt->leftVal->u.arrExpr->idx->u.id) != localVarMap.end())
-                        {
-                            auto id_temp = localVarMap[*b->u.assignStmt->leftVal->u.arrExpr->idx->u.id];
-                            if(id_temp->type == TempType::INT_PTR)
-                            {
-                                auto index_temp = Temp_newtemp_int();
-                                emit_irs.push_back(L_Load(AS_Operand_Temp(index_temp),AS_Operand_Temp(id_temp)));
-                                emit_irs.push_back(L_Gep(AS_Operand_Temp(left_temp),AS_Operand_Name(ptr_name),AS_Operand_Temp(index_temp)));
-                            }
-                            else
-                            {
-                                assert(0);
-                            }
-                        }
-                        else if(globalVarMap.find(*b->u.assignStmt->leftVal->u.arrExpr->idx->u.id) != globalVarMap.end())
-                        {
-                            auto id_name = globalVarMap[*b->u.assignStmt->leftVal->u.arrExpr->idx->u.id];
-                            if(id_name->type == TempType::INT_TEMP)
-                            {
-                                auto index_temp = Temp_newtemp_int();
-                                emit_irs.push_back(L_Load(AS_Operand_Temp(index_temp),AS_Operand_Name(id_name)));
-                                emit_irs.push_back(L_Gep(AS_Operand_Temp(left_temp),AS_Operand_Name(ptr_name),AS_Operand_Temp(index_temp)));
-                            }
-                            else
-                            {
-                                assert(0);
-                            }
-                        }
-                    }
-                    auto right_temp = ast2llvmRightVal(b->u.assignStmt->rightVal);
-                    emit_irs.push_back(L_Store(AS_Operand_Temp(right_temp),AS_Operand_Temp(left_temp)));
-                }
-                else if(ptr_name->type == TempType::STRUCT_PTR)
-                {
-                    assert(0);
-                }
-                else
-                {
-                    assert(0);
-                }
-            }
-            break;
-        }
-        case A_memberValKind:
-        {
-            if(localVarMap.find(*b->u.assignStmt->leftVal->u.memberExpr->structId) != localVarMap.end())
-            {
-                auto ptr_temp = localVarMap[*b->u.assignStmt->leftVal->u.memberExpr->structId];
-                if(ptr_temp->type == TempType::STRUCT_PTR)
-                {
-                    auto info = structInfoMap[ptr_temp->structname].memberinfos[*b->u.assignStmt->leftVal->u.memberExpr->memberId];
-                    int index = info.offset;
-                    if(info.def.kind == TempType::INT_TEMP)
-                    {
-                        auto left_temp = Temp_newtemp_int_ptr(0);
-                        emit_irs.push_back(L_Gep(AS_Operand_Temp(left_temp),AS_Operand_Temp(ptr_temp),AS_Operand_Const(index)));
-                        auto right_temp = ast2llvmRightVal(b->u.assignStmt->rightVal);
-                        emit_irs.push_back(L_Store(AS_Operand_Temp(right_temp),AS_Operand_Temp(left_temp)));
-                    }
-                    else
-                    {
-                        assert(0);
-                    }
-                }
-                else
-                {
-                    assert(0);
-                }
-            }
-            else if(globalVarMap.find(*b->u.assignStmt->leftVal->u.memberExpr->structId) != globalVarMap.end())
-            {
-                auto ptr_name = globalVarMap[*b->u.assignStmt->leftVal->u.memberExpr->structId];
-                if(ptr_name->type == TempType::STRUCT_PTR)
-                {
-                    auto info = structInfoMap[ptr_name->structname].memberinfos[*b->u.assignStmt->leftVal->u.memberExpr->memberId];
-                    int index = info.offset;
-                    if(info.def.kind == TempType::INT_TEMP)
-                    {
-                        auto left_temp = Temp_newtemp_int_ptr(0);
-                        emit_irs.push_back(L_Gep(AS_Operand_Temp(left_temp),AS_Operand_Name(ptr_name),AS_Operand_Const(index)));
-                        auto right_temp = ast2llvmRightVal(b->u.assignStmt->rightVal);
-                        emit_irs.push_back(L_Store(AS_Operand_Temp(right_temp),AS_Operand_Temp(left_temp)));
-                    }
-                    else
-                    {
-                        assert(0);
-                    }
-                }
-                else
-                {
-                    assert(0);
-                }
-            }
-            break;
-        }
-        default:
-            break;
-        }
+        auto right_temp = ast2llvmRightVal(b->u.assignStmt->rightVal);
+        auto left_op = ast2llvmLeftVal(b->u.assignStmt->leftVal);
+        emit_irs.push_back(L_Store(right_temp,left_op));
         break;
     }
     case A_callStmtKind:
@@ -696,7 +713,7 @@ void ast2llvmBlock(aA_codeBlockStmt b,Temp_label *con_label,Temp_label *bre_labe
         vector<AS_operand*> args;
         for(const auto & v : b->u.callStmt->fnCall->vals)
         {
-            args.push_back(AS_Operand_Temp(ast2llvmRightVal(v)));
+            args.push_back(ast2llvmRightVal(v));
         }
         emit_irs.push_back(L_Voidcall(*b->u.callStmt->fnCall->fn,args));
         break;
@@ -741,7 +758,14 @@ void ast2llvmBlock(aA_codeBlockStmt b,Temp_label *con_label,Temp_label *bre_labe
     case A_returnStmtKind:
     {
         auto ret_temp = ast2llvmRightVal(b->u.returnStmt->retVal);
-        emit_irs.push_back(L_Ret(AS_Operand_Temp(ret_temp)));
+        if(ret_temp == nullptr)
+        {
+            emit_irs.push_back(L_Ret(nullptr));
+        }
+        else
+        {
+            emit_irs.push_back(L_Ret(ret_temp));
+        }
         break;
     }
     case A_continueStmtKind:
@@ -767,7 +791,7 @@ void ast2llvmBlock(aA_codeBlockStmt b,Temp_label *con_label,Temp_label *bre_labe
     }
 }
 
-Temp_temp* ast2llvmRightVal(aA_rightVal r)
+AS_operand* ast2llvmRightVal(aA_rightVal r)
 {
     if(r == nullptr)
     {
@@ -791,13 +815,208 @@ Temp_temp* ast2llvmRightVal(aA_rightVal r)
     return nullptr;
 }
 
-Temp_temp* ast2llvmBoolExpr(aA_boolExpr b,Temp_label *true_label,Temp_label *false_label)
+AS_operand* ast2llvmLeftVal(aA_leftVal l)
+{
+    switch (l->kind)
+    {
+    case A_varValKind:
+    {
+        if(localVarMap.find(*l->u.id) != localVarMap.end())
+        {
+            auto ptr_temp = localVarMap[*l->u.id];
+            return AS_Operand_Temp(ptr_temp);
+        }
+        else if(globalVarMap.find(*l->u.id) != globalVarMap.end())
+        {
+            auto ptr_name = globalVarMap[*l->u.id];
+            return AS_Operand_Name(ptr_name);
+        }
+        else
+        {
+            assert(0);
+        }
+        break;
+    }
+    case A_arrValKind:
+    {
+        auto ptr_op = ast2llvmLeftVal(l->u.arrExpr->arr);
+        auto index_op = ast2llvmIndexExpr(l->u.arrExpr->idx);
+        if(ptr_op->kind == OperandKind::TEMP)
+        {
+            if(ptr_op->u.TEMP->type == TempType::INT_PTR)
+            {
+                auto gep_temp = Temp_newtemp_int_ptr(0);
+                emit_irs.push_back(L_Gep(AS_Operand_Temp(gep_temp),ptr_op,index_op));
+                return AS_Operand_Temp(gep_temp);
+            }
+            else if(ptr_op->u.TEMP->type == TempType::STRUCT_PTR)
+            {
+                auto gep_temp = Temp_newtemp_struct_ptr(0,ptr_op->u.TEMP->structname);
+                emit_irs.push_back(L_Gep(AS_Operand_Temp(gep_temp),ptr_op,index_op));
+                return AS_Operand_Temp(gep_temp);
+            }
+            else
+            {
+                assert(0);
+            }
+        }
+        else if(ptr_op->kind == OperandKind::NAME)
+        {
+            if(ptr_op->u.NAME->type == TempType::INT_PTR)
+            {
+                auto gep_temp = Temp_newtemp_int_ptr(0);
+                emit_irs.push_back(L_Gep(AS_Operand_Temp(gep_temp),ptr_op,index_op));
+                return AS_Operand_Temp(gep_temp);
+            }
+            else if(ptr_op->u.NAME->type == TempType::STRUCT_PTR)
+            {
+                auto gep_temp = Temp_newtemp_struct_ptr(0,ptr_op->u.NAME->structname);
+                emit_irs.push_back(L_Gep(AS_Operand_Temp(gep_temp),ptr_op,index_op));
+                return AS_Operand_Temp(gep_temp);
+            }
+            else
+            {
+                assert(0);
+            }
+        }
+        else
+        {
+            assert(0);
+        }
+        break;
+    }
+    case A_memberValKind:
+    {
+        auto ptr_op = ast2llvmLeftVal(l->u.memberExpr->structId);
+        if(ptr_op->kind == OperandKind::TEMP)
+        {
+            if(ptr_op->u.TEMP->type == TempType::STRUCT_PTR)
+            {
+                auto info = structInfoMap[ptr_op->u.TEMP->structname].memberinfos[*l->u.memberExpr->memberId];
+                auto index = info.offset;
+                Temp_temp *gep_temp = nullptr;
+                if(info.def.kind == TempType::INT_TEMP)
+                {
+                    gep_temp = Temp_newtemp_int_ptr(0);
+                }
+                else if(info.def.kind == TempType::INT_PTR)
+                {
+                    gep_temp = Temp_newtemp_int_ptr(info.def.len);
+                }
+                else if(info.def.kind == TempType::STRUCT_TEMP)
+                {
+                    gep_temp = Temp_newtemp_struct_ptr(0,info.def.structname);
+                }
+                else
+                {
+                    gep_temp = Temp_newtemp_struct_ptr(info.def.len,info.def.structname);
+                }
+                emit_irs.push_back(L_Gep(AS_Operand_Temp(gep_temp),ptr_op,AS_Operand_Const(index)));
+                return AS_Operand_Temp(gep_temp);
+            }
+            else
+            {
+                assert(0);
+            }
+        }
+        else if(ptr_op->kind == OperandKind::NAME)
+        {
+            if(ptr_op->u.NAME->type == TempType::STRUCT_PTR)
+            {
+                auto info = structInfoMap[ptr_op->u.NAME->structname].memberinfos[*l->u.memberExpr->memberId];
+                auto index = info.offset;
+                Temp_temp *gep_temp = nullptr;
+                if(info.def.kind == TempType::INT_TEMP)
+                {
+                    gep_temp = Temp_newtemp_int_ptr(0);
+                }
+                else if(info.def.kind == TempType::INT_PTR)
+                {
+                    gep_temp = Temp_newtemp_int_ptr(info.def.len);
+                }
+                else if(info.def.kind == TempType::STRUCT_TEMP)
+                {
+                    gep_temp = Temp_newtemp_struct_ptr(0,info.def.structname);
+                }
+                else
+                {
+                    gep_temp = Temp_newtemp_struct_ptr(info.def.len,info.def.structname);
+                }
+                emit_irs.push_back(L_Gep(AS_Operand_Temp(gep_temp),ptr_op,AS_Operand_Const(index)));
+                return AS_Operand_Temp(gep_temp);
+            }
+            else
+            {
+                assert(0);
+            }
+        }
+        else
+        {
+            assert(0);
+        }
+        break;
+    }
+    default:
+        break;
+    }
+}
+
+AS_operand* ast2llvmIndexExpr(aA_indexExpr index)
+{
+    if(index->kind == A_numIndexKind)
+    {
+        return AS_Operand_Const(index->u.num);
+    }
+    else if(index->kind == A_idIndexKind)
+    {
+        if(localVarMap.find(*index->u.id) != localVarMap.end())
+        {
+            auto alloca_temp = localVarMap[*index->u.id];
+            if(alloca_temp->type == TempType::INT_PTR)
+            {
+                auto load_temp = Temp_newtemp_int();
+                emit_irs.push_back(L_Load(AS_Operand_Temp(load_temp),AS_Operand_Temp(alloca_temp)));
+                return AS_Operand_Temp(load_temp);
+            }
+            else
+            {
+                assert(0);
+            }
+        }
+        else if(globalVarMap.find(*index->u.id) != globalVarMap.end())
+        {
+            auto alloca_name = globalVarMap[*index->u.id];
+            if(alloca_name->type == TempType::INT_TEMP)
+            {
+                auto load_temp = Temp_newtemp_int();
+                emit_irs.push_back(L_Load(AS_Operand_Temp(load_temp),AS_Operand_Name(alloca_name)));
+                return AS_Operand_Temp(load_temp);
+            }
+            else
+            {
+                assert(0);
+            }
+        }
+        else
+        {
+            assert(0);
+        }
+    }
+    else
+    {
+        assert(0);
+    }
+}
+
+AS_operand* ast2llvmBoolExpr(aA_boolExpr b,Temp_label *true_label,Temp_label *false_label)
 {
     if(true_label == nullptr)
     {
         auto _true_label = Temp_newlabel();
         auto _false_label = Temp_newlabel();
         auto _end_label = Temp_newlabel();
+        auto alloca_temp = Temp_newtemp_int_ptr(0);
+        emit_irs.push_back(L_Alloca(AS_Operand_Temp(alloca_temp)));
         auto dst_temp = Temp_newtemp_int();
         switch (b->kind)
         {
@@ -815,13 +1034,14 @@ Temp_temp* ast2llvmBoolExpr(aA_boolExpr b,Temp_label *true_label,Temp_label *fal
             break;
         }
         emit_irs.push_back(L_Label(_true_label));
-        emit_irs.push_back(L_Move(AS_Operand_Const(1),AS_Operand_Temp(dst_temp)));
+        emit_irs.push_back(L_Store(AS_Operand_Const(1),AS_Operand_Temp(alloca_temp)));
         emit_irs.push_back(L_Jump(_end_label));
         emit_irs.push_back(L_Label(_false_label));
-        emit_irs.push_back(L_Move(AS_Operand_Const(0),AS_Operand_Temp(dst_temp)));
+        emit_irs.push_back(L_Store(AS_Operand_Const(0),AS_Operand_Temp(alloca_temp)));
         emit_irs.push_back(L_Jump(_end_label));
         emit_irs.push_back(L_Label(_end_label));
-        return dst_temp;
+        emit_irs.push_back(L_Load(AS_Operand_Temp(dst_temp),AS_Operand_Temp(alloca_temp)));
+        return AS_Operand_Temp(dst_temp);
     }
     else
     {
@@ -923,32 +1143,32 @@ void ast2llvmComOpExpr(aA_comExpr c,Temp_label *true_label,Temp_label *false_lab
     {
     case A_lt:
     {
-        emit_irs.push_back(L_Cmp(L_relopKind::T_lt,AS_Operand_Temp(left_temp),AS_Operand_Temp(right_temp),AS_Operand_Temp(dst_temp)));
+        emit_irs.push_back(L_Cmp(L_relopKind::T_lt,left_temp,right_temp,AS_Operand_Temp(dst_temp)));
         break;
     }
     case A_le:
     {
-        emit_irs.push_back(L_Cmp(L_relopKind::T_le,AS_Operand_Temp(left_temp),AS_Operand_Temp(right_temp),AS_Operand_Temp(dst_temp)));
+        emit_irs.push_back(L_Cmp(L_relopKind::T_le,left_temp,right_temp,AS_Operand_Temp(dst_temp)));
         break;
     }
     case A_gt:
     {
-        emit_irs.push_back(L_Cmp(L_relopKind::T_gt,AS_Operand_Temp(left_temp),AS_Operand_Temp(right_temp),AS_Operand_Temp(dst_temp)));
+        emit_irs.push_back(L_Cmp(L_relopKind::T_gt,left_temp,right_temp,AS_Operand_Temp(dst_temp)));
         break;
     }
     case A_ge:
     {
-        emit_irs.push_back(L_Cmp(L_relopKind::T_ge,AS_Operand_Temp(left_temp),AS_Operand_Temp(right_temp),AS_Operand_Temp(dst_temp)));
+        emit_irs.push_back(L_Cmp(L_relopKind::T_ge,left_temp,right_temp,AS_Operand_Temp(dst_temp)));
         break;
     }
     case A_eq:
     {
-        emit_irs.push_back(L_Cmp(L_relopKind::T_eq,AS_Operand_Temp(left_temp),AS_Operand_Temp(right_temp),AS_Operand_Temp(dst_temp)));
+        emit_irs.push_back(L_Cmp(L_relopKind::T_eq,left_temp,right_temp,AS_Operand_Temp(dst_temp)));
         break;
     }
     case A_ne:
     {
-        emit_irs.push_back(L_Cmp(L_relopKind::T_ne,AS_Operand_Temp(left_temp),AS_Operand_Temp(right_temp),AS_Operand_Temp(dst_temp)));
+        emit_irs.push_back(L_Cmp(L_relopKind::T_ne,left_temp,right_temp,AS_Operand_Temp(dst_temp)));
         break;
     }
     default:
@@ -957,7 +1177,7 @@ void ast2llvmComOpExpr(aA_comExpr c,Temp_label *true_label,Temp_label *false_lab
     emit_irs.push_back(L_Cjump(AS_Operand_Temp(dst_temp),true_label,false_label));
 }
 
-Temp_temp* ast2llvmArithBiOpExpr(aA_arithBiOpExpr a)
+AS_operand* ast2llvmArithBiOpExpr(aA_arithBiOpExpr a)
 {
     auto left_temp = ast2llvmArithExpr(a->left);
     auto right_temp = ast2llvmArithExpr(a->right);
@@ -966,38 +1186,38 @@ Temp_temp* ast2llvmArithBiOpExpr(aA_arithBiOpExpr a)
     {
     case A_add:
     {
-        emit_irs.push_back(L_Binop(L_binopKind::T_plus,AS_Operand_Temp(left_temp),AS_Operand_Temp(right_temp),AS_Operand_Temp(dst_temp)));
+        emit_irs.push_back(L_Binop(L_binopKind::T_plus,left_temp,right_temp,AS_Operand_Temp(dst_temp)));
         break;
     }
     case A_sub:
     {
-        emit_irs.push_back(L_Binop(L_binopKind::T_minus,AS_Operand_Temp(left_temp),AS_Operand_Temp(right_temp),AS_Operand_Temp(dst_temp)));
+        emit_irs.push_back(L_Binop(L_binopKind::T_minus,left_temp,right_temp,AS_Operand_Temp(dst_temp)));
         break;
     }
     case A_mul:
     {
-        emit_irs.push_back(L_Binop(L_binopKind::T_mul,AS_Operand_Temp(left_temp),AS_Operand_Temp(right_temp),AS_Operand_Temp(dst_temp)));
+        emit_irs.push_back(L_Binop(L_binopKind::T_mul,left_temp,right_temp,AS_Operand_Temp(dst_temp)));
         break;
     }
     case A_div:
     {
-        emit_irs.push_back(L_Binop(L_binopKind::T_div,AS_Operand_Temp(left_temp),AS_Operand_Temp(right_temp),AS_Operand_Temp(dst_temp)));
+        emit_irs.push_back(L_Binop(L_binopKind::T_div,left_temp,right_temp,AS_Operand_Temp(dst_temp)));
         break;
     }
     default:
         break;
     }
-    return dst_temp;
+    return AS_Operand_Temp(dst_temp);
 }
 
-Temp_temp* ast2llvmArithUExpr(aA_arithUExpr a)
+AS_operand* ast2llvmArithUExpr(aA_arithUExpr a)
 {
     if(a->op == A_neg)
     {
         auto dst_temp = Temp_newtemp_int();
         auto src_temp = ast2llvmExprUnit(a->expr);
-        emit_irs.push_back(L_Binop(L_binopKind::T_minus,AS_Operand_Const(0),AS_Operand_Temp(src_temp),AS_Operand_Temp(dst_temp)));
-        return dst_temp;
+        emit_irs.push_back(L_Binop(L_binopKind::T_minus,AS_Operand_Const(0),src_temp,AS_Operand_Temp(dst_temp)));
+        return AS_Operand_Temp(dst_temp);
     }
     else
     {
@@ -1006,7 +1226,7 @@ Temp_temp* ast2llvmArithUExpr(aA_arithUExpr a)
     return nullptr;
 }
 
-Temp_temp* ast2llvmArithExpr(aA_arithExpr a)
+AS_operand* ast2llvmArithExpr(aA_arithExpr a)
 {
     switch (a->kind)
     {
@@ -1027,15 +1247,13 @@ Temp_temp* ast2llvmArithExpr(aA_arithExpr a)
     return nullptr;
 }
 
-Temp_temp* ast2llvmExprUnit(aA_exprUnit e)
+AS_operand* ast2llvmExprUnit(aA_exprUnit e)
 {
     switch (e->kind)
     {
     case A_numExprKind:
     {
-        auto dst_temp = Temp_newtemp_int();
-        emit_irs.push_back(L_Move(AS_Operand_Const(e->u.num),AS_Operand_Temp(dst_temp)));
-        return dst_temp;
+        return AS_Operand_Const(e->u.num);
         break;
     }
     case A_idExprKind:
@@ -1049,20 +1267,16 @@ Temp_temp* ast2llvmExprUnit(aA_exprUnit e)
                 {
                     auto dst_temp = Temp_newtemp_int();
                     emit_irs.push_back(L_Load(AS_Operand_Temp(dst_temp),AS_Operand_Temp(alloca_temp)));
-                    return dst_temp;
+                    return AS_Operand_Temp(dst_temp);
                 }
                 else
                 {
-                    return alloca_temp;
+                    return AS_Operand_Temp(alloca_temp);
                 }
             }
             else if(alloca_temp->type == TempType::STRUCT_PTR)
             {
-                if(alloca_temp->len > 0)
-                {
-                    assert(0);
-                }
-                return alloca_temp;
+                return AS_Operand_Temp(alloca_temp);
             }
             else
             {
@@ -1076,11 +1290,11 @@ Temp_temp* ast2llvmExprUnit(aA_exprUnit e)
             {
                 auto dst_temp = Temp_newtemp_int();
                 emit_irs.push_back(L_Load(AS_Operand_Temp(dst_temp),AS_Operand_Name(var_name)));
-                return dst_temp;
+                return AS_Operand_Temp(dst_temp);
             }
             else
             {
-                assert(0);
+                return AS_Operand_Name(var_name);
             }
         }
         else
@@ -1099,95 +1313,46 @@ Temp_temp* ast2llvmExprUnit(aA_exprUnit e)
         vector<AS_operand*> args;
         for(const auto &v : e->u.callExpr->vals)
         {
-            args.push_back(AS_Operand_Temp(ast2llvmRightVal(v)));
+            args.push_back(ast2llvmRightVal(v));
         }
         auto dst_temp = Temp_newtemp_int();
         emit_irs.push_back(L_Call(*e->u.callExpr->fn,AS_Operand_Temp(dst_temp),args));
-        return dst_temp;
+        return AS_Operand_Temp(dst_temp);
         break;
     }
     case A_arrayExprKind:
     {
-        if(localVarMap.find(*e->u.arrayExpr->arr) != localVarMap.end())
+        auto left_op = ast2llvmLeftVal(e->u.arrayExpr->arr);
+        auto index_op = ast2llvmIndexExpr(e->u.arrayExpr->idx);
+        auto gep_temp = Temp_newtemp_int_ptr(0);
+        emit_irs.push_back(L_Gep(AS_Operand_Temp(gep_temp),left_op,index_op));
+        if(left_op->kind == OperandKind::TEMP)
         {
-            auto alloca_temp = localVarMap[*e->u.arrayExpr->arr];
-            if(alloca_temp->type == TempType::INT_PTR)
+            Temp_temp *load_temp = nullptr;
+            if(left_op->u.TEMP->type == TempType::INT_PTR)
             {
-                auto dst_temp = Temp_newtemp_int();
-                Temp_temp *gep_temp = Temp_newtemp_int_ptr(-1);
-                if(e->u.arrayExpr->idx->kind == A_numIndexKind)
-                {
-                    emit_irs.push_back(L_Gep(AS_Operand_Temp(gep_temp),AS_Operand_Temp(alloca_temp),AS_Operand_Const(e->u.arrayExpr->idx->u.num)));
-                }
-                else
-                {
-                    if(localVarMap.find(*e->u.arrayExpr->idx->u.id) != localVarMap.end())
-                    {
-                        auto t = localVarMap[*e->u.arrayExpr->idx->u.id];
-                        auto tt = Temp_newtemp_int();
-                        emit_irs.push_back(L_Load(AS_Operand_Temp(tt),AS_Operand_Temp(t)));
-                        emit_irs.push_back(L_Gep(AS_Operand_Temp(gep_temp),AS_Operand_Temp(alloca_temp),AS_Operand_Temp(tt)));
-                    }
-                    else if(globalVarMap.find(*e->u.arrayExpr->idx->u.id) != globalVarMap.end())
-                    {
-                        auto t = globalVarMap[*e->u.arrayExpr->idx->u.id];
-                        auto tt = Temp_newtemp_int();
-                        emit_irs.push_back(L_Load(AS_Operand_Temp(tt),AS_Operand_Name(t)));
-                        emit_irs.push_back(L_Gep(AS_Operand_Temp(gep_temp),AS_Operand_Temp(alloca_temp),AS_Operand_Temp(tt)));
-                    }
-                    else
-                    {
-                        assert(0);
-                    }
-                }
-                emit_irs.push_back(L_Load(AS_Operand_Temp(dst_temp),AS_Operand_Temp(gep_temp)));
-                return dst_temp;
+                load_temp = Temp_newtemp_int();
             }
             else
             {
                 assert(0);
             }
+            emit_irs.push_back(L_Load(AS_Operand_Temp(load_temp),AS_Operand_Temp(gep_temp)));
+            return AS_Operand_Temp(load_temp);
         }
-        else if(globalVarMap.find(*e->u.arrayExpr->arr) != globalVarMap.end())
+        else if(left_op->kind == OperandKind::NAME)
         {
-            auto var_name = globalVarMap[*e->u.arrayExpr->arr];
-            if(var_name->type == TempType::INT_PTR)
+            Temp_temp *load_temp = nullptr;
+            if(left_op->u.NAME->type == TempType::INT_PTR)
             {
-                auto dst_temp = Temp_newtemp_int();
-                auto gep_temp = Temp_newtemp_int_ptr(-1);
-                if(e->u.arrayExpr->idx->kind == A_numIndexKind)
-                {
-                    emit_irs.push_back(L_Gep(AS_Operand_Temp(gep_temp),AS_Operand_Name(var_name),AS_Operand_Const(e->u.arrayExpr->idx->u.num)));
-                }
-                else
-                {
-                    if(localVarMap.find(*e->u.arrayExpr->idx->u.id) != localVarMap.end())
-                    {
-                        auto t = localVarMap[*e->u.arrayExpr->idx->u.id];
-                        auto tt = Temp_newtemp_int();
-                        emit_irs.push_back(L_Load(AS_Operand_Temp(tt),AS_Operand_Temp(t)));
-                        emit_irs.push_back(L_Gep(AS_Operand_Temp(gep_temp),AS_Operand_Name(var_name),AS_Operand_Temp(tt)));
-                    }
-                    else if(globalVarMap.find(*e->u.arrayExpr->idx->u.id) != globalVarMap.end())
-                    {
-                        auto t = globalVarMap[*e->u.arrayExpr->idx->u.id];
-                        auto tt = Temp_newtemp_int();
-                        emit_irs.push_back(L_Load(AS_Operand_Temp(tt),AS_Operand_Name(t)));
-                        emit_irs.push_back(L_Gep(AS_Operand_Temp(gep_temp),AS_Operand_Name(var_name),AS_Operand_Temp(tt)));
-                    }
-                    else
-                    {
-                        assert(0);
-                    }
-                }
-                emit_irs.push_back(L_Load(AS_Operand_Temp(dst_temp),AS_Operand_Temp(gep_temp)));
-                return dst_temp;
+                load_temp = Temp_newtemp_int();
             }
             else
             {
                 assert(0);
             }
-            return nullptr;
+            emit_irs.push_back(L_Load(AS_Operand_Temp(load_temp),AS_Operand_Temp(gep_temp)));
+            return AS_Operand_Temp(load_temp);
         }
         else
         {
@@ -1197,48 +1362,53 @@ Temp_temp* ast2llvmExprUnit(aA_exprUnit e)
     }
     case A_memberExprKind:
     {
-        if(localVarMap.find(*e->u.memberExpr->structId) != localVarMap.end())
+        auto ptr_op = ast2llvmLeftVal(e->u.memberExpr->structId);
+        if(ptr_op->kind == OperandKind::TEMP)
         {
-            auto alloca_temp = localVarMap[*e->u.memberExpr->structId];
-            if(alloca_temp->type == TempType::STRUCT_PTR)
+            if(ptr_op->u.TEMP->type == TempType::STRUCT_PTR)
             {
-                if(structInfoMap[alloca_temp->structname].memberinfos.find(*e->u.memberExpr->memberId) != structInfoMap[alloca_temp->structname].memberinfos.end())
+                auto info = structInfoMap[ptr_op->u.TEMP->structname].memberinfos[*e->u.memberExpr->memberId];
+                auto index = info.offset;
+                Temp_temp *gep_temp = nullptr;
+                Temp_temp *load_temp;
+                if(info.def.kind == TempType::INT_TEMP)
                 {
-                    auto info = structInfoMap[alloca_temp->structname].memberinfos[*e->u.memberExpr->memberId];
-                    auto gep_temp = Temp_newtemp_int_ptr(0);
-                    emit_irs.push_back(L_Gep(AS_Operand_Temp(gep_temp),AS_Operand_Temp(alloca_temp),AS_Operand_Const(info.offset)));
-                    auto dst_temp = Temp_newtemp_int();
-                    emit_irs.push_back(L_Load(AS_Operand_Temp(dst_temp),AS_Operand_Temp(gep_temp)));
-                    return dst_temp;
+                    gep_temp = Temp_newtemp_int_ptr(0);
+                    load_temp = Temp_newtemp_int();
                 }
                 else
                 {
                     assert(0);
                 }
+                emit_irs.push_back(L_Gep(AS_Operand_Temp(gep_temp),ptr_op,AS_Operand_Const(index)));
+                emit_irs.push_back(L_Load(AS_Operand_Temp(load_temp),AS_Operand_Temp(gep_temp)));
+                return AS_Operand_Temp(load_temp);
             }
             else
             {
                 assert(0);
             }
         }
-        else if(globalVarMap.find(*e->u.memberExpr->structId) != globalVarMap.end())
+        else if(ptr_op->kind == OperandKind::NAME)
         {
-            auto var_name = globalVarMap[*e->u.memberExpr->structId];
-            if(var_name->type == TempType::STRUCT_PTR)
+            if(ptr_op->u.NAME->type == TempType::STRUCT_TEMP)
             {
-                if(structInfoMap[var_name->structname].memberinfos.find(*e->u.memberExpr->memberId) != structInfoMap[var_name->structname].memberinfos.end())
+                auto info = structInfoMap[ptr_op->u.NAME->structname].memberinfos[*e->u.memberExpr->memberId];
+                auto index = info.offset;
+                Temp_temp *gep_temp = nullptr;
+                Temp_temp *load_temp;
+                if(info.def.kind == TempType::INT_TEMP)
                 {
-                    auto info = structInfoMap[var_name->structname].memberinfos[*e->u.memberExpr->memberId];
-                    auto gep_temp = Temp_newtemp_int_ptr(0);
-                    emit_irs.push_back(L_Gep(AS_Operand_Temp(gep_temp),AS_Operand_Name(var_name),AS_Operand_Const(info.offset)));
-                    auto dst_temp = Temp_newtemp_int();
-                    emit_irs.push_back(L_Load(AS_Operand_Temp(dst_temp),AS_Operand_Temp(gep_temp)));
-                    return dst_temp;
+                    gep_temp = Temp_newtemp_int_ptr(0);
+                    load_temp = Temp_newtemp_int();
                 }
                 else
                 {
                     assert(0);
                 }
+                emit_irs.push_back(L_Gep(AS_Operand_Temp(gep_temp),ptr_op,AS_Operand_Const(index)));
+                emit_irs.push_back(L_Load(AS_Operand_Temp(load_temp),AS_Operand_Temp(gep_temp)));
+                return AS_Operand_Temp(load_temp);
             }
             else
             {
@@ -1249,7 +1419,6 @@ Temp_temp* ast2llvmExprUnit(aA_exprUnit e)
         {
             assert(0);
         }
-        return nullptr;
         break;
     }
     case A_arithUExprKind:
@@ -1305,6 +1474,18 @@ LLVMIR::L_func* ast2llvmFuncBlock(Func_local *f)
                 block_list.push_back(ir);
             }
         }
+    }
+    if(in_block)
+    {
+        if(funcReturnMap[f->name].type == ReturnType::VOID_TYPE)
+        {
+            block_list.push_back(L_Ret(nullptr));
+        }
+        else
+        {
+            block_list.push_back(L_Ret(AS_Operand_Const(0)));
+        }
+        blocks.push_back(L_Block(block_list));
     }
     return new L_func(f->name,f->ret,f->args,blocks);
 }
