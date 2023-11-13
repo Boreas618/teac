@@ -646,13 +646,13 @@ void ast2llvmBlock(aA_codeBlockStmt b,Temp_label *con_label,Temp_label *bre_labe
                 {
                     Temp_temp *alloca_temp = Temp_newtemp_int_ptr(b->u.varDeclStmt->u.varDecl->u.declArray->len);
                     emit_irs.push_back(L_Alloca(AS_Operand_Temp(alloca_temp)));
-                    localVarMap.emplace(*b->u.varDeclStmt->u.varDecl->u.declArray->id,alloca_temp);
+                    localVarMap[*b->u.varDeclStmt->u.varDecl->u.declArray->id]=alloca_temp;
                 }
                 else
                 {
                     Temp_temp *alloca_temp = Temp_newtemp_struct_ptr(b->u.varDeclStmt->u.varDecl->u.declArray->len,*b->u.varDeclStmt->u.varDecl->u.declArray->type->u.structType);
                     emit_irs.push_back(L_Alloca(AS_Operand_Temp(alloca_temp)));
-                    localVarMap.emplace(*b->u.varDeclStmt->u.varDecl->u.declArray->id,alloca_temp);
+                    localVarMap[*b->u.varDeclStmt->u.varDecl->u.declArray->id]=alloca_temp;
                 }
             }
         }
@@ -666,13 +666,13 @@ void ast2llvmBlock(aA_codeBlockStmt b,Temp_label *con_label,Temp_label *bre_labe
                     emit_irs.push_back(L_Alloca(AS_Operand_Temp(alloca_temp)));
                     auto res = ast2llvmRightVal(b->u.varDeclStmt->u.varDef->u.defScalar->val);
                     emit_irs.push_back(L_Store(res,AS_Operand_Temp(alloca_temp)));
-                    localVarMap.emplace(*b->u.varDeclStmt->u.varDef->u.defScalar->id,alloca_temp);
+                    localVarMap[*b->u.varDeclStmt->u.varDef->u.defScalar->id]=alloca_temp;
                 }
                 else
                 {
                     Temp_temp *alloca_temp = Temp_newtemp_struct_ptr(0,*b->u.varDeclStmt->u.varDef->u.defScalar->type->u.structType);
                     emit_irs.push_back(L_Alloca(AS_Operand_Temp(alloca_temp)));
-                    localVarMap.emplace(*b->u.varDeclStmt->u.varDef->u.defScalar->id,alloca_temp);
+                    localVarMap[*b->u.varDeclStmt->u.varDef->u.defScalar->id]=alloca_temp;
                 }
             }
             else
@@ -1436,8 +1436,9 @@ LLVMIR::L_func* ast2llvmFuncBlock(Func_local *f)
     std::list<L_stm*> block_list;
     std::list<L_block*> blocks;
     bool in_block = false;
-    for(const auto &ir : f->irs)
+    for(auto it = f->irs.begin();it != f->irs.end();)
     {
+        auto ir = *it;
         if(in_block)
         {
             if(ir->type == L_StmKind::T_CJUMP || ir->type == L_StmKind::T_JUMP || ir->type == L_StmKind::T_RETURN)
@@ -1446,6 +1447,7 @@ LLVMIR::L_func* ast2llvmFuncBlock(Func_local *f)
                 block_list.push_back(ir);
                 blocks.push_back(L_Block(block_list));
                 block_list.clear();
+                ++it;
             }
             else if(ir->type == L_StmKind::T_LABEL)
             {
@@ -1453,10 +1455,12 @@ LLVMIR::L_func* ast2llvmFuncBlock(Func_local *f)
                 blocks.push_back(L_Block(block_list));
                 block_list.clear();
                 block_list.push_back(ir);
+                ++it;
             }
             else
             {
                 block_list.push_back(ir);
+                ++it;
             }
         }
         else
@@ -1465,13 +1469,13 @@ LLVMIR::L_func* ast2llvmFuncBlock(Func_local *f)
             {
                 in_block = true;
                 block_list.push_back(ir);
+                ++it;
             }
             else
             {
                 auto label = Temp_newlabel();
                 in_block = true;
                 block_list.push_back(L_Label(label));
-                block_list.push_back(ir);
             }
         }
     }
