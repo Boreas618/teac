@@ -70,6 +70,10 @@ struct AS_operand
         Name_name *NAME;
         int ICONST;
     } u;
+
+    bool operator == (const AS_operand &a) const{
+        return kind==a.kind && u.TEMP==a.u.TEMP;
+    }
 };
 
 AS_operand* AS_Operand_Temp(Temp_temp *temp);
