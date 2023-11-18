@@ -9,6 +9,8 @@
 #include "ast2llvm.h"
 #include "printLLVM.h"
 #include "ssa.h"
+#include "graph.hpp"
+#include "bg_llvm.h"
 
 #define YACCDEBUG 0
 
