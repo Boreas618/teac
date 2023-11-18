@@ -8,6 +8,7 @@
 #include "llvm_ir.h"
 #include "ast2llvm.h"
 #include "printLLVM.h"
+#include "ssa.h"
 
 #define YACCDEBUG 0
 
@@ -56,6 +57,7 @@ int main(int argc, char * argv[]) {
     ofstream LLVMStream;
     LLVMStream.open(file_name + ".ll");
     auto prog = ast2llvm(aroot);
+    prog=SSA(prog);
     printL_prog(LLVMStream,prog);
     LLVMStream.close();
 

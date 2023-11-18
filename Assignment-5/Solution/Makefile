@@ -14,7 +14,7 @@ $(TESTCASE_DIR)/%.ll: $(TESTCASE_DIR)/%.tea compiler
 	@./test-functional.sh $*
 	@echo 
 
-compiler: y.tab.o lex.yy.o TeaplAst.o TeaplaAst.o PrintTeaplaAst.o compiler.o  llvm_ir.o ast2llvm.o printLLVM.o temp.o
+compiler: y.tab.o lex.yy.o TeaplAst.o TeaplaAst.o PrintTeaplaAst.o compiler.o  llvm_ir.o ast2llvm.o printLLVM.o temp.o ssa.o
 	$(CXX) $(CXXFLAGS) -o compiler $^ 
 
 y.tab.cpp: parser.yacc TeaplAst.h 
@@ -61,5 +61,7 @@ printLLVM.o: printLLVM.cpp printLLVM.h llvm_ir.cpp llvm_ir.h temp.cpp temp.h
 temp.o: temp.cpp temp.h
 	$(CXX) $(CXXFLAGS) -c $<
 
+ssa.o: ssa.cpp ssa.h 
+	$(CXX) $(CXXFLAGS) -c $<
 clean:
-	rm *.o *.output y.tab.cpp y.tab.hpp lex.yy.cpp compiler tests/*.ast tests/*.ll output/*.ll output/*.out
+	rm *.o *.output  compiler  tests/*.ll output/*.ll output/*.out
