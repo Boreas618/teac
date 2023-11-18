@@ -14,7 +14,7 @@ $(TESTCASE_DIR)/%.ll: $(TESTCASE_DIR)/%.tea compiler
 	@./test-functional.sh $*
 	@echo 
 
-compiler: y.tab.o lex.yy.o TeaplAst.o TeaplaAst.o PrintTeaplaAst.o compiler.o  llvm_ir.o ast2llvm.o printLLVM.o temp.o ssa.o bg_llvm.o graph.o 
+compiler: y.tab.o lex.yy.o TeaplAst.o TeaplaAst.o PrintTeaplaAst.o compiler.o  llvm_ir.o ast2llvm.o printLLVM.o temp.o ssa.o bg_llvm.o 
 	$(CXX) $(CXXFLAGS) -o compiler $^ 
 
 y.tab.cpp: parser.yacc TeaplAst.h 
@@ -46,7 +46,7 @@ TeaplaAst.o: TeaplaAst.cpp TeaplaAst.h
 PrintTeaplaAst.o: PrintTeaplaAst.cpp PrintTeaplaAst.h
 	$(CXX) $(CXXFLAGS) -c $<
 
-compiler.o: compiler.cpp TeaplAst.o TeaplaAst.o PrintTeaplaAst.o y.tab.o lex.yy.o llvm_ir.o ast2llvm.o printLLVM.o temp.o ssa.o bg_llvm.o graph.o 
+compiler.o: compiler.cpp TeaplAst.o TeaplaAst.o PrintTeaplaAst.o y.tab.o lex.yy.o llvm_ir.o ast2llvm.o printLLVM.o temp.o ssa.o bg_llvm.o 
 	$(CXX) $(CXXFLAGS) -c $<
 
 llvm_ir.o: llvm_ir.cpp llvm_ir.h temp.cpp temp.h
@@ -61,13 +61,12 @@ printLLVM.o: printLLVM.cpp printLLVM.h llvm_ir.cpp llvm_ir.h temp.cpp temp.h
 temp.o: temp.cpp temp.h
 	$(CXX) $(CXXFLAGS) -c $<
 
-ssa.o: ssa.cpp ssa.h  graph.cpp graph.hpp llvm_ir.cpp llvm_ir.h temp.cpp temp.h
+ssa.o: ssa.cpp ssa.h 
 	$(CXX) $(CXXFLAGS) -c $<
 
-graph.o: graph.cpp graph.hpp 
-	$(CXX) $(CXXFLAGS) -c $<
 
-bg_llvm.o: bg_llvm.cpp bg_llvm.h  graph.cpp graph.hpp llvm_ir.cpp llvm_ir.h temp.cpp temp.h
+
+bg_llvm.o: bg_llvm.cpp bg_llvm.h  graph.hpp 
 	$(CXX) $(CXXFLAGS) -c $<
 	
 clean:

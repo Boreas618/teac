@@ -1,28 +1,30 @@
 #pragma once
 
-#include <unordered_map>
+#include <assert.h>
 #include <iostream>
 #include <set>
+#include <unordered_map>
 #include <vector>
-
 
 namespace GRAPH {
 
-template<typename T> class Graph;
-template<typename T> struct Node;
+template <typename T>
+class Graph;
+template <typename T>
+struct Node;
 typedef std::set<int> NodeSet;
 
-template<typename T>
+template <typename T>
 struct Node {
     int mykey;
+    Graph<T>* mygraph;
     NodeSet succs;
     NodeSet preds;
     T info;
 
     Node() {}
-    Node(int _mykey, T _info)
-        : mykey(_mykey)
-        , info(_info) {
+    Node(int _mykey, Graph<T>* _mygraph, T _info)
+        : mykey(_mykey), mygraph(_mygraph), info(_info) {
         succs = NodeSet();
         preds = NodeSet();
     }
@@ -35,9 +37,9 @@ struct Node {
     int inDegree();
 };
 
-template<typename T>
+template <typename T>
 class Graph {
-public:
+   public:
     std::vector<Node<T>*> mynodes;
     int nodecount;
     Graph() {
@@ -45,10 +47,12 @@ public:
         mynodes = std::vector<Node<T>*>();
     }
     ~Graph() {
-        for (auto& i : mynodes) delete i;
+        for (auto& i : mynodes)
+            delete i;
     }
     void clear() {
-        for (auto& i : mynodes) delete i;
+        for (auto& i : mynodes)
+            delete i;
         mynodes.clear();
         nodecount = 0;
     }
@@ -68,4 +72,72 @@ public:
     /* Tell if there is an edge from "from" to "to" */
     bool goesTo(Node<T>* from, Node<T>* n);
 };
+
+template <typename T>
+T Node<T>::nodeInfo() {
+    return this->info;
+}
+
+template <typename T>
+NodeSet* Node<T>::succ() {
+    return &this->succs;
+}
+
+template <typename T>
+NodeSet* Node<T>::pred() {
+    return &this->preds;
+}
+
+template <typename T>
+int Node<T>::nodeid() {
+    return this->mykey;
+}
+
+template <typename T>
+int Node<T>::inDegree() {
+    int deg = 0;
+    return this->preds.size();
+}
+
+/* return length of successor list for node n */
+template <typename T>
+int Node<T>::outDegree() {
+    int deg = 0;
+    return this->succs.size();
+}
+
+template <typename T>
+std::vector<Node<T>*>* Graph<T>::nodes() {
+    return &this->mynodes;
+}
+
+template <typename T>
+Node<T>* Graph<T>::addNode(T info) {
+    Node<T>* node = new GRAPH::Node<T>(this->nodecount++, this, info);
+    this->mynodes.push_back(node);
+    return node;
+}
+
+template <typename T>
+void Graph<T>::addEdge(Node<T>* from, Node<T>* to) {
+    assert(from);
+    assert(to);
+
+    if (goesTo(from, to))
+        return;
+    to->preds.insert(from->mykey);
+    from->succs.insert(to->mykey);
+}
+
+template <typename T>
+void Graph<T>::rmEdge(Node<T>* from, Node<T>* to) {
+    assert(from && to);
+    to->preds.erase(to->preds.find(from->mykey));
+    from->succs.erase(from->succs.find(to->mykey));
+}
+
+template <typename T>
+bool Graph<T>::goesTo(Node<T>* from, Node<T>* n) {
+    return from->succs.count(n->mykey);
+}
 }  // namespace GRAPH

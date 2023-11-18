@@ -17,7 +17,7 @@ LLVMIR::L_prog* SSA(LLVMIR::L_prog* prog) {
     for (auto& fun : prog->funcs) {
         combine_addr(fun);
         mem2reg(fun);
-        // auto RA_bg = Create_bg(fun->blocks);
+        auto RA_bg = Create_bg(fun->blocks);
     }
     return prog;
 }
