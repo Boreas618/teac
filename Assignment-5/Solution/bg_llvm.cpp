@@ -4,16 +4,14 @@
 #include <stdlib.h>
 #include <unordered_map>
 #include "graph.hpp"
+#include "printLLVM.h"
 #include "temp.h"
-
 /* graph on AS_ basic blocks. This is useful to find dominance
    relations, etc. */
 
 using namespace std;
 using namespace LLVMIR;
 using namespace GRAPH;
-
-
 
 static Graph<L_block*> RA_bg;
 static unordered_map<Temp_label*, L_block*> block_env;
@@ -28,8 +26,8 @@ unordered_map<Temp_label*, L_block*>& Bg_block_env() {
 Node<L_block*>* Look_bg(L_block* b) {
     Node<L_block*>* n1 = nullptr;
     for (auto n : *RA_bg.nodes()) {
-        if (n->nodeInfo() == b) {
-            n1 = n;
+        if (n.second->nodeInfo() == b) {
+            n1 = n.second;
             break;
         }
     }
@@ -65,4 +63,36 @@ Graph<L_block*>& Create_bg(list<L_block*>& bl) {
         }
     }
     return RA_bg;
+}
+
+static void DFS(Node<L_block*>* r, Graph<L_block*>& bg) {
+    if (r->color == 1)
+        return;
+    r->color = 1;
+    for (auto succ_id : r->succs) {
+        auto succ = bg.mynodes[succ_id];
+        DFS(succ, bg);
+    }
+}
+
+void SingleSourceGraph(Node<L_block*>* r, Graph<L_block*>& bg) {
+    DFS(r, bg);
+    for (auto x = bg.mynodes.begin(); x != bg.mynodes.end();) {
+        if (x->second->color == 0) {
+            for (auto pred : x->second->preds) {
+                bg.mynodes[pred]->succs.erase(x->second->mykey);
+            }
+            for (auto succ : x->second->succs) {
+                bg.mynodes[succ]->preds.erase(x->second->mykey);
+            }
+            // printL_block(cout,x->second->info);
+            x = bg.mynodes.erase(x);
+        } else {
+            ++x;
+        }
+    }
+    for (auto& x : bg.mynodes) {
+        x.second->color = 0;
+    }
+    return;
 }

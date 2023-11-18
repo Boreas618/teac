@@ -2,6 +2,7 @@
 
 #include <assert.h>
 #include <iostream>
+#include <map>
 #include <set>
 #include <unordered_map>
 #include <vector>
@@ -21,10 +22,11 @@ struct Node {
     NodeSet succs;
     NodeSet preds;
     T info;
+    int color;
 
     Node() {}
-    Node(int _mykey, Graph<T>* _mygraph, T _info)
-        : mykey(_mykey), mygraph(_mygraph), info(_info) {
+    Node(int _mykey, Graph<T>* _mygraph, T _info, int _color)
+        : mykey(_mykey), mygraph(_mygraph), info(_info), color(_color) {
         succs = NodeSet();
         preds = NodeSet();
     }
@@ -40,27 +42,19 @@ struct Node {
 template <typename T>
 class Graph {
    public:
-    std::vector<Node<T>*> mynodes;
+    std::map<int, Node<T>*> mynodes;
     int nodecount;
     Graph() {
         nodecount = 0;
-        mynodes = std::vector<Node<T>*>();
-    }
-    ~Graph() {
-        for (auto& i : mynodes)
-            delete i;
-    }
-    void clear() {
-        for (auto& i : mynodes)
-            delete i;
-        mynodes.clear();
-        nodecount = 0;
+        mynodes = std::map<int, Node<T>*>();
     }
     /* Make a new node in graph "g", with associated "info" */
     Node<T>* addNode(T info);
 
+    void rmNode(Node<T>*);
+
     /* Get the list of nodes belonging to "g" */
-    std::vector<Node<T>*>* nodes();
+    std::map<int, Node<T>*>* nodes();
 
     /* Make a new edge joining nodes "from" and "to", which must belong
         to the same graph */
@@ -107,21 +101,29 @@ int Node<T>::outDegree() {
 }
 
 template <typename T>
-std::vector<Node<T>*>* Graph<T>::nodes() {
+std::map<int, Node<T>*>* Graph<T>::nodes() {
     return &this->mynodes;
 }
 
 template <typename T>
 Node<T>* Graph<T>::addNode(T info) {
-    Node<T>* node = new GRAPH::Node<T>(this->nodecount++, this, info);
-    this->mynodes.push_back(node);
+    Node<T>* node = new GRAPH::Node<T>(this->nodecount++, this, info, 0);
+    this->mynodes.insert({node->mykey, node});
     return node;
+}
+
+template <typename T>
+void Graph<T>::rmNode(Node<T>* node) {
+    assert(node->outDegree == 0);
+    assert(node->inDegree == 0);
+    node->mygraph->mynodes.erase(node->mykey);
 }
 
 template <typename T>
 void Graph<T>::addEdge(Node<T>* from, Node<T>* to) {
     assert(from);
     assert(to);
+    assert(from->mygraph == to->mygraph);
 
     if (goesTo(from, to))
         return;

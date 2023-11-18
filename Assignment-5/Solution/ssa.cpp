@@ -18,6 +18,8 @@ LLVMIR::L_prog* SSA(LLVMIR::L_prog* prog) {
         combine_addr(fun);
         mem2reg(fun);
         auto RA_bg = Create_bg(fun->blocks);
+        // printL_block(cout,RA_bg.mynodes[0]->info);
+        SingleSourceGraph(RA_bg.mynodes[0], RA_bg);
     }
     return prog;
 }
