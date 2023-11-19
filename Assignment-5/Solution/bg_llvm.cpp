@@ -75,7 +75,11 @@ static void DFS(Node<L_block*>* r, Graph<L_block*>& bg) {
     }
 }
 
-void SingleSourceGraph(Node<L_block*>* r, Graph<L_block*>& bg) {
+void SingleSourceGraph(Node<L_block*>* r, Graph<L_block*>& bg,L_func*fun) {
+    unordered_map<L_block*,std::list<L_block*>::iterator>iter_map;
+    for(auto block=fun->blocks.begin();block!=fun->blocks.end();++block){
+        iter_map.insert({*block,block});
+    }
     DFS(r, bg);
     for (auto x = bg.mynodes.begin(); x != bg.mynodes.end();) {
         if (x->second->color == 0) {
@@ -86,6 +90,7 @@ void SingleSourceGraph(Node<L_block*>* r, Graph<L_block*>& bg) {
                 bg.mynodes[succ]->preds.erase(x->second->mykey);
             }
             // printL_block(cout,x->second->info);
+            fun->blocks.erase(iter_map[x->second->info]);
             x = bg.mynodes.erase(x);
         } else {
             ++x;
@@ -95,4 +100,21 @@ void SingleSourceGraph(Node<L_block*>* r, Graph<L_block*>& bg) {
         x.second->color = 0;
     }
     return;
+}
+
+void Show_graph(FILE* out,GRAPH::Graph<LLVMIR::L_block*>&bg){
+    for(auto block_node:bg.mynodes){
+        auto block=block_node.second->info;
+        fprintf(out,"%s \n",block->label->name.c_str());
+        fprintf(out,"pred  %zu  ",block_node.second->preds.size());
+        for(auto pred:block_node.second->preds){
+            fprintf(out,"%s  ",bg.mynodes[pred]->info->label->name.c_str());
+        }
+        fprintf(out,"\n");
+        fprintf(out,"succ  %zu  ",block_node.second->succs.size());
+        for(auto succ:block_node.second->succs){
+            fprintf(out,"%s  ",bg.mynodes[succ]->info->label->name.c_str());
+        }
+        fprintf(out,"\n");
+    }
 }

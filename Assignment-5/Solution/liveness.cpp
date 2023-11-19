@@ -109,7 +109,8 @@ std::list<AS_operand**> get_def_operand(L_stm* stm) {
         case L_StmKind::T_JUMP: {
         } break;
         case L_StmKind::T_CMP: {
-            AS_operand_list.push_back(&(stm->u.CMP->dst));
+            //  i1的局部变量不进行pass
+            // AS_operand_list.push_back(&(stm->u.CMP->dst));
         } break;
         case L_StmKind::T_CJUMP: {
         } break;
@@ -177,7 +178,7 @@ std::list<AS_operand**> get_use_operand(L_stm* stm) {
             AS_operand_list.push_back(&(stm->u.CMP->right));
         } break;
         case L_StmKind::T_CJUMP: {
-            AS_operand_list.push_back(&(stm->u.CJUMP->dst));
+            // AS_operand_list.push_back(&(stm->u.CJUMP->dst));
         } break;
         case L_StmKind::T_MOVE: {
             AS_operand_list.push_back(&(stm->u.MOVE->src));
@@ -255,18 +256,20 @@ static void Use_def(GRAPH::Node<LLVMIR::L_block*>* r, GRAPH::Graph<LLVMIR::L_blo
         for (auto stm : block->instrs) {
             auto uses = get_use(stm);
             auto defs = get_def(stm);
-            for (auto use : uses) {
-                UseDefTable[block_node.second].use.insert(use);
-            }
             for (auto def : defs) {
                 UseDefTable[block_node.second].def.insert(def);
+            }
+             for (auto use : uses) {
+                if(UseDefTable[block_node.second].def.find(use)==UseDefTable[block_node.second].def.end())
+                    UseDefTable[block_node.second].use.insert(use);
             }
         }
     }
 }
-
+static int gi=0;
 static bool LivenessIteration(GRAPH::Node<LLVMIR::L_block*>* r, GRAPH::Graph<LLVMIR::L_block*>& bg) {
     bool changed = false;
+    gi++;
     for (auto block_node : bg.mynodes) {
         auto block = block_node.second;
         // do in[n] = use[n] union (out[n] - def[n])
@@ -279,18 +282,40 @@ static bool LivenessIteration(GRAPH::Node<LLVMIR::L_block*>* r, GRAPH::Graph<LLV
             out = TempSet_union(out, &FG_In(bg.mynodes[s]));
         }
         // See if any in/out changed
-        if (!(TempSet_eq(&FG_In(block), in) && TempSet_eq(&FG_Out(block), out)))
+        if (!(!changed&&TempSet_eq(&FG_In(block), in) && TempSet_eq(&FG_Out(block), out)))
             changed = true;
         // enter the new info
         InOutTable[block].in = *in;
         InOutTable[block].out = *out;
     }
+    
+    // Show_Liveness(stdout,bg);
     return changed;
 }
 
+void PrintTemps(FILE *out, TempSet set) {
+    for(auto x:*set){
+        printf("%d  ",x->num);
+    }
+}
+
+
+void Show_Liveness(FILE* out, GRAPH::Graph<LLVMIR::L_block*>& bg) {
+    fprintf(out, "\n\nNumber of iterations=%d\n\n", gi);
+    for(auto block_node:bg.mynodes){
+        fprintf(out, "----------------------\n");
+        printf("block %s \n",block_node.second->info->label->name.c_str());
+        fprintf(out, "def=\n"); PrintTemps(out, &FG_def(block_node.second)); fprintf(out, "\n");
+        fprintf(out, "use=\n"); PrintTemps(out, &FG_use(block_node.second)); fprintf(out, "\n");
+        fprintf(out, "In=\n");  PrintTemps(out, &FG_In(block_node.second)); fprintf(out, "\n");
+        fprintf(out, "Out=\n"); PrintTemps(out, &FG_Out(block_node.second)); fprintf(out, "\n");
+    }
+}
+// 以block为单位
 void Liveness(GRAPH::Node<LLVMIR::L_block*>* r, GRAPH::Graph<LLVMIR::L_block*>& bg, std::vector<Temp_temp*>& args) {
     init_INOUT();
     Use_def(r, bg, args);
+    gi=0;
     bool changed = true;
     while (changed)
         changed = LivenessIteration(r, bg);

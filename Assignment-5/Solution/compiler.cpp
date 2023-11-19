@@ -61,8 +61,9 @@ int main(int argc, char * argv[]) {
     auto prog = ast2llvm(aroot);
     prog=SSA(prog);
     printL_prog(LLVMStream,prog);
+    
     LLVMStream.close();
-
+    printf("exit\n");
     return 0;
 }
 

@@ -19,4 +19,7 @@ void tree_Dominators(GRAPH::Graph<LLVMIR::L_block*>& bg);
 void computeDF(GRAPH::Graph<LLVMIR::L_block*>& bg,GRAPH::Node<LLVMIR::L_block*>* r);
 void Place_phi_fu(GRAPH::Graph<LLVMIR::L_block*>& bg,LLVMIR:: L_func*fun);
 void Rename(GRAPH::Graph<LLVMIR::L_block*>& bg);
+void printf_domi();
+void printf_D_tree();
+void printf_DF();
 #endif

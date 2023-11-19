@@ -9,6 +9,7 @@
 #include "temp.h"
 
 void Liveness(GRAPH::Node<LLVMIR::L_block*>* r, GRAPH::Graph<LLVMIR::L_block*>& bg, std::vector<Temp_temp*>& args);
+void Show_Liveness(FILE* out, GRAPH::Graph<LLVMIR::L_block*>& bg);
 TempSet_& FG_Out(GRAPH::Node<LLVMIR::L_block*>* r);
 TempSet_& FG_In(GRAPH::Node<LLVMIR::L_block*>* r);
 TempSet_& FG_def(GRAPH::Node<LLVMIR::L_block*>* r);
