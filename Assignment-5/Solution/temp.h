@@ -2,7 +2,7 @@
 #define __TEMP
 
 #include <string>
-
+#include <unordered_set>
 enum class TempType
 {
     INT_TEMP,
@@ -25,6 +25,9 @@ Temp_temp* Temp_newtemp_int();
 Temp_temp* Temp_newtemp_int_ptr(int len);
 Temp_temp* Temp_newtemp_struct(const std::string& name);
 Temp_temp* Temp_newtemp_struct_ptr(int len, const std::string& name);
+
+typedef std::unordered_set<Temp_temp*> TempSet_;
+typedef TempSet_* TempSet;
 
 struct TempDef
 {

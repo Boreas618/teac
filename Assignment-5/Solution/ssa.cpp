@@ -97,7 +97,7 @@ static bool is_mem_variable(L_stm* stm) {
     return stm->type == L_StmKind::T_ALLOCA && stm->u.ALLOCA->dst->kind == OperandKind::TEMP && stm->u.ALLOCA->dst->u.TEMP->type == TempType::INT_PTR && stm->u.ALLOCA->dst->u.TEMP->len == 0;
 }
 
-// 保证相同的AS_operand，地址一样
+// 保证相同的AS_operand,地址一样 。常量除外
 void combine_addr(LLVMIR::L_func* fun) {
     unordered_map<Temp_temp*, unordered_set<AS_operand**>> temp_set;
     unordered_map<Name_name*, unordered_set<AS_operand**>> name_set;
@@ -167,4 +167,12 @@ void mem2reg(LLVMIR::L_func* fun) {
             }
         }
     }
+}
+
+void Dominators(GRAPH::Graph<LLVMIR::L_block*>& bg){
+
+}
+
+void computeDF(GRAPH::Graph<LLVMIR::L_block*>& bg){
+
 }

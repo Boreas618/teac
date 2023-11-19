@@ -13,4 +13,6 @@
 LLVMIR::L_prog* SSA(LLVMIR::L_prog*prog);
 void combine_addr(LLVMIR::L_func* fun);
 void mem2reg(LLVMIR::L_func* fun);
+void Dominators(GRAPH::Graph<LLVMIR::L_block*>& bg);
+void computeDF(GRAPH::Graph<LLVMIR::L_block*>& bg);
 #endif
