@@ -29,6 +29,14 @@ Temp_temp* Temp_newtemp_struct_ptr(int len, const std::string& name);
 typedef std::unordered_set<Temp_temp*> TempSet_;
 typedef TempSet_* TempSet;
 
+void TempSet_add(TempSet tl, Temp_temp* t);
+bool TempSet_contains(TempSet tl, Temp_temp* t);
+TempSet TempSet_union(TempSet tl1, TempSet tl2);
+TempSet TempSet_diff(TempSet tl1, TempSet tl2);
+bool TempSet_eq(TempSet tl1, TempSet tl2);
+void TempSet_remove(TempSet tl, Temp_temp* t);
+
+
 struct TempDef
 {
     TempType kind;

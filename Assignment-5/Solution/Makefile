@@ -14,7 +14,7 @@ $(TESTCASE_DIR)/%.ll: $(TESTCASE_DIR)/%.tea compiler
 	@./test-functional.sh $*
 	@echo 
 
-compiler: y.tab.o lex.yy.o TeaplAst.o TeaplaAst.o PrintTeaplaAst.o compiler.o  llvm_ir.o ast2llvm.o printLLVM.o temp.o ssa.o bg_llvm.o 
+compiler: y.tab.o lex.yy.o TeaplAst.o TeaplaAst.o PrintTeaplaAst.o compiler.o  llvm_ir.o ast2llvm.o printLLVM.o temp.o ssa.o bg_llvm.o liveness.o
 	$(CXX) $(CXXFLAGS) -o compiler $^ 
 
 y.tab.cpp: parser.yacc TeaplAst.h 
@@ -46,7 +46,7 @@ TeaplaAst.o: TeaplaAst.cpp TeaplaAst.h
 PrintTeaplaAst.o: PrintTeaplaAst.cpp PrintTeaplaAst.h
 	$(CXX) $(CXXFLAGS) -c $<
 
-compiler.o: compiler.cpp TeaplAst.o TeaplaAst.o PrintTeaplaAst.o y.tab.o lex.yy.o llvm_ir.o ast2llvm.o printLLVM.o temp.o ssa.o bg_llvm.o 
+compiler.o: compiler.cpp TeaplAst.o TeaplaAst.o PrintTeaplaAst.o y.tab.o lex.yy.o llvm_ir.o ast2llvm.o printLLVM.o temp.o ssa.o bg_llvm.o liveness.o
 	$(CXX) $(CXXFLAGS) -c $<
 
 llvm_ir.o: llvm_ir.cpp llvm_ir.h temp.cpp temp.h
@@ -64,10 +64,10 @@ temp.o: temp.cpp temp.h
 ssa.o: ssa.cpp ssa.h 
 	$(CXX) $(CXXFLAGS) -c $<
 
-
-
 bg_llvm.o: bg_llvm.cpp bg_llvm.h  graph.hpp 
 	$(CXX) $(CXXFLAGS) -c $<
-	
+
+liveness.o: liveness.cpp liveness.h  graph.hpp 
+	$(CXX) $(CXXFLAGS) -c $<
 clean:
 	rm -f *.o   compiler  tests/*.ll output/*.ll output/*.out

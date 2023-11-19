@@ -8,6 +8,7 @@
 #include <vector>
 #include "bg_llvm.h"
 #include "graph.hpp"
+#include "liveness.h"
 #include "printLLVM.h"
 
 using namespace std;
@@ -20,6 +21,7 @@ LLVMIR::L_prog* SSA(LLVMIR::L_prog* prog) {
         auto RA_bg = Create_bg(fun->blocks);
         // printL_block(cout,RA_bg.mynodes[0]->info);
         SingleSourceGraph(RA_bg.mynodes[0], RA_bg);
+        Liveness(RA_bg.mynodes[0],RA_bg,fun->args);
     }
     return prog;
 }
@@ -169,10 +171,8 @@ void mem2reg(LLVMIR::L_func* fun) {
     }
 }
 
-void Dominators(GRAPH::Graph<LLVMIR::L_block*>& bg){
-
+void Dominators(GRAPH::Graph<LLVMIR::L_block*>& bg) {
 }
 
-void computeDF(GRAPH::Graph<LLVMIR::L_block*>& bg){
-
+void computeDF(GRAPH::Graph<LLVMIR::L_block*>& bg) {
 }
