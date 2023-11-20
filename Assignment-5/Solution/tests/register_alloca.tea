@@ -84,11 +84,13 @@ fn func(a:int, b:int)->int{
 }
 
 fn main()->int{
+    _sysy_starttime(87);
     let a:int;
     let b:int;
     a = getint();
     b = a + 2 * 9;
     a = func(a, b);
     putint(a);
+    _sysy_stoptime(93);
     ret a;
 }

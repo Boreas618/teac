@@ -47,12 +47,14 @@ fn my_putint(a:int)
 }
 
 fn main()->int
-{
+{   
+    _sysy_starttime(51);
     let n:int = my_getint();
     while (n > 0) {
         let m:int = my_getint();
         my_putint(m); putch(10);
         n = n - 1;
     }
+    _sysy_stoptime(58);
     ret 0;
 }

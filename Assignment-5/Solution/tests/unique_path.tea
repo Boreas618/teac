@@ -37,9 +37,11 @@ fn uniquePaths(m:int, n:int)->int {
     ret dp[0];
 }
 fn main()->int{
+    _sysy_starttime(40);
     let res:int;
     let n:int;
     n=3;
     res = uniquePaths(n, n);
+    _sysy_stoptime(45);
     ret res;
 }

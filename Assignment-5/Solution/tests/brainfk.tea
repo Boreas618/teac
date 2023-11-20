@@ -73,8 +73,10 @@ fn interpret(input[65536]:int) {
 }
 
 fn main()->int {
+  _sysy_starttime(76);
   read_program();
   interpret(program);
   putch(10);
+  _sysy_stoptime(80);
   ret 0;
 }

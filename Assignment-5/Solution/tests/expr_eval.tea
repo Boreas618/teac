@@ -201,7 +201,8 @@ fn eval()->int
 }
 
 fn main()->int
-{
+{   
+    _sysy_starttime(205);
     let count:int = getint();
     getch();
     next_token();
@@ -210,5 +211,6 @@ fn main()->int
         putch(10);
         count = count - 1;
     }
+    _sysy_stoptime(214);
     ret 0;
 }
