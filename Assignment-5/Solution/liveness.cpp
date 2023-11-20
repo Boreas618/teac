@@ -256,12 +256,12 @@ static void Use_def(GRAPH::Node<LLVMIR::L_block*>* r, GRAPH::Graph<LLVMIR::L_blo
         for (auto stm : block->instrs) {
             auto uses = get_use(stm);
             auto defs = get_def(stm);
-            for (auto def : defs) {
-                UseDefTable[block_node.second].def.insert(def);
-            }
              for (auto use : uses) {
                 if(UseDefTable[block_node.second].def.find(use)==UseDefTable[block_node.second].def.end())
                     UseDefTable[block_node.second].use.insert(use);
+            }
+            for (auto def : defs) {
+                UseDefTable[block_node.second].def.insert(def);
             }
         }
     }

@@ -104,8 +104,10 @@ void mem2reg(LLVMIR::L_func* fun) {
     auto fi_block = fun->blocks.front();
     for (auto stm = fi_block->instrs.begin(); stm != fi_block->instrs.end();) {
         if (is_mem_variable(*stm)) {
-            variables.insert({(*stm)->u.ALLOCA->dst, AS_Operand_Temp(Temp_newtemp_int())});
+            auto dst=(*stm)->u.ALLOCA->dst;
+            variables.insert({dst, AS_Operand_Temp(Temp_newtemp_int())});
             stm = fi_block->instrs.erase(stm);
+            fi_block->instrs.insert(stm, L_Move(AS_Operand_Const(0), variables[dst]));
         } else {
             ++stm;
         }
@@ -321,7 +323,9 @@ void Place_phi_fu(GRAPH::Graph<LLVMIR::L_block*>& bg, L_func* fun) {
                     assert(dst);
                     vector<pair<AS_operand*, Temp_label*>> phis;
                     for (auto pred : revers_graph[Y]->preds) {
-                        phis.push_back({dst, bg.mynodes[pred]->info->label});
+                        auto pred_outset=FG_Out(bg.mynodes[pred]);
+                        if(pred_outset.find(var.first)!=pred_outset.end())
+                            phis.push_back({dst, bg.mynodes[pred]->info->label});
                     }
                     // printf("前驱  %s  %zu\n",Y->label->name.c_str(),revers_graph[Y]->preds.size());
                     auto tmp = L_Phi(dst, phis);
