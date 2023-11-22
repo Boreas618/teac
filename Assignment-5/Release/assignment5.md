@@ -1,352 +1,198 @@
-### 语法修改
+# 实验五：SSA
 
-现在的语法增加了返回空的语法和.运算符和[]运算符的复合的语法。示例如下：
+## 实验介绍
 
-```
-ret;
-a.b[10].c.d[5] = a.b[10].e;
-```
+**SSA**（static single-assignmet：每个变量只有一次**def**。但这个def可以出现在循环中，所以是静态的。
+
+SSA作用：
+
+1. 有利于做数据流分析和代码优化
+2. **def-use**链大小是N*M，如果是SSA，则是N+M的。**def-use**链是一个能够高校获得信息的结构，对它的一种改进是**SSA**形式。
+3. 简化冲突图构造
+4. 重要的是LLVM是要求SSA形式，将代码转成SSA，LLVM才能运行
 
-具体的修改见```TeaplAst.h```文件。
+当两条控制流汇合到一起时，若都定义了变量a，如何选择成为问题。这里通过引入**phi function**来解决。
 
-### 增加的库函数
+它“知道“该如何选择。
 
-为了方便测试和后续优化实验的评分，增加了如下的库函数：
+具体有两种策略：
 
-```c
-int getint(),getch();
+- 通过MOVE来实现**phi function**
+- 不需要实现，仅仅用作分析
 
-void putint(int a),putch(int a),putarray(int n,int a[]);
+在LLVM，**phi function**的写法如下
 
-void _sysy_starttime(int lineno);
-void _sysy_stoptime(int lineno);
+```text
+<result> = phi <ty> [ <val0>, <label0>], ...
 ```
 
-其中```getint(),getch()```用于输入，```putint(),putch(),putarray()```用于输出，```_sysy_starttime(),_sysy_stoptime()```用于计时，这些函数的实现在文件```syslib.c```中。
+核心就在如何**插入phi function**，然后**变量重命名**
 
-### 实验介绍
+有两种标准：
 
-本次实验的目标是将ast转换为可以lli执行的llvm ir代码。实验总体分为4个步骤，首先第一次遍历ast生成全局变量，结构体和函数声明的llvm ir代码，这一部分代码已给出，可做参考。然后再遍历一次ast生成函数实现中的llvm ir代码，这是实验的主体部分。第三个步骤是将llvm ir从列表转换为基本块的形式。第四个步骤是将所有的alloca语句移动到第一个基本块中。
+1. 路径汇合标准
 
-本次实验生成的是伪SSA形式的llvm ir代码，即所有的int类型变量都通过alloca语句在栈上分配一块空间，当其作为右值时通过load取出它的值来使用，其作为左值时通过store来为其赋值。
+2. 必经节点边界标准：只有节点x包含某个变量a的def，则x的必经节点边界的任何节点z都需要一个a的
 
-而对于结构体和数组来说情况就稍微有些复杂。在我们的语言中函数的参数为数组或结构体时实际上传的是该数组或结构体的地址，同时我们的语言没有结构体和数组的直接赋值。所以定义在函数中的数组或结构体要通过alloca语句在栈上分配一块空间，然后通过getelementptr得到其子元素的地址，再通过load和store取值和赋值。而对于作为函数参数的数组和结构体不用像int类型那样alloca一块空间，可以直接使用，因为没有数组和结构体的赋值，数组和结构体作为函数参数不会改变，是天然SSA的。
+   phi 函数
 
-### 实验框架
+该部分都有伪代码，思路非常清晰，主要问题是实现细节要注意。
 
-#### temp.h
+## 实验流程
 
-```c++
-enum class TempType
-{
-    INT_TEMP,
-    INT_PTR,
-    STRUCT_TEMP,
-    STRUCT_PTR
-};
+在Lab4中，我们将标量放入内存中，实现了一种伪的SSA，这里我们要做的是将标量放入寄存器中实现真正的SSA。
 
-struct Temp_temp
-{
-    int num;
-    TempType type;
-    std::string structname;
-    std::string varname;
-    int len;
-    Temp_temp(int _num,TempType _type = TempType::INT_TEMP,int _len = 0,const std::string& _sname = std::string());
-};
-```
+有三条实现路径：-
 
-Temp_temp是ir中寄存器的抽象，其中num是其寄存器编号，type是该寄存器中元素的类型，INT_TEMP代表该寄存器存的是int类型的数据，INT_PTR代表int类型的指针或数组，STRUCT_TEMP和STRUCT_PTR同理，值得注意的是在我们的语言中STRUCT_TEMP只存在于全局变量中。如果该寄存器和结构体有关则structname是其结构体的名字，而len用于区分指针和数组，当len为0时代表单个元素的指针，当len为-1时代表数组头指针，这种情况只在数组作为函数参数时存在，当len大于0时代表数组的长度。varname用于debug。
-
-```c++
-struct Temp_label
-{
-    std::string name;
-    Temp_label(std::string _name);
-};
-```
+- 徐辉老师上课讲的基于数据流分析的方法，简单高效，但插phi的位置不够优。
 
-Temp_label是标签的抽象。
+- 直接从内存形式，做SSA，这是clang+LLVM的标准做法。
+- 将标量放入寄存器中，然后进行经典SSA流程。
 
-```
-struct Name_name
-{
-    Temp_label *name;
-    TempType type;
-    std::string structname;
-    int len;
-    Name_name(Temp_label *_name,TempType _type,int _len = 0,const std::string &_structname = std::string());
-};
-```
+这里我们采用第三条，大家可以参考虎书第十八章和第十九章，上面对SSA的讲解非常详细，**甚至有伪代码。**
 
-Name_name是全局变量的抽象。
-
-```c++
-enum class OperandKind
-{
-    TEMP, NAME, ICONST
-};
-
-struct AS_operand 
-{
-    OperandKind kind;
-    union {
-        Temp_temp *TEMP;
-        Name_name *NAME;
-        int ICONST;
-    } u;
-};
-```
+#### mem2reg
 
-AS_operand代表ir中操作数，其可能为寄存器，全局变量或立即数。
-
-#### llvm_ir.h
-
-```c++
-struct L_structdef
-{
-    std::string name;
-    std::vector<TempDef> members;
-    L_structdef(const std::string &_name,const std::vector<TempDef> &_members);
-};
-
-struct L_funcdecl
-{
-    std::string name;
-    std::vector<TempDef> args;
-    FuncType ret;
-    L_funcdecl(const std::string &_name,const std::vector<TempDef> &_args,FuncType _ret);
-};
-
-struct L_globaldef
-{
-    std::string name;
-    TempDef def;
-    std::vector<int> init;
-    L_globaldef(const std::string &_name,TempDef _def, const std::vector<int> &_init);
-};
-```
+首先，我们要找到所有分配在栈上的标量 ，通过判断`alloca`+`len==0`判断。
 
-这些代码和llvm ir的全局声明有关。
-
-```c++
-struct L_binop
-{
-    L_binopKind op;
-    AS_operand *left,*right,*dst;
-    L_binop(L_binopKind _op,AS_operand* _left,AS_operand *_right,AS_operand *_dst);
-};
-```
+然后删除该指针所关联的` alloca`，`store`，`load`指令，并记录向该地址存取的标量。
 
-L_binop代表的ir是四则运算相关的ir，对应ir如下：
+最后将所有的标量名字替换成一个。
 
-```
-%dst = op i32 %left,%right 
-```
+注意，这里有以下几点需要思考：
 
-```
-struct L_load
-{
-    AS_operand *dst,*ptr;
-    L_load(AS_operand *_dst,AS_operand *_ptr);
-};
-```
+- `store`所有情况直接删除可以吗？考虑常量
+- 一个标量可能同多个地址相关，问题可以转化同上，`store`所有情况直接删除可以吗？
+- `alloca`可以直接删除吗？这里是完全没问题的，但后面有一些坑，需要在这里处理。
 
-L_load代表的是llvm ir中的load，其可以从一个地址中将对应的值取出，在我们的实验中load只能取出int类型的值。对应ir如下：
+如果这里经过思考后，还无法解决，直接在群里面提问，助教会答疑。这里没有标准做法，只是鼓励大家探索不同的实现思路。
 
-```
-%dst = load i32, i32* %ptr
-```
+### 不可达代码删除
 
-```
-struct L_store
-{
-    AS_operand *src,*ptr;
-    L_store(AS_operand *_src,AS_operand *_ptr);
-};
-```
+SSA的要求是起始节点必须唯一，这里直接从src节点遍历图，然后删除未着色的节点即可。
 
-L_store代表的是llvm ir中的store，其可以对一个地址中将对应的值赋值，在我们的实验中store只能赋int类型的值。对应ir如下：
+### 活跃分析
 
-```
-store i32 %src, i32* %ptr
-```
+这里我们需要以 `block`为单位，对**temp**进行活跃分析。这里采用迭代的方式计算，直到集合不发生变化。
 
-```
-struct L_label
-{
-    Temp_label *label;
-    L_label(Temp_label *_label);
-};
-```
+在后续实验中，我们还需要以指令为单位，进行活跃分析。
 
-L_label对应llvm ir中的标签，对应ir如下：
+$$
+in[n]=use[n]\bigcap  (out[n]-def[n])
+$$
 
-```
-label:
-```
+$$
+out[n]=\bigcup in[s]  (s \in succ[n])
+$$
 
-```
-struct L_jump
-{
-    Temp_label *jump;
-    L_jump(Temp_label *_jump);
-};
-```
+注意一个`block` def和use集合，并不简单是所有指令def和use集合的并集。
 
-L_jump对应llvm ir中的直接跳转，对应的ir如下：
+### 支配节点
 
-```
-br label %jump
-```
+算法如下，通过迭代求解，复杂度是O(N^3)。注意初始时除了`s0`，每个集合必须包含图中的所有节点。
 
-```
-struct L_cmp
-{
-    L_relopKind op;
-    AS_operand *left,*right;
-    AS_operand *dst;
-    L_cmp(L_relopKind _op,AS_operand *_left,AS_operand *_right,AS_operand *_dst);
-};
-```
+D[n]是n的所有必经节点的集合
+$$
+D[s_0]={s_0} \\
+D[n]=\{n\}\bigcup\{\cap D[p]\}  (p \in pred[n])
+$$
 
-L_cmp代表llvm ir中的icmp，用于得到两个数的相对关系，对应ir如下：
+### 支配树
 
-```
-%dst = icmp op i32 %left, %right
-```
+支配树是每个节点的和其直接必经节点形成的树。直接必经节点**idom**性质如下：
 
-```
-struct L_cjump
-{
-    AS_operand *dst;
-    Temp_label *true_label,*false_label;
-    L_cjump(AS_operand *_dst,Temp_label *_true_label,Temp_label *_false_label);
-};
-```
+>(1)idom(n)和n不是同一个结点
+>(2) idom(n)是n的必经结点
+>(3) idom(n)不是 n的其他必经结点的必经结点。
+>
+>除s0外，所有其他结点至少有一个除自己本身之外的必经结点 (因为s0是每个结点的必经结点)，因此，除s0外，所有其他结点都恰好有一个直接必经结点
 
-L_cjump代表的是条件跳转，对应的ir如下：
+实现时，找到每个节点的所有必经节点，然后根据这三条性质判断即可。
 
-```
-br i1 %dst, %true_label, %false_label
-```
+### 支配边界
 
-```
-struct L_move
-{
-    AS_operand *src,*dst;
-    L_move(AS_operand *_src,AS_operand *_dst);
-};
-```
+DF_local[n]:{n的一些后继组成的集合，这些后继的直接必经节点不是n}
 
-L_move代表的是移动，在llvm ir中没有表示移动的ir，所以用add 0来表示：
+DF_up[n]:{属于n的必经节点边界，但不以n的直接必经节点为严格必经节点的节点}
+$$
+DF[n]=DF_{local}[n]\cup(\bigcup DF_{up}[c]) (c \in children[n])
+$$
+伪代码如下
 
 ```
-%dst = add i32 %src, 0
+computeDF[n]=
+    S={}
+    for succ[n]中的每一个个结点y		这个循环计算DF_local[n]
+    	if idom(y)≠n
+    		S=SU{y}
+    for必经结点树中的n 的每个儿子c
+    	computeDF[c]
+    	for DF[c]中的每个元素
+    		if n不是w的必经结点，或者if n==w
+    			S=SU{w}
+    DF[n]=S
 ```
 
-```
-struct L_call
-{
-    std::string fun;
-    AS_operand *res;
-    std::vector<AS_operand*> args;
-    L_call(const std::string &_fun,AS_operand *_res,const std::vector<AS_operand*> &_args);
-};
-```
+### 插Phi
 
-L_call代表的是有返回的函数调用,由于我们的语言不支持结构体和数组赋值，所以有返回值的函数只能返回int类型，对应ir如下：
+A_orig[n]是在节点n def的变量集合。
 
-```
-%res = call i32 @fun(args)
-```
+注意图中的修改，虎书上有误。
 
-```
-struct L_voidcall
-{
-    std::string fun;
-    std::vector<AS_operand*> args;
-    L_voidcall(const std::string &_fun,const std::vector<AS_operand*> &_args);
-};
-```
+注意这里我们只对在该节点live in的变量进行插phi。
 
-L_voidcall代表的是不使用返回值的函数调用，对应ir如下：
+如果变量在某个前驱没有live out，那我们还要插phi吗？
 
-```
-call void @fun(args)
-```
+需要。这里就回到前面对alloca的处理，我们对每个alloca，都要将其转化成一个初始化的语句，初始化为0，虽然该0值永远不会被用到，这里冗余的指令，开销很小，在LLVM上加入优化，以及f翻译成机器指令后，完全可以消掉。如果同学们还有更好的处理，欢迎探讨。
 
-```
-struct L_ret
-{
-    AS_operand *ret;
-    L_ret(AS_operand *_ret);
-};
-```
+![image-20230619144900616](image/image-20230619144900616.png)
 
-L_ret代表着函数的返回，ret为空时对应的ir为```ret void```,否则对应的是：```ret i32 %ret```
 
-```
-struct L_phi
-{
-    AS_operand *dst;
-    std::vector<std::pair<AS_operand*,Temp_label*>> phis;
-    L_phi(AS_operand *_dst,const std::vector<std::pair<AS_operand*,Temp_label*>> &_phis);
-};
-```
 
-L_phi对应的是llvm ir中的phi语句，本次实验不会用到。
+### 重命名
 
-```
-struct L_alloca
-{
-    AS_operand *dst;
-    L_alloca(AS_operand *_dst);
-};
-```
+![image-20230619145556009](image/image-20230619145556009.png)
 
-L_alloca对应的是llvm ir中的alloca语句，对应的ir如下：
+### 辅助函数
 
-```
-%dst = alloca <ty>
-```
+### graph.cpp
 
-```
-struct L_gep
-{
-    AS_operand *new_ptr,*base_ptr,*index;
-    L_gep(AS_operand *_new_ptr,AS_operand *_base_ptr,AS_operand *_index);
-};
-```
+这是一个C++版本的图，如果使用我的代码，会用到。~~（其实没那么好用）~~
 
-L_gep对应的是llvm ir中的getelementptr，当base_ptr为int数组时，对应的llvm ir如下：
+### bg_llvm.cpp
 
-```
-%new_ptr = getelementptr [len x i32], [len x i32]* %base_ptr, i32 0, i32 %index
-```
+对block创建图。
 
-当base_ptr为int指针时，对应的llvm ir如下：
+需完成`SingleSourceGraph`
 
-```
-%new_ptr = getelementptr i32, i32* %base_ptr, i32 %index
-```
+### liveness.cpp
 
-当base_ptr为结构体时，对应的llvm ir如下：
+做数据流分析。需要完成liveness的计算。
 
-```
-%new_ptr = getelementptr %structname, %structname* %base_ptr, i32 0, i32 %index
-```
+同时处理一下def和use。这里基本是重复性的工作，不过可以有一些自己的trick。
 
-当base_ptr为确定长度的结构体数组时，对应的llvm ir如下：
+### 测试考察功能点
 
-```
-%new_ptr = getelementptr [len x %structname], [len x %structname]* %base_ptr, i32 0, i32 %index
-```
+1. 对LLVM IR的了解
 
-当base_ptr为不定长度的结构体数组时，对应的llvm ir如下：
+2. 支配节点计算
 
-```
-%new_ptr = getelementptr %structname, %structname* %base_ptr, i32 %index
-```
+3. 支配边界计算
+
+4. 插phi的理解
+
+5. 掌握简单的数据流分析
+
+本次实验仍是以测试为准，大家可以完全不用我给的代码和实现思路。
+
+评分标准：
+
+- 40分基础分：把lab4的代码交上来就有。
+- 60分功能分：30个点*2。
+
+18个点public，12个点隐藏。大家本地测过，理论上至少76分。
+
+但是注意本实验输出结果正确，并不代表真正正确，应该保证翻译后的LLVM代码，不会有标量在内存中。如果没有实现SSA，该点不得分。
+
+将在周一，大部分同学都提交Lab4之后，公开18个点。
 
-更多的llvm ir介绍可以参考[LLVM Language Reference Manual — LLVM 18.0.0git documentation](https://llvm.org/docs/LangRef.html).
