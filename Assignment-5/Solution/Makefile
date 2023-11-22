@@ -1,7 +1,8 @@
 CXX = clang++
 CXXFLAGS = -std=c++17 -g
 
-TESTCASE_DIR := tests
+TESTCASE_DIR := tests/public
+# TESTCASE_DIR := tests/private
 TESTCASES = $(wildcard $(TESTCASE_DIR)/*.tea)
 LLFILES = $(patsubst $(TESTCASE_DIR)/%.tea,$(TESTCASE_DIR)/%.ast,$(TESTCASES))
 
@@ -70,4 +71,5 @@ bg_llvm.o: bg_llvm.cpp bg_llvm.h  graph.hpp
 liveness.o: liveness.cpp liveness.h  graph.hpp 
 	$(CXX) $(CXXFLAGS) -c $<
 clean:
-	rm -f *.o   compiler  tests/*.ll output/*.ll output/*.out
+	rm -f *.o   compiler  tests/*.ll output/*.ll output/*.out tests/public/*.ll tests/private/*.ll
+

@@ -1,5 +1,5 @@
 #!/bin/bash
-func_testcase_dir=$(realpath $(dirname "$0")/./tests)
+func_testcase_dir=$(realpath $(dirname "$0")/./tests/public)
 
 test_single() {
 	test_file=`realpath --relative-base=$func_testcase_dir $func_testcase_dir/$1.tea`	
@@ -12,7 +12,7 @@ test_single() {
 	if [ $? != 0 ]; then
 		echo fail; exit -1
 	fi
-    llvm-link-14 --opaque-pointers ./tests/$test_name.ll sylib.ll -S -o ./output/$test_name.ll
+    llvm-link-14 --opaque-pointers $func_testcase_dir/$test_name.ll sylib.ll -S -o ./output/$test_name.ll
 	if [ $? != 0 ]; then
 		echo "fail to link"; exit -1
 	fi
