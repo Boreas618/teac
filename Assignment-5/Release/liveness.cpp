@@ -136,48 +136,11 @@ TempSet_& FG_use(GRAPH::Node<LLVMIR::L_block*>* r) {
 }
 
 static void Use_def(GRAPH::Node<LLVMIR::L_block*>* r, GRAPH::Graph<LLVMIR::L_block*>& bg, std::vector<Temp_temp*>& args) {
-    for (auto arg : args)
-        UseDefTable[r].def.insert(arg);
-    for (auto block_node : bg.mynodes) {
-        auto block = block_node.second->info;
-        for (auto stm : block->instrs) {
-            auto uses = get_use(stm);
-            auto defs = get_def(stm);
-             for (auto use : uses) {
-                if(UseDefTable[block_node.second].def.find(use)==UseDefTable[block_node.second].def.end())
-                    UseDefTable[block_node.second].use.insert(use);
-            }
-            for (auto def : defs) {
-                UseDefTable[block_node.second].def.insert(def);
-            }
-        }
-    }
+//    Todo
 }
 static int gi=0;
 static bool LivenessIteration(GRAPH::Node<LLVMIR::L_block*>* r, GRAPH::Graph<LLVMIR::L_block*>& bg) {
-    bool changed = false;
-    gi++;
-    for (auto block_node : bg.mynodes) {
-        auto block = block_node.second;
-        // do in[n] = use[n] union (out[n] - def[n])
-        auto in = TempSet_union(&FG_use(block), TempSet_diff(&FG_Out(block), &(FG_def(block))));
-
-        // Now do out[n]=union_s in succ[n] (in[s])
-        auto succ = block->succs;
-        TempSet out = new TempSet_();  // out is an accumulator
-        for (auto s : succ) {
-            out = TempSet_union(out, &FG_In(bg.mynodes[s]));
-        }
-        // See if any in/out changed
-        if (!(!changed&&TempSet_eq(&FG_In(block), in) && TempSet_eq(&FG_Out(block), out)))
-            changed = true;
-        // enter the new info
-        InOutTable[block].in = *in;
-        InOutTable[block].out = *out;
-    }
-    
-    // Show_Liveness(stdout,bg);
-    return changed;
+   //    Todo
 }
 
 void PrintTemps(FILE *out, TempSet set) {

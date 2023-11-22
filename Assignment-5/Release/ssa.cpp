@@ -40,8 +40,8 @@ LLVMIR::L_prog* SSA(LLVMIR::L_prog* prog) {
         combine_addr(fun);
         mem2reg(fun);
         auto RA_bg = Create_bg(fun->blocks);
-        // printL_block(cout,RA_bg.mynodes[0]->info);
         SingleSourceGraph(RA_bg.mynodes[0], RA_bg,fun);
+        // Show_graph(stdout,RA_bg);
         Liveness(RA_bg.mynodes[0], RA_bg, fun->args);
         Dominators(RA_bg);
         // printf_domi();
@@ -49,7 +49,6 @@ LLVMIR::L_prog* SSA(LLVMIR::L_prog* prog) {
         // printf_D_tree();
         // 默认0是入口block
         computeDF(RA_bg, RA_bg.mynodes[0]);
-        // Show_graph(stdout,RA_bg);
         // printf_DF();
         Place_phi_fu(RA_bg, fun);
         Rename(RA_bg);
