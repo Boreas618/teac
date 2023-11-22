@@ -33,7 +33,6 @@ test_single() {
 		cat ./output/$test_name.out;\
 		exit -1
 	fi
-	# echo pass; 
 }
 
 main() {
