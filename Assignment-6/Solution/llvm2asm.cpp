@@ -745,6 +745,144 @@ void llvm2asmStm(list<AS_stm*> &as_list, L_stm &stm) {
     }
 }
 
+void allocReg(list<AS_stm*> &as_list){
+
+    unordered_map<int,int> vregStart;
+    unordered_map<int,int> vregEnd;
+    auto setDef=[&](AS_reg *reg,int lineNo){
+        int regNo=reg->reg;
+        if (regNo<100) return;
+        if (vregStart.find(regNo)==vregStart.end()){
+            vregStart.insert({regNo,lineNo});
+        }
+    };
+    auto setUse=[&](AS_reg *reg,int lineNo){
+        int regNo=reg->reg;
+        if (regNo<100) return;
+        vregEnd.insert({regNo,lineNo});
+    };
+    int lineNo=0;
+    for (const auto &stm: as_list){
+        switch (stm->type){
+            case AS_stmkind::BINOP:
+                setDef(stm->u.BINOP->dst, lineNo);
+                setUse(stm->u.BINOP->left, lineNo);
+                setUse(stm->u.BINOP->right, lineNo);
+                break;
+            case AS_stmkind::MOV:
+                setDef(stm->u.MOV->dst, lineNo);
+                setUse(stm->u.MOV->src, lineNo);
+                break;
+            case AS_stmkind::LDR:
+                setDef(stm->u.LDR->dst, lineNo);
+                setUse(stm->u.LDR->ptr, lineNo);
+                break;
+            case AS_stmkind::STR:
+                setUse(stm->u.STR->src, lineNo);
+                setUse(stm->u.STR->ptr, lineNo);
+                break;
+            case AS_stmkind::CMP:
+                setUse(stm->u.CMP->left, lineNo);
+                setUse(stm->u.CMP->right, lineNo);
+                break;
+            case AS_stmkind::ADRP:
+                setDef(stm->u.ADRP->reg, lineNo);
+                break;
+            default: break;
+        }
+        lineNo+=1;
+    }
+
+    // workaround for undef vreg
+    for (const auto& iter: vregEnd){
+        auto pos=vregStart.find(iter.first);
+        if (pos==vregStart.end()){
+            vregStart.insert(iter);
+        }
+    }
+
+    /* cout<<"Live interval:\n";
+    for (auto iter: vregStart){
+        cout<<iter.first<<": ["<<iter.second<<", "<<vregEnd[iter.first]<<"]\n";
+    } */
+
+
+    // -1 invalid for allocation, 0 unallocated, >100 registerNo
+    // x9-x15 x20-x28 is available
+    vector<int> allocateRegs{9,10,11,12,13,14,15,20,21,22,23,24,25,26,27,28};
+    vector<int> allocateTable;
+    unordered_map<int,int> v2pMapping;
+    allocateTable.resize(32);
+    for (int i=0;i<32;++i){
+        allocateTable[i]=-1;
+    }
+    for (auto ind: allocateRegs){
+        allocateTable[ind]=0;
+    }
+
+    auto get_mapping=[&](int regNo,int lineNo){
+        auto pos=v2pMapping.find(regNo);
+        if (pos!=v2pMapping.end()) return pos->second;
+
+        // find available reg
+        for (int i=0;i<32;++i){
+            int allocNo=allocateTable[i];
+            if ((allocNo==0) || (allocNo>0 && vregEnd[allocNo]<lineNo)){
+                v2pMapping[regNo]=i;
+                allocateTable[i]=regNo;
+                // cout<<regNo<<" -> "<<i<<"\n";
+                return i;
+            }
+        }
+        throw runtime_error("allocate register fail");
+
+    };
+
+    auto vreg_map=[&](AS_reg* reg, int lineNo){
+        int regNo=reg->reg;
+        if (regNo<100) return;
+        reg->reg=get_mapping(regNo,lineNo);
+    };
+    
+    lineNo=0;
+    for (const auto &stm: as_list){
+        switch (stm->type){
+            case AS_stmkind::BINOP: 
+                vreg_map(stm->u.BINOP->dst, lineNo);
+                vreg_map(stm->u.BINOP->left, lineNo);
+                vreg_map(stm->u.BINOP->right, lineNo);
+                break;
+            case AS_stmkind::MOV: 
+                vreg_map(stm->u.MOV->dst, lineNo);
+                vreg_map(stm->u.MOV->src, lineNo);
+                break;
+            case AS_stmkind::LDR: 
+                vreg_map(stm->u.LDR->dst, lineNo);
+                vreg_map(stm->u.LDR->ptr, lineNo);
+                break;
+            case AS_stmkind::STR: 
+                vreg_map(stm->u.STR->src, lineNo);
+                vreg_map(stm->u.STR->ptr, lineNo);
+                break;
+            case AS_stmkind::CMP: 
+                vreg_map(stm->u.CMP->left, lineNo);
+                vreg_map(stm->u.CMP->right, lineNo);
+                break;
+            case AS_stmkind::ADRP:
+                vreg_map(stm->u.ADRP->reg, lineNo);
+                break;
+            default: 
+                break;
+        }
+        lineNo+=1;
+    }
+
+    /* cout<<"regAlloc:\n";
+    for (const auto& iter:v2pMapping){
+        cout<<"x"<<iter.first<<" -> x"<<iter.second<<"\n";
+    } */
+}
+
 AS_func* llvm2asmFunc(L_func &func) {
     list<AS_stm*> stms;
 
@@ -757,6 +895,8 @@ AS_func* llvm2asmFunc(L_func &func) {
             llvm2asmStm(p->stms, *instr);
         }
     }
+
+    allocReg(p->stms);
 
     return p;
 }
