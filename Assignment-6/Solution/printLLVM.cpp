@@ -420,13 +420,13 @@ void LLVMIR::printL_stm(std::ostream &os,LLVMIR::L_stm *stm)
             {
                 if(stm->u.GEP->base_ptr->u.TEMP->len == -1 || stm->u.GEP->base_ptr->u.TEMP->len == 0)
                 {
-                    os << "i32, i32* "<< "aaaaaaaaa";
+                    os << "i32, i32* ";
                     printL_oper(os,stm->u.GEP->base_ptr);
                 }
                 else
                 {
                     os << "[" << stm->u.GEP->base_ptr->u.TEMP->len << " x i32 ], ";
-                    os << "[" << stm->u.GEP->base_ptr->u.TEMP->len << " x i32 ]* "<< "bbbbbbbb";
+                    os << "[" << stm->u.GEP->base_ptr->u.TEMP->len << " x i32 ]* ";
                     printL_oper(os,stm->u.GEP->base_ptr);
                     os << ", i32 0 ";
                 }
@@ -443,11 +443,11 @@ void LLVMIR::printL_stm(std::ostream &os,LLVMIR::L_stm *stm)
                 {
                     os << "%" << stm->u.GEP->base_ptr->u.TEMP->structname << ", %" << stm->u.GEP->base_ptr->u.TEMP->structname << "* ";
                     printL_oper(os,stm->u.GEP->base_ptr);
-                    os << ", i32 0" << "cccccccc";
+                    os << ", i32 0";
                 }
                 else if(stm->u.GEP->base_ptr->u.TEMP->len == -1)
                 {
-                    os << "%" << stm->u.GEP->base_ptr->u.TEMP->structname << ", %" << stm->u.GEP->base_ptr->u.TEMP->structname << "* "<< "dddddddd";
+                    os << "%" << stm->u.GEP->base_ptr->u.TEMP->structname << ", %" << stm->u.GEP->base_ptr->u.TEMP->structname << "* ";
                     printL_oper(os,stm->u.GEP->base_ptr);
                 }
                 else
@@ -455,7 +455,7 @@ void LLVMIR::printL_stm(std::ostream &os,LLVMIR::L_stm *stm)
                     os << "[" << stm->u.GEP->base_ptr->u.TEMP->len << " x " << "%" << stm->u.GEP->base_ptr->u.TEMP->structname << " ], ";
                     os << "[" << stm->u.GEP->base_ptr->u.TEMP->len << " x " << "%" << stm->u.GEP->base_ptr->u.TEMP->structname << " ]* ";
                     printL_oper(os,stm->u.GEP->base_ptr);
-                    os << ", i32 0"<< "eeeeeeeeeeee";
+                    os << ", i32 0";
                 }
                 break;
             }
@@ -478,13 +478,13 @@ void LLVMIR::printL_stm(std::ostream &os,LLVMIR::L_stm *stm)
             {
                 if(stm->u.GEP->base_ptr->u.NAME->len == -1 || stm->u.GEP->base_ptr->u.NAME->len == 0)
                 {
-                    os << "i32, i32* "<< "ffffffffff";
+                    os << "i32, i32* ";
                     printL_oper(os,stm->u.GEP->base_ptr);
                 }
                 else
                 {
                     os << "[" << stm->u.GEP->base_ptr->u.NAME->len << " x i32 ], ";
-                    os << "[" << stm->u.GEP->base_ptr->u.NAME->len << " x i32 ]* "<< "gggggggg";
+                    os << "[" << stm->u.GEP->base_ptr->u.NAME->len << " x i32 ]* ";
                     printL_oper(os,stm->u.GEP->base_ptr);
                     os << ", i32 0";
                 }
@@ -494,7 +494,7 @@ void LLVMIR::printL_stm(std::ostream &os,LLVMIR::L_stm *stm)
             {
                 os << "%" << stm->u.GEP->base_ptr->u.NAME->structname << ", %" << stm->u.GEP->base_ptr->u.NAME->structname << "* ";
                 printL_oper(os,stm->u.GEP->base_ptr);
-                os << ", i32 0"<< "hhhhhhhhh";
+                os << ", i32 0";
                 break;
             }
             case TempType::STRUCT_PTR:
@@ -503,14 +503,14 @@ void LLVMIR::printL_stm(std::ostream &os,LLVMIR::L_stm *stm)
                 {
                     os << "%" << stm->u.GEP->base_ptr->u.NAME->structname << ", %" << stm->u.GEP->base_ptr->u.NAME->structname << "* ";
                     printL_oper(os,stm->u.GEP->base_ptr);
-                    os << ", i32 0"<< "iiiiiiiiii";
+                    os << ", i32 0";
                 }
                 else
                 {
                     os << "[" << stm->u.GEP->base_ptr->u.NAME->len << " x " << "%" << stm->u.GEP->base_ptr->u.NAME->structname << " ], ";
                     os << "[" << stm->u.GEP->base_ptr->u.NAME->len << " x " << "%" << stm->u.GEP->base_ptr->u.NAME->structname << " ]* ";
                     printL_oper(os,stm->u.GEP->base_ptr);
-                    os << ", i32 0"<< "jjjjjj";
+                    os << ", i32 0";
                 }
                 break;
             }
