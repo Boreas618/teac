@@ -17,5 +17,5 @@ qemu-aarch64 -version
 
 # 汇编和链接
 ```
-aarch64-linux-gnu-gcc test.S -o test
+aarch64-linux-gnu-gcc test.S -o test --static
 ```
