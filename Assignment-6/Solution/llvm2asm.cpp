@@ -25,18 +25,6 @@ static unordered_map<int, int> spOffsetMap;
 static unordered_map<int, AS_relopkind> condMap;
 static unordered_map<string, int> structLayout;
 
-static priority_queue<int> regSet;
-
-// x4~x20 is supplied to users
-void regSegInit() {
-    for (int i = 9; i<=15; i++) {
-        regSet.emplace(i);
-    }
-    for (int i = 19; i<=28; i++) {
-        regSet.emplace(i);
-    }
-}
-
 void structLayoutInit(vector<L_def*> &defs) {
     for (const auto &def : defs) {
         switch (def->kind) {
@@ -620,7 +608,6 @@ void llvm2asmGep(list<AS_stm*> &as_list, L_stm* gep_stm) {
             if (spOffsetMap.find(gep_stm->u.GEP->base_ptr->u.TEMP->num) != spOffsetMap.end() ) {
                 // store to the stack frame, which is from alloc: str ...,[sp, #n]
                 int offset = spOffsetMap.at(gep_stm->u.GEP->base_ptr->u.TEMP->num);
-                cout << offset<<"  "<<  array_base * array_index + field_base * field_index << endl;
                 offset -= array_base * array_index + field_base * field_index;
                 spOffsetMap.emplace(gep_stm->u.GEP->new_ptr->u.TEMP->num, offset);
             } else {
@@ -905,7 +892,7 @@ AS_func* llvm2asmFunc(L_func &func) {
         }
     }
 
-    //allocReg(p->stms);
+    allocReg(p->stms);
 
     return p;
 }
@@ -976,8 +963,6 @@ void llvm2asmGlobal(vector<AS_global*> &globals, L_def &def) {
 }
 
 AS_prog* llvm2asm(L_prog &prog) {
-    regSegInit();
-
     std::vector<AS_global*> globals;
     std::vector<AS_decl*> decls;
     std::vector<AS_func*> func_list;
@@ -988,6 +973,10 @@ AS_prog* llvm2asm(L_prog &prog) {
 
     for(const auto &def : prog.defs) {
         llvm2asmDecl(as_prog->decls, *def);
+    }
+    for(const auto &func : prog.funcs) {
+        AS_decl* decl = new AS_decl(func->name);
+        as_prog->decls.push_back(decl);
     }
 
     for(const auto &def : prog.defs) {

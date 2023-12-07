@@ -14,9 +14,7 @@ using namespace std;
 using namespace LLVMIR;
 using namespace ASM;
 
-void regSegInit();
 void set_stack(L_func &func);
-void regSegInit(vector<L_def*> &defs);
 
 void llvm2asmBinop(list<AS_stm*> &as_list, L_stm* binop_stm);
 void llvm2asmLoad(list<AS_stm*> &as_list, L_stm* load_stm);
