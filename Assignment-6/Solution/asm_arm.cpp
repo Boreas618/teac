@@ -26,7 +26,7 @@ ASM::AS_ldr::AS_ldr(AS_reg *_dst, AS_reg *_ptr)
 ASM::AS_str::AS_str(AS_reg *_src, AS_reg *_ptr)
     : src(_src), ptr(_ptr) {}
 
-ASM::AS_adrp::AS_adrp(AS_label *_label, AS_reg *_reg)
+ASM::AS_adr::AS_adr(AS_label *_label, AS_reg *_reg)
     : label(_label), reg(_reg) {}
 
 ASM::AS_b::AS_b(AS_label *_jump)
@@ -67,10 +67,10 @@ AS_stm* ASM::AS_Str(AS_reg *src, AS_reg *ptr) {
     return p;
 }
 
-AS_stm* ASM::AS_Adrp(AS_label *label, AS_reg *reg) {
+AS_stm* ASM::AS_Adr(AS_label *label, AS_reg *reg) {
     auto p = new AS_stm();
-    p->type = AS_stmkind::ADRP;
-    p->u.ADRP = new AS_adrp(label, reg);
+    p->type = AS_stmkind::ADR;
+    p->u.ADR = new AS_adr(label, reg);
     return p;
 }
 

@@ -70,10 +70,10 @@ void ASM::printAS_stm(std::ostream &os, AS_stm *stm) {
             printAS_reg(os,stm->u.STR->src);
             break;
         }
-        case AS_stmkind::ADRP: {
-            os << "        " << "adrp    ";
-            printAS_reg(os, stm->u.ADRP->reg);
-            os << ", " << stm->u.ADRP->label->name;
+        case AS_stmkind::ADR: {
+            os << "        " << "adr     ";
+            printAS_reg(os, stm->u.ADR->reg);
+            os << ", " << stm->u.ADR->label->name;
             break;
         }
         case AS_stmkind::LABEL: {

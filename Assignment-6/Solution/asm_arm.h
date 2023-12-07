@@ -63,7 +63,7 @@ enum class AS_stmkind {
     BL,
     CMP,
     RET,
-    ADRP,
+    ADR,
 };
 
 struct AS_binop {
@@ -85,11 +85,11 @@ struct AS_str {
     AS_str(AS_reg *_src, AS_reg *_ptr);
 };
 
-struct AS_adrp {
+struct AS_adr {
     AS_label* label;
     AS_reg *reg;
 
-    AS_adrp(AS_label *_label, AS_reg *_reg);
+    AS_adr(AS_label *_label, AS_reg *_reg);
 };
 
 struct AS_b {
@@ -135,7 +135,7 @@ struct AS_stm {
         AS_mov *MOV;
         AS_ldr *LDR;
         AS_str *STR;
-        AS_adrp *ADRP;
+        AS_adr *ADR;
         AS_label *LABEL;
         AS_b *B;
         AS_bcond *BCOND;
@@ -148,7 +148,7 @@ struct AS_stm {
 AS_stm* AS_Binop(AS_binopkind op, AS_reg* left, AS_reg *right, AS_reg *dst);
 AS_stm* AS_Mov(AS_reg *src, AS_reg *dst);
 AS_stm* AS_Ldr(AS_reg *dst, AS_reg *ptr);
-AS_stm* AS_Adrp(AS_label *label, AS_reg *reg);
+AS_stm* AS_Adr(AS_label *label, AS_reg *reg);
 AS_stm* AS_Str(AS_reg *src, AS_reg *ptr);
 AS_stm* AS_Label(AS_label *label);
 AS_stm* AS_B(AS_label *jump);

@@ -20,8 +20,6 @@ void llvm2asmBinop(list<AS_stm*> &as_list, L_stm* binop_stm);
 void llvm2asmLoad(list<AS_stm*> &as_list, L_stm* load_stm);
 void llvm2asmStore(list<AS_stm*> &as_list, L_stm* store_stm);
 void llvm2asmCmp(list<AS_stm*> &as_list, L_stm* cmp_stm);
-void llvm2asmVoidCall(list<AS_stm*> &as_list, L_stm* call_stm);
-void llvm2asmCall(list<AS_stm*> &as_list, L_stm* call_stm);
 void llvm2asmRet(list<AS_stm*> &as_list, L_stm* ret_stm);
 void llvm2asmGep(list<AS_stm*> &as_list, L_stm* gep_stm);
 void llvm2asmStm(list<AS_stm*> &as_list, L_stm &stm);
