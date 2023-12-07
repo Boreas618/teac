@@ -1,0 +1,26 @@
+
+fn get_next(str[4096]:int, int next[4096]:int);
+
+fn KMP(dst[4096]:int, src[4096]:int)->int
+{
+    let next[4096]:int;
+    get_next(dst, next);
+
+    let i:int = 0;
+    let j:int = 0;
+    while (src[j] != 0) {
+        if (dst[i] == src[j]) {
+            i = i + 1;
+            j = j + 1;
+            if (dst[i] == 0) {
+                ret j;
+            }
+        } else {
+            if (next[i] == -1) {
+                i = next[i] + 1;
+                j = j + 1;
+            }
+        }
+    }
+    ret -1;
+}
