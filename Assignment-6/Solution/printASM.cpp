@@ -8,8 +8,10 @@ using namespace ASM;
 
 void ASM::printAS_global(std::ostream &os, ASM::AS_global *global) {
     os << global->label->name << ":\n";
-    for (int i = 0; i < global->len; i++) {
+    if (global->len == 1) {
         os << "        .word   " << global->init << "\n";
+    } else {
+        os << "        .zero   " << 4 * global->len << "\n";
     }
 }
 

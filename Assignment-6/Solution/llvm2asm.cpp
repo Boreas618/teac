@@ -14,6 +14,7 @@ using namespace ASM;
 // 结构体体里只有整型
 // 只有结构体数组
 static int stack_frame;
+static bool alloc_frame = false;
 // spOffset Map is used for record the specific pair, this pair map the reg in llvm ir to the location of stack frame
 // Note: the offset is only for reg_sp
 // e.g., the reg in llvm ir has no limitation, in this lab all data has been stored in the stack frame
@@ -42,7 +43,6 @@ void structLayoutInit(vector<L_def*> &defs) {
             case L_DefKind::SRT: {
                 auto name = def->u.SRT->name;
                 int member_len = def->u.SRT->members.size();
-                cout<<member_len<<endl;
                 structLayout.emplace(name, member_len);
             }
             case L_DefKind::GLOBAL: {
@@ -535,7 +535,7 @@ void llvm2asmVoidCall(list<AS_stm*> &as_list, L_stm* call_stm) {
             }
             case OperandKind::NAME: {
                 // Fixme mov global call void (@)
-                cout << args[i]->u.NAME->structname << "\n";
+                // cout << args[i]->u.NAME->structname << "\n";
                 return;
                 assert(0);
             }
@@ -572,6 +572,7 @@ void llvm2asmRet(list<AS_stm*> &as_list, L_stm* ret_stm) {
         as_list.push_back(AS_Mov(src_mov, dst_mov));
     }
 
+    free_frame(as_list);
     as_list.push_back(AS_Ret());
 }
 
@@ -619,7 +620,8 @@ void llvm2asmGep(list<AS_stm*> &as_list, L_stm* gep_stm) {
             if (spOffsetMap.find(gep_stm->u.GEP->base_ptr->u.TEMP->num) != spOffsetMap.end() ) {
                 // store to the stack frame, which is from alloc: str ...,[sp, #n]
                 int offset = spOffsetMap.at(gep_stm->u.GEP->base_ptr->u.TEMP->num);
-                offset += array_base * array_index + field_base * field_index;
+                cout << offset<<"  "<<  array_base * array_index + field_base * field_index << endl;
+                offset -= array_base * array_index + field_base * field_index;
                 spOffsetMap.emplace(gep_stm->u.GEP->new_ptr->u.TEMP->num, offset);
             } else {
                 // store to the reg directly: ldr ..., w
@@ -628,7 +630,7 @@ void llvm2asmGep(list<AS_stm*> &as_list, L_stm* gep_stm) {
                 AS_reg* dst_mov = new AS_reg(gep_stm->u.GEP->new_ptr->u.TEMP->num, 0);
                 as_list.push_back(AS_Mov(src_mov, dst_mov));
                 AS_reg* instant = new AS_reg(-3, offset);
-                as_list.push_back(AS_Binop(AS_binopkind::ADD_, dst_mov, instant, dst_mov));
+                as_list.push_back(AS_Binop(AS_binopkind::SUB_, dst_mov, instant, dst_mov));
             }
 
             break;
@@ -666,7 +668,7 @@ void llvm2asmGep(list<AS_stm*> &as_list, L_stm* gep_stm) {
 
             int offset = array_base * array_index + field_base * field_index;
             AS_reg* instant = new AS_reg(-3, offset);
-            as_list.push_back(AS_Binop(AS_binopkind::ADD_, mov_src, instant, mov_src));
+            as_list.push_back(AS_Binop(AS_binopkind::SUB_, mov_src, instant, mov_src));
 
             AS_reg* mov_dst = new AS_reg(gep_stm->u.GEP->new_ptr->u.TEMP->num, 0);
             as_list.push_back(AS_Mov(mov_src, mov_dst));
@@ -679,6 +681,12 @@ void llvm2asmGep(list<AS_stm*> &as_list, L_stm* gep_stm) {
 }
 
 void llvm2asmStm(list<AS_stm*> &as_list, L_stm &stm) {
+
+    if (!alloc_frame && stm.type != L_StmKind::T_LABEL) {
+        new_frame(as_list);
+        alloc_frame = true;
+    }
+
     switch (stm.type) {
         case L_StmKind::T_BINOP: {
             llvm2asmBinop(as_list, &stm);
@@ -724,6 +732,7 @@ void llvm2asmStm(list<AS_stm*> &as_list, L_stm &stm) {
         }
         case L_StmKind::T_RETURN: {
             llvm2asmRet(as_list, &stm);
+            alloc_frame = false;
             break;
         }
         case L_StmKind::T_ALLOCA: {
@@ -896,9 +905,25 @@ AS_func* llvm2asmFunc(L_func &func) {
         }
     }
 
-    allocReg(p->stms);
+    //allocReg(p->stms);
 
     return p;
+}
+
+void llvm2asmDecl(vector<AS_decl*> &decls, L_def &def) {
+    switch (def.kind) {
+        case L_DefKind::GLOBAL: {
+            return;
+        }
+        case L_DefKind::FUNC: {
+            AS_decl* decl = new AS_decl(def.u.FUNC->name);
+            decls.push_back(decl);
+            break;
+        }
+        case L_DefKind::SRT: {
+            return;
+        }
+    }
 }
 
 void llvm2asmGlobal(vector<AS_global*> &globals, L_def &def) {
@@ -954,11 +979,17 @@ AS_prog* llvm2asm(L_prog &prog) {
     regSegInit();
 
     std::vector<AS_global*> globals;
+    std::vector<AS_decl*> decls;
     std::vector<AS_func*> func_list;
 
-    auto as_prog = new AS_prog(globals, func_list);
+    auto as_prog = new AS_prog(globals, decls, func_list);
 
     structLayoutInit(prog.defs);
+
+    for(const auto &def : prog.defs) {
+        llvm2asmDecl(as_prog->decls, *def);
+    }
+
     for(const auto &def : prog.defs) {
         llvm2asmGlobal(as_prog->globals, *def);
     }
