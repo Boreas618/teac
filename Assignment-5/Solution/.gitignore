@@ -1,0 +1,4 @@
+output
+tests/*.ll
+tests/public/*.ll
+tests/private/*.ll
