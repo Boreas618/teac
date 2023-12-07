@@ -921,7 +921,7 @@ AS_operand* ast2llvmLeftVal(aA_leftVal l)
         }
         else if(ptr_op->kind == OperandKind::NAME)
         {
-            if(ptr_op->u.NAME->type == TempType::STRUCT_PTR)
+            if(ptr_op->u.NAME->type == TempType::STRUCT_TEMP)
             {
                 auto info = structInfoMap[ptr_op->u.NAME->structname].memberinfos[*l->u.memberExpr->memberId];
                 auto index = info.offset;
