@@ -1,7 +1,6 @@
 #include "asm_arm.h"
 #include <string>
 #include <vector>
-#include <cassert>
 
 using namespace std;
 using namespace ASM;
@@ -12,8 +11,11 @@ ASM::AS_reg::AS_reg(int _reg, int _offset)
 ASM::AS_label::AS_label(const std::string _name)
     : name(_name) {}
 
+ASM::AS_decl::AS_decl(const std::string _name)
+    : name(_name) {}
+
 ASM::AS_global::AS_global(AS_label *_label, int _init, int _len)
-    : label(_label), init(_init), len(_len) {}
+        : label(_label), init(_init), len(_len) {}
 
 ASM::AS_binop::AS_binop(AS_binopkind _op, AS_reg *_left, AS_reg *_right, AS_reg *_dst)
     : op(_op), left(_left), right(_right), dst(_dst) {}
@@ -124,5 +126,5 @@ AS_stm* ASM::AS_Ret() {
 ASM::AS_func::AS_func(const std::list<AS_stm*> &_stms)
     : stms(_stms) {}
 
-ASM::AS_prog::AS_prog(const std::vector<AS_global*> &_globals, const std::vector<AS_func*> &_funcs)
-    : globals(_globals), funcs(_funcs) {}
+ASM::AS_prog::AS_prog(const std::vector<AS_global*> &_globals, const std::vector<AS_decl*> &_decls, const std::vector<AS_func*> &_funcs)
+    : globals(_globals), decls(_decls), funcs(_funcs) {}

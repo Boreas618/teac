@@ -22,6 +22,11 @@ struct AS_label {
     AS_label(const std::string _name);
 };
 
+struct AS_decl {
+    const std::string name;
+
+    AS_decl(const std::string _name);
+};
 
 struct AS_global {
     AS_label *label;
@@ -160,9 +165,10 @@ struct AS_func {
 
 struct AS_prog {
     std::vector<AS_global*> globals;
+    std::vector<AS_decl*> decls;
     std::vector<AS_func*> funcs;
 
-    AS_prog(const std::vector<AS_global*> &_globals, const std::vector<AS_func*> &_funcs);
+    AS_prog(const std::vector<AS_global*> &_globals, const std::vector<AS_decl*> &_decls, const std::vector<AS_func*> &_funcs);
 };
 
 }

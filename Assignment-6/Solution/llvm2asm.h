@@ -28,6 +28,7 @@ void llvm2asmRet(list<AS_stm*> &as_list, L_stm* ret_stm);
 void llvm2asmGep(list<AS_stm*> &as_list, L_stm* gep_stm);
 void llvm2asmStm(list<AS_stm*> &as_list, L_stm &stm);
 void llvm2asmGlobal(vector<AS_global*> &globals, L_def &def);
+void llvm2asmDecl(vector<AS_decl*> &decls, L_def &def);
 AS_func* llvm2asmFunc(L_func &func);
 AS_prog* llvm2asm(L_prog &p);
 

@@ -62,7 +62,7 @@ int main(int argc, char * argv[]) {
     LLVMStream.close();
 
     ofstream ASMStream;
-    ASMStream.open(file_name + ".arm");
+    ASMStream.open(file_name + ".S");
     auto as_prog = llvm2asm(*l_prog);
     printAS_prog(ASMStream,as_prog);
     ASMStream.close();
