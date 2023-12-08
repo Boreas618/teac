@@ -3,7 +3,6 @@
 #include "temp.h"
 #include "llvm2asm.h"
 
-#include <iostream>
 #include <queue>
 #include <cassert>
 
@@ -650,7 +649,7 @@ void llvm2asmStm(list<AS_stm*> &as_list, L_stm &stm) {
     }
 }
 
-void allocReg(list<AS_stm*> &as_list){
+void allocReg(list<AS_stm*> &as_list) {
 
     unordered_map<int,int> vregStart;
     unordered_map<int,int> vregEnd;
@@ -748,35 +747,35 @@ void allocReg(list<AS_stm*> &as_list){
         if (regNo<100) return;
         reg->reg=get_mapping(regNo,lineNo);
     };
-    
+
     lineNo=0;
     for (const auto &stm: as_list){
         switch (stm->type){
-            case AS_stmkind::BINOP: 
+            case AS_stmkind::BINOP:
                 vreg_map(stm->u.BINOP->dst, lineNo);
                 vreg_map(stm->u.BINOP->left, lineNo);
                 vreg_map(stm->u.BINOP->right, lineNo);
                 break;
-            case AS_stmkind::MOV: 
+            case AS_stmkind::MOV:
                 vreg_map(stm->u.MOV->dst, lineNo);
                 vreg_map(stm->u.MOV->src, lineNo);
                 break;
-            case AS_stmkind::LDR: 
+            case AS_stmkind::LDR:
                 vreg_map(stm->u.LDR->dst, lineNo);
                 vreg_map(stm->u.LDR->ptr, lineNo);
                 break;
-            case AS_stmkind::STR: 
+            case AS_stmkind::STR:
                 vreg_map(stm->u.STR->src, lineNo);
                 vreg_map(stm->u.STR->ptr, lineNo);
                 break;
-            case AS_stmkind::CMP: 
+            case AS_stmkind::CMP:
                 vreg_map(stm->u.CMP->left, lineNo);
                 vreg_map(stm->u.CMP->right, lineNo);
                 break;
             case AS_stmkind::ADR:
                 vreg_map(stm->u.ADR->reg, lineNo);
                 break;
-            default: 
+            default:
                 break;
         }
         lineNo+=1;

@@ -14,12 +14,18 @@ using namespace std;
 using namespace LLVMIR;
 using namespace ASM;
 
+void structLayoutInit(vector<L_def*> &defs);
 void set_stack(L_func &func);
+void new_frame(list<AS_stm*> &as_list);
+void free_frame(list<AS_stm*> &as_list);
+void allocReg(list<AS_stm*> &as_list);
+
 
 void llvm2asmBinop(list<AS_stm*> &as_list, L_stm* binop_stm);
 void llvm2asmLoad(list<AS_stm*> &as_list, L_stm* load_stm);
 void llvm2asmStore(list<AS_stm*> &as_list, L_stm* store_stm);
 void llvm2asmCmp(list<AS_stm*> &as_list, L_stm* cmp_stm);
+void llvm2asmCJmp(list<AS_stm*> &as_list, L_stm* cjmp_stm);
 void llvm2asmRet(list<AS_stm*> &as_list, L_stm* ret_stm);
 void llvm2asmGep(list<AS_stm*> &as_list, L_stm* gep_stm);
 void llvm2asmStm(list<AS_stm*> &as_list, L_stm &stm);

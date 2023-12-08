@@ -3,7 +3,6 @@
 #include "temp.h"
 #include "llvm2asm.h"
 
-#include <iostream>
 #include <queue>
 #include <cassert>
 
