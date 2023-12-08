@@ -1,7 +1,6 @@
 #include "printASM.h"
 #include "asm_arm.h"
 #include <iostream>
-#include <cassert>
 
 using namespace std;
 using namespace ASM;
@@ -174,12 +173,12 @@ void ASM::printAS_prog(std::ostream &os, AS_prog *prog) {
 
     os << ".section .text\n";
 
-    for(const auto &func : prog->funcs) {
-        printAS_func(os, func);
-    }
-
     for(const auto &decl : prog->decls) {
         printAS_decl(os, decl);
+    }
+
+    for(const auto &func : prog->funcs) {
+        printAS_func(os, func);
     }
 
 }
