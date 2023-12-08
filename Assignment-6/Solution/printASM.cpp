@@ -167,17 +167,19 @@ void ASM::printAS_func(std::ostream &os, AS_func *func) {
 
 void ASM::printAS_prog(std::ostream &os, AS_prog *prog) {
 
-    os << ".text\n";
-    for(const auto &decl : prog->decls) {
-        printAS_decl(os, decl);
+    os << ".section .data\n";
+    for(const auto &global : prog->globals) {
+        printAS_global(os, global);
     }
+
+    os << ".section .text\n";
 
     for(const auto &func : prog->funcs) {
         printAS_func(os, func);
     }
 
-    os << ".data\n";
-    for(const auto &global : prog->globals) {
-        printAS_global(os, global);
+    for(const auto &decl : prog->decls) {
+        printAS_decl(os, decl);
     }
+
 }

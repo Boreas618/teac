@@ -190,7 +190,8 @@ struct L_stm {
 `asm_arm.h` 涵盖了所有需要翻译的 `ARMV8` 指令的抽象定义，理论上此部分在实验过程中无需改动，这里对比较重要的定义处给予解释。
 
 整体上，数据结构定义和使用上延续了 `LAB4` 的代码风格。
----- 
+
+#### 数据结构说明
 `AS_reg` 有两个域，分别是寄存器编号和偏移量，抽象为所有的寄存器表示方法。
 ```cpp
 struct AS_reg {
@@ -253,7 +254,6 @@ struct AS_bcond {
     AS_bcond(AS_relopkind _op, AS_label *_jump);
 };
 ```
----- 
 其他的指令都大同小异，这里不再赘述。
 ---- 
 `AS_stm` 是汇编代码内一条语句的抽象，存储了一个语句的枚举类型和对应的指针。
@@ -351,8 +351,8 @@ void llvm2asmDecl(vector<AS_decl*> &decls, L_def &def);
 AS_func* llvm2asmFunc(L_func &func);
 AS_prog* llvm2asm(L_prog &p);
 ```
----- 
-**难度降低 1：实验内容不需要翻译函数调用，不需要思考复杂的调用约定。**
+
+* **难度降低 1：实验内容不需要翻译函数调用，不需要思考复杂的调用约定。**
 ---- 
 全局变量 `stack_frame` 记录一个函数所需要申请栈的总大小，**这个栈存储所有的变量**。
 
@@ -363,12 +363,17 @@ AS_prog* llvm2asm(L_prog &p);
 static int stack_frame;
 ```
 ---- 
+全局变量 `alloc_frame` 是 `flag` 标记是否给函数分配了 `stack frame` ，在遇到的第一条语句开辟栈并置为 `true`。
+
+```cpp
+static bool alloc_frame = false;
+```
+---- 
 全局变量 `spOffsetMap` 记录了所有栈上变量的映射，例如 `x100 -> 48`, 本质上对应的是 `x100 -> [sp + #48]` 的内存位置。
 
 **【提醒】**
 * 这个结构需要记录**所有** `alloca` 分配的寄存器位置，同时也需要记录可以**通过计算获得的偏移后的地址**，例如通过 `getelementptr` 计算的偏移后的地址。
-
-**难度降低 2: 所有的索引访问都为常数类型，即不存在`a[n]`的情况**
+* **难度降低 2: 所有的索引访问都为常数类型，即不存在`a[n]`的情况**
 ```cpp
 static unordered_map<int, int> spOffsetMap;
 ```
@@ -381,11 +386,17 @@ static unordered_map<int, int> spOffsetMap;
 static unordered_map<int, AS_relopkind> condMap;
 ```
 ---- 
-全局变量 `structLayout`，记录了一个结构题的静态大小，即占用多大空间。
-
-**难度降低 3: 所有结构的体的定义，每个域只有整形，不考虑结构题中有数组和嵌套其他结构体，但存在结构题数组。**
+全局变量 `structLayout`，映射一个结构题到他的静态大小（字节数），即占用多大空间。
+* **难度降低 3: 所有结构的体的定义，每个域只有整形，不考虑结构题中有数组和嵌套其他结构体，但存在结构题数组。**
 ```cpp
 static unordered_map<string, int> structLayout;
+```
+
+函数 `structLayoutInit` 需要计算每个结构题的静态大小（字节），存储到 `structLayout` 内。
+
+例如 `struct Foo : x:int, y:int`，存在映射 ` Foo -> 8`。
+```cpp
+void structLayoutInit(vector<L_def*> &defs);
 ```
 ---- 
 函数 `set_stack` 需要计算出所有 `alloca` 指令分配栈的所占总空间大小（字节），存储在 `stack_frame`。
@@ -409,19 +420,19 @@ void free_frame(list<AS_stm*> &as_list);
 **【提醒】**
 * 在 `LLVM IR` 中，左右操作数都可能为立即数。
 * 对于汇编指令，加法和减法，左操作数不能为立即数；乘法和除法，左右操作数都不能是立即数。
+* **难度降低 4: `LAB6` 预留了`x2` `x3` 两个物理寄存器来暂存立即数。**
 
-**难度降低 4: `LAB6` 预留了`x2` `x3` 两个物理寄存器来暂存立即数。**
 ```cpp
 void llvm2asmBinop(list<AS_stm*> &as_list, L_stm* binop_stm) 
 ```
 ---- 
 **【提醒】**
 * `load` 的 源操作数存在三种可能：存储在栈上的直接地址 `[sp, #N]`， 存储在寄存器中 `%rn` ，以及全局变量 `@a` 。
+* **难度降低 5: 全局变量使用 `ADR` 获取地址，存储在物理寄存器 `x3` 内。**
 ```cpp
 void llvm2asmLoad(list<AS_stm*> &as_list, L_stm* load_stm) 
 ```
 
-**难度降低 5: 全局变量使用 `ADR` 获取地址，存储在物理寄存器 `x3` 内。**
 ---- 
 **【提醒】**
 * `store` 的 源操作数存在两种可能：立即数 `#N`， 存储在寄存器中 `%rn` 。
