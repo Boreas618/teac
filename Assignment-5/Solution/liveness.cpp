@@ -319,4 +319,5 @@ void Liveness(GRAPH::Node<LLVMIR::L_block*>* r, GRAPH::Graph<LLVMIR::L_block*>& 
     bool changed = true;
     while (changed)
         changed = LivenessIteration(r, bg);
+    //  Show_Liveness(stdout,bg);
 }
