@@ -6,7 +6,7 @@
 
 using std::string;
 using std::vector;
-
+// 
 typedef struct aA_type_* aA_type;
 typedef struct aA_varDecl_* aA_varDecl;
 typedef struct aA_varDef_* aA_varDef;

@@ -165,7 +165,7 @@ tc_type check_LeftRightVal(std::ostream& out, tc_type left_type, aA_rightVal val
     default:
         break;
     }
-    if(!comp_tc_type(left_type, right_type)){
+    if(left_type->type && !comp_tc_type(left_type, right_type)){
         error_print(out, val->pos, "The expression of right value doesn't match the given left type!");
     }
     return right_type;
@@ -420,7 +420,7 @@ void check_AssignStmt(std::ostream& out, aA_assignStmt as){
                 error_print(out, as->pos, "Variable is not defined!");
             tc_type orig_type = get_token_type(name);
             if (orig_type->isVarArrFunc > 1){
-                error_print(out, as->pos, "This id is a function or array!");
+                error_print(out, as->pos, "This id is not a scalar!");
             }
             deduced_type = check_LeftRightVal(out, orig_type, as->rightVal);
             if (orig_type->type == nullptr){
