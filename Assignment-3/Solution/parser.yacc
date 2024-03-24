@@ -208,11 +208,11 @@ ArithExpr: ArithExpr ADD ArithExpr
 
 ArrayExpr: ID LSB ID RSB
 {
-  $$ = A_ArrayExpr($1->pos, $1->id, A_IdIndexExpr($3->pos, $3->id));
+  $$ = A_ArrayExpr($1->pos, A_IdExprLVal($1->pos, $1->id), A_IdIndexExpr($3->pos, $3->id));
 }
 | ID LSB NUM RSB
 {
-  $$ = A_ArrayExpr($1->pos, $1->id, A_NumIndexExpr($3->pos, $3->num));
+  $$ = A_ArrayExpr($1->pos, A_IdExprLVal($1->pos, $1->id), A_NumIndexExpr($3->pos, $3->num));
 }
 ;
 
@@ -238,7 +238,7 @@ ExprUnit: NUM
 }
 | ID DOT ID
 {
-  $$ = A_MemberExprUnit($1->pos, A_MemberExpr($1->pos, $1->id, $3->id));
+  $$ = A_MemberExprUnit($1->pos, A_MemberExpr($1->pos, A_IdExprLVal($1->pos, $1->id), $3->id));
 }
 | SUB ExprUnit %prec NEG
 {
@@ -310,7 +310,7 @@ LeftVal: ID
 }
 | ID DOT ID
 {
-  $$ = A_MemberExprLVal($1->pos, A_MemberExpr($1->pos, $1->id, $3->id));
+  $$ = A_MemberExprLVal($1->pos, A_MemberExpr($1->pos, A_IdExprLVal($1->pos, $1->id), $3->id));
 }
 ;
 

@@ -1,11 +1,12 @@
 #include "TypeCheck.h"
 
 //global tabels
-typeMap func2retType; // function name to return type
+//typeMap func2retType; // function name to return type
 
 // global token ids to type
 typeMap g_token2Type; 
-// local token ids to type
+
+// local token ids to type, since func param can override global param
 typeMap funcparam_token2Type;
 vector<typeMap*> local_token2Type;
 
@@ -15,9 +16,9 @@ paramMemberMap struct2Members;
 
 
 // private util functions
-void error_print(std::ostream* out, A_pos p, string info)
+void error_print(std::ostream& out, A_pos p, string info)
 {
-    *out << "Typecheck error in line " << p->line << ", col " << p->col << ": " << info << std::endl;
+    out << "Typecheck error in line " << p->line << ", col " << p->col << ": " << info << std::endl;
     exit(0);
 }
 
@@ -25,10 +26,10 @@ void error_print(std::ostream* out, A_pos p, string info)
 void print_token_map(typeMap* map){
     for(auto it = map->begin(); it != map->end(); it++){
         std::cout << it->first << " : ";
-        switch (it->second->type)
+        switch (it->second->type->type)
         {
         case A_dataType::A_nativeTypeKind:
-            switch (it->second->u.nativeType)
+            switch (it->second->type->u.nativeType)
             {
             case A_nativeType::A_intTypeKind:
                 std::cout << "int";
@@ -38,10 +39,21 @@ void print_token_map(typeMap* map){
             }
             break;
         case A_dataType::A_structTypeKind:
-            std::cout << *(it->second->u.structType);
+            std::cout << *(it->second->type->u.structType);
             break;
         default:
             break;
+        }
+        switch(it->second->isVarArrFunc){
+            case 0:
+                std::cout << " scalar";
+                break;
+            case 1:
+                std::cout << " array";
+                break;
+            case 2:
+                std::cout << " function";
+                break;
         }
         std::cout << std::endl;
     }
@@ -62,7 +74,6 @@ bool find_token(string name){
         if((*it)->find(name) != (*it)->end()){
             return true;
         }
-        
     }
 
     if(funcparam_token2Type.find(name) != funcparam_token2Type.end()){
@@ -76,7 +87,7 @@ bool find_token(string name){
 }
 
 
-void set_token(string name, aA_type type){
+void set_token(string name, tc_type type){
     // insert to the most inner codeblock
     if (local_token2Type.size() > 0){
         local_token2Type.back()->insert({name, type});
@@ -87,7 +98,7 @@ void set_token(string name, aA_type type){
 }
 
 
-aA_type get_token_type(string name){
+tc_type get_token_type(string name){
     // find from the most inner codeblock
     for(auto it = local_token2Type.rbegin(); it != local_token2Type.rend(); it++){
         if((*it)->find(name) != (*it)->end()){
@@ -113,27 +124,36 @@ string& get_varDecl_id(aA_varDecl vd){
 }
 
 
-bool comp_aA_type(aA_type t1, aA_type t2){
-    if(!t1 || !t2)
+bool comp_aA_type(aA_type target, aA_type t){
+    if(!target || !t)
         return false;
-
-    if(t1->type != t2->type)
+    if(target->type != t->type)
         return false;
-
-    if(t1->type == A_dataType::A_nativeTypeKind)
-        if(t1->u.nativeType != t2->u.nativeType)
+    if(target->type == A_dataType::A_nativeTypeKind)
+        if(target->u.nativeType != t->u.nativeType)
             return false;
-
-    if(t1->type == A_dataType::A_structTypeKind)
-        if(t1->u.structType != t2->u.structType)
+    if(target->type == A_dataType::A_structTypeKind)
+        if(target->u.structType != t->u.structType)
             return false;
-
     return true;
 }
 
 
-void check_LeftRightVal(std::ostream* out, aA_type lefttype, aA_rightVal val){
-    aA_type right_type;
+bool comp_tc_type(tc_type target, tc_type t){
+    if(!target || !t)
+        return false;
+    
+    // arr kind first
+    if (target->isVarArrFunc & t->isVarArrFunc == 0)
+        return false;
+    
+    // if target type is nullptr, alwayse ok
+    return comp_aA_type(target->type, t->type);
+}
+
+
+tc_type check_LeftRightVal(std::ostream& out, tc_type left_type, aA_rightVal val){
+    tc_type right_type = nullptr;
     switch (val->kind)
     {
     case A_rightValType::A_arithExprValKind:
@@ -145,14 +165,32 @@ void check_LeftRightVal(std::ostream* out, aA_type lefttype, aA_rightVal val){
     default:
         break;
     }
-    if(!comp_aA_type(lefttype, right_type)){
+    if(left_type->type && !comp_tc_type(left_type, right_type)){
         error_print(out, val->pos, "The expression of right value doesn't match the given left type!");
     }
+    return right_type;
+}
+
+
+tc_type tc_Type(aA_type t, uint isVarArrFunc){
+    tc_type ret = new tc_type_;
+    ret->type = t;
+    ret->isVarArrFunc = isVarArrFunc;
+    return ret;
+}
+
+
+tc_type tc_Type(aA_varDecl vd){
+    if(vd->kind == A_varDeclType::A_varDeclScalarKind)
+        return tc_Type(vd->u.declScalar->type, 0);
+    else if(vd->kind == A_varDeclType::A_varDeclArrayKind)
+        return tc_Type(vd->u.declArray->type, 1);
+    return nullptr;
 }
 
 
 // public functions
-void check_Prog(std::ostream* out, aA_program p)
+void check_Prog(std::ostream& out, aA_program p)
 {
     for (auto ele : p->programElements)
     {
@@ -181,12 +219,12 @@ void check_Prog(std::ostream* out, aA_program p)
         }
     }
 
-    (*out) << "Typecheck passed!" << std::endl;
+    out << "Typecheck passed!" << std::endl;
     return;
 }
 
 
-void check_VarDecl(std::ostream* out, aA_varDeclStmt vd)
+void check_VarDecl(std::ostream& out, aA_varDeclStmt vd)
 {
     if (!vd)
         return;
@@ -198,12 +236,14 @@ void check_VarDecl(std::ostream* out, aA_varDeclStmt vd)
             name = *vdecl->u.declScalar->id;
             if (find_token(name))
                 error_print(out, vdecl->pos, "This id is already defined!");
-            set_token(name, vdecl->u.declScalar->type);
+            // TODO：allow omit type
+            set_token(name, tc_Type(vdecl->u.declScalar->type, 0));
         }else if (vdecl->kind == A_varDeclType::A_varDeclArrayKind){
             name = *vdecl->u.declArray->id;
             if (find_token(name))
                 error_print(out, vdecl->pos, "This id is already defined!");
-            set_token(name, vdecl->u.declArray->type);
+            // TODO：allow omit type
+            set_token(name, tc_Type(vdecl->u.declArray->type, 1));
         }
     }
     else if (vd->kind == A_varDeclStmtType::A_varDefKind){
@@ -213,15 +253,27 @@ void check_VarDecl(std::ostream* out, aA_varDeclStmt vd)
             name = *vdef->u.defScalar->id;
             if (find_token(name))
                 error_print(out, vdef->pos, "This id is already defined!");
-            set_token(name, vdef->u.defScalar->type);
-            check_LeftRightVal(out, vdef->u.defScalar->type, vdef->u.defScalar->val);
+            // TODO：allow omit type
+            tc_type target_type = tc_Type(vdef->u.defScalar->type, 0);
+            tc_type deduced_type = check_LeftRightVal(out, target_type, vdef->u.defScalar->val);
+            if (target_type->type == nullptr)
+                target_type->type = deduced_type->type;
+            set_token(name, target_type);
         }else if (vdef->kind == A_varDefType::A_varDefArrayKind){
             name = *vdef->u.defArray->id;
             if (find_token(name))
                 error_print(out, vdef->pos, "This id is already defined!");
-            set_token(name, vdef->u.defArray->type);
-            for(aA_rightVal rv : vdef->u.defArray->vals){
-                check_LeftRightVal(out, vdef->u.defArray->type, rv);
+            // TODO：allow omit type
+            if (vdef->u.defArray->vals.size() > 0){
+                tc_type target_type = tc_Type(vdef->u.defArray->type, 0);
+                tc_type deduced_type = check_LeftRightVal(out, target_type, vdef->u.defArray->vals[0]);
+                if (target_type->type == nullptr)
+                    target_type->type = deduced_type->type;
+                for(aA_rightVal rv : vdef->u.defArray->vals){
+                    check_LeftRightVal(out, target_type, rv);
+                }
+                target_type->isVarArrFunc = 1;
+                set_token(name, target_type);
             }
         }
     }
@@ -229,7 +281,7 @@ void check_VarDecl(std::ostream* out, aA_varDeclStmt vd)
 }
 
 
-void check_StructDef(std::ostream* out, aA_structDef sd)
+void check_StructDef(std::ostream& out, aA_structDef sd)
 {
     if (!sd)
         return;
@@ -241,7 +293,7 @@ void check_StructDef(std::ostream* out, aA_structDef sd)
 }
 
 
-void check_FnDecl(std::ostream* out, aA_fnDecl fd)
+void check_FnDecl(std::ostream& out, aA_fnDecl fd)
 {
     if (!fd)
         return;
@@ -250,7 +302,7 @@ void check_FnDecl(std::ostream* out, aA_fnDecl fd)
     // if already declared, should match
     if (func2Param.find(name) != func2Param.end()){
         // is function ret val matches
-        if(!comp_aA_type(func2retType[name], fd->type))
+        if(!comp_aA_type(get_token_type(name)->type, fd->type))
             error_print(out, fd->pos, "The function return type doesn't match the declaration!");
         // is function params matches decl
         if(func2Param[name]->size() != fd->paramDecl->varDecls.size())
@@ -266,7 +318,7 @@ void check_FnDecl(std::ostream* out, aA_fnDecl fd)
             error_print(out, fd->pos, "This id is already defined as a variable!");
         else{
             // else, record this
-            func2retType[name] = fd->type;
+            set_token(name, tc_Type(fd->type, 2));
             func2Param[name] = &fd->paramDecl->varDecls;
             // func param list should not duplicate
             for (int i = 0; i<fd->paramDecl->varDecls.size(); i++){
@@ -282,7 +334,7 @@ void check_FnDecl(std::ostream* out, aA_fnDecl fd)
 }
 
 
-void check_FnDeclStmt(std::ostream* out, aA_fnDeclStmt fd)
+void check_FnDeclStmt(std::ostream& out, aA_fnDeclStmt fd)
 {
     if (!fd)
         return;
@@ -291,7 +343,7 @@ void check_FnDeclStmt(std::ostream* out, aA_fnDeclStmt fd)
 }
 
 
-void check_FnDef(std::ostream* out, aA_fnDef fd)
+void check_FnDef(std::ostream& out, aA_fnDef fd)
 {
     if (!fd)
         return;
@@ -301,9 +353,9 @@ void check_FnDef(std::ostream* out, aA_fnDef fd)
     for (aA_varDecl vd : fd->fnDecl->paramDecl->varDecls)
     {
         if(vd->kind == A_varDeclType::A_varDeclScalarKind)
-            funcparam_token2Type[*vd->u.declScalar->id] = vd->u.declScalar->type;
+            funcparam_token2Type[*vd->u.declScalar->id] = tc_Type(vd->u.declScalar->type, 0);
         else if(vd->kind == A_varDeclType::A_varDeclArrayKind)
-            funcparam_token2Type[*vd->u.declArray->id] = vd->u.declArray->type;
+            funcparam_token2Type[*vd->u.declArray->id] = tc_Type(vd->u.declArray->type, 1);
     }
 
     local_token2Type.push_back(new typeMap());
@@ -312,7 +364,7 @@ void check_FnDef(std::ostream* out, aA_fnDef fd)
         check_CodeblockStmt(out, stmt);
         // return value type should match
         if(stmt->kind == A_codeBlockStmtType::A_returnStmtKind)
-            check_LeftRightVal(out, fd->fnDecl->type, stmt->u.returnStmt->retVal);
+            check_LeftRightVal(out, tc_Type(fd->fnDecl->type, 0), stmt->u.returnStmt->retVal);
         // else if (stmt->kind == A_codeBlockStmtType::A_varDeclStmtKind)
         //     local_vars.push_back(*stmt->u.varDeclStmt->u.varDecl->u.declArray->id);
     }
@@ -324,7 +376,7 @@ void check_FnDef(std::ostream* out, aA_fnDef fd)
 }
 
 
-void check_CodeblockStmt(std::ostream* out, aA_codeBlockStmt cs){
+void check_CodeblockStmt(std::ostream& out, aA_codeBlockStmt cs){
     if(!cs)
         return;
     // variables declared in a code block should not duplicate with outer ones.
@@ -355,84 +407,105 @@ void check_CodeblockStmt(std::ostream* out, aA_codeBlockStmt cs){
 }
 
 
-void check_AssignStmt(std::ostream* out, aA_assignStmt as){
+void check_AssignStmt(std::ostream& out, aA_assignStmt as){
     if(!as)
         return;
     string name;
+    tc_type deduced_type;
     switch (as->leftVal->kind)
     {
-        case A_leftValType::A_varValKind:
+        case A_leftValType::A_varValKind:{
             name = *as->leftVal->u.id;
-            if(func2Param.find(name) != func2Param.end())
-                error_print(out, as->pos, "Cannot assign a value to a function!");
             if(!find_token(name))
                 error_print(out, as->pos, "Variable is not defined!");
-            check_LeftRightVal(out, get_token_type(name), as->rightVal);
+            tc_type orig_type = get_token_type(name);
+            if (orig_type->isVarArrFunc > 1){
+                error_print(out, as->pos, "This id is not a scalar!");
+            }
+            deduced_type = check_LeftRightVal(out, orig_type, as->rightVal);
+            if (orig_type->type == nullptr){
+                orig_type->type = deduced_type->type;
+            }
+        }
             break;
-        case A_leftValType::A_arrValKind:
-            name = *as->leftVal->u.arrExpr->arr;
+        case A_leftValType::A_arrValKind:{
+            name = *as->leftVal->u.arrExpr->arr->u.id;
             check_ArrayExpr(out, as->leftVal->u.arrExpr);
-            check_LeftRightVal(out, get_token_type(name), as->rightVal);
+            tc_type arr_type = get_token_type(name);
+            deduced_type = check_LeftRightVal(out, arr_type, as->rightVal);
+            if (arr_type == nullptr){
+                arr_type->type = deduced_type->type;
+            }
+        }
             break;
-        case A_leftValType::A_memberValKind:
+        case A_leftValType::A_memberValKind:{
             // id should be defined
-            aA_type type = check_MemberExpr(out, as->leftVal->u.memberExpr);
+            tc_type type = check_MemberExpr(out, as->leftVal->u.memberExpr);
             // assign should be the same type
             check_LeftRightVal(out, type, as->rightVal);
+        }
             break;
     }
     return;
 }
 
 
-void check_ArrayExpr(std::ostream* out, aA_arrayExpr ae){
+void check_ArrayExpr(std::ostream& out, aA_arrayExpr ae){
     if(!ae)
         return;
-    string name = *ae->arr;
+    string name = *ae->arr->u.id;
+    // check array name
     if(!find_token(name))
         error_print(out, ae->pos, "Array name is not defined!");
+    tc_type arr_type = get_token_type(name);
+    if(arr_type->isVarArrFunc != 1)
+        error_print(out, ae->pos, "This id is not an array!");
+    // check index
     if(ae->idx->kind == A_indexExprKind::A_idIndexKind){
         // if index is id, should be int
         string idx_name = *ae->idx->u.id;
         if(!find_token(idx_name))
             error_print(out, ae->pos, "The arrat index id is not defined!");
-        aA_type idx_type = get_token_type(idx_name);
-        if(idx_type->type != A_dataType::A_nativeTypeKind || 
-            idx_type->u.nativeType != A_nativeType::A_intTypeKind)
+        tc_type idx_type = get_token_type(idx_name);
+        if( idx_type->isVarArrFunc > 0 ||
+            idx_type->type->type != A_dataType::A_nativeTypeKind || 
+            idx_type->type->u.nativeType != A_nativeType::A_intTypeKind)
             error_print(out, ae->pos, "This array index is not an int!");
     }else if (ae->idx->kind == A_indexExprKind::A_numIndexKind){
         // in index is num, should be >= 0
-        if(ae->idx->u.num < 0)
-            error_print(out, ae->pos, "Array index should be a positive int!");
+        // if(ae->idx->u.num < 0)
+        //     error_print(out, ae->pos, "Array index should be a positive int!");
     }
     return;
 }
 
  
-aA_type check_MemberExpr(std::ostream* out, aA_memberExpr me){
+tc_type check_MemberExpr(std::ostream& out, aA_memberExpr me){
     // check if the member exists and return the tyep of the member
     if(!me)
         return nullptr;
-    string name = *me->structId;
+    string name = *me->structId->u.id;
+    // check struct name
     if(!find_token(name))
         error_print(out, me->pos, "This id is not defined!");
-    aA_type id_type = get_token_type(name);
-    if(id_type->type != A_dataType::A_structTypeKind)
+    tc_type id_type = get_token_type(name);
+    if(id_type->isVarArrFunc != 0 || id_type->type->type != A_dataType::A_structTypeKind)
         error_print(out, me->pos, "This id is not a struct!");
-    string struct_type = *id_type->u.structType;
+    string struct_type = *id_type->type->u.structType;
     string member_name = *me->memberId;
     if(struct2Members.find(struct_type) == struct2Members.end())
         error_print(out, me->pos, "This struct is not defined!");
     vector<aA_varDecl>* members = struct2Members[struct_type];
+    // check member name
     for(auto it = members->begin(); it != members->end(); it++){
         if((*it)->u.declScalar->id->compare(member_name) == 0){
             if ((*it)->kind == A_varDeclType::A_varDeclScalarKind)
             {
-                return (*it)->u.declScalar->type;
+                return tc_Type((*it)->u.declScalar->type, 0);
             }
             else if ((*it)->kind == A_varDeclType::A_varDeclArrayKind)
             {
-                return (*it)->u.declArray->type;
+                return tc_Type((*it)->u.declArray->type, 1);
             }
         }
     }
@@ -441,7 +514,7 @@ aA_type check_MemberExpr(std::ostream* out, aA_memberExpr me){
 }
 
 
-void check_IfStmt(std::ostream* out, aA_ifStmt is){
+void check_IfStmt(std::ostream& out, aA_ifStmt is){
     if(!is)
         return;
     check_BoolExpr(out, is->boolExpr);
@@ -460,7 +533,7 @@ void check_IfStmt(std::ostream* out, aA_ifStmt is){
 }
 
 
-void check_BoolExpr(std::ostream* out, aA_boolExpr be){
+void check_BoolExpr(std::ostream& out, aA_boolExpr be){
     if(!be)
         return;
     switch (be->kind)
@@ -479,18 +552,17 @@ void check_BoolExpr(std::ostream* out, aA_boolExpr be){
 }
 
 
-void check_BoolUnit(std::ostream* out, aA_boolUnit bu){
+void check_BoolUnit(std::ostream& out, aA_boolUnit bu){
     if(!bu)
         return;
     switch (bu->kind)
     {
         case A_boolUnitType::A_comOpExprKind:{
-            aA_type leftTyep = check_ExprUnit(out, bu->u.comExpr->left);
-            aA_type rightTyep = check_ExprUnit(out, bu->u.comExpr->right);
-            if(leftTyep->type != A_dataType::A_nativeTypeKind || rightTyep->type != A_dataType::A_nativeTypeKind)
+            tc_type leftTyep = check_ExprUnit(out, bu->u.comExpr->left);
+            tc_type rightTyep = check_ExprUnit(out, bu->u.comExpr->right);
+            if(leftTyep->type->type != A_dataType::A_nativeTypeKind || rightTyep->type->type != A_dataType::A_nativeTypeKind)
                 error_print(out, bu->pos, "None native type are not comparable!");
-            if(leftTyep->u.nativeType != rightTyep->u.nativeType)
-                error_print(out, bu->pos, "The two operands should be the same type!");
+            comp_aA_type(leftTyep->type, rightTyep->type);
         }
             break;
         case A_boolUnitType::A_boolExprKind:
@@ -506,35 +578,40 @@ void check_BoolUnit(std::ostream* out, aA_boolUnit bu){
 }
 
 
-aA_type check_ExprUnit(std::ostream* out, aA_exprUnit eu){
+tc_type check_ExprUnit(std::ostream& out, aA_exprUnit eu){
     // return the aA_type of expr eu
     if(!eu)
         return nullptr;
-    aA_type ret;
+    tc_type ret;
     switch (eu->kind)
     {
         case A_exprUnitType::A_idExprKind:{
             string name = *eu->u.id;
             if(!find_token(name))
                 error_print(out, eu->pos, "This id is not defined!");
-            ret = get_token_type(name);
+            tc_type type = get_token_type(name);
+            if (type->isVarArrFunc > 0)
+                error_print(out, eu->pos, "This id is a function or array!");
+            ret = type;
         }
             break;
         case A_exprUnitType::A_numExprKind:{
-            ret = new aA_type_;
-            ret->pos = eu->pos;
-            ret->type = A_dataType::A_nativeTypeKind;
-            ret->u.nativeType = A_nativeType::A_intTypeKind;
+            aA_type numt = new aA_type_;
+            numt->pos = eu->pos;
+            numt->type = A_dataType::A_nativeTypeKind;
+            numt->u.nativeType = A_nativeType::A_intTypeKind;
+            ret = tc_Type(numt, 0);
         }
             break;
         case A_exprUnitType::A_fnCallKind:{
             check_FuncCall(out, eu->u.callExpr);
-            ret = func2retType[*eu->u.callExpr->fn];
+            // check_FuncCall will check if the function is defined
+            ret = get_token_type(*eu->u.callExpr->fn);
         }
             break;
         case A_exprUnitType::A_arrayExprKind:{
             check_ArrayExpr(out, eu->u.arrayExpr);
-            ret = get_token_type(*eu->u.arrayExpr->arr);
+            ret = get_token_type(*eu->u.arrayExpr->arr->u.id);
         }
             break;
         case A_exprUnitType::A_memberExprKind:{
@@ -554,18 +631,17 @@ aA_type check_ExprUnit(std::ostream* out, aA_exprUnit eu){
 }
 
 
-aA_type check_ArithExpr(std::ostream* out, aA_arithExpr ae){
+tc_type check_ArithExpr(std::ostream& out, aA_arithExpr ae){
     if(!ae)
         return nullptr;
-    aA_type ret;
+    tc_type ret;
     switch (ae->kind)
     {
         case A_arithExprType::A_arithBiOpExprKind:{
             ret = check_ArithExpr(out, ae->u.arithBiOpExpr->left);
-            aA_type rightTyep = check_ArithExpr(out, ae->u.arithBiOpExpr->right);
-            if(ret->type != A_dataType::A_nativeTypeKind || rightTyep->type != A_dataType::A_nativeTypeKind)
-                error_print(out, ae->pos, "Only int can be arithmetic expression operation values!");
-            if(ret->u.nativeType != A_nativeType::A_intTypeKind || rightTyep->u.nativeType != A_nativeType::A_intTypeKind)
+            tc_type rightTyep = check_ArithExpr(out, ae->u.arithBiOpExpr->right);
+            if(ret->type->type > 0 || ret->type->type != A_dataType::A_nativeTypeKind || ret->type->u.nativeType != A_nativeType::A_intTypeKind ||
+            rightTyep->type->type > 0 || rightTyep->type->type != A_dataType::A_nativeTypeKind || rightTyep->type->u.nativeType != A_nativeType::A_intTypeKind)
                 error_print(out, ae->pos, "Only int can be arithmetic expression operation values!");
         }
             break;
@@ -577,7 +653,7 @@ aA_type check_ArithExpr(std::ostream* out, aA_arithExpr ae){
 }
 
 
-void check_FuncCall(std::ostream* out, aA_fnCall fc){
+void check_FuncCall(std::ostream& out, aA_fnCall fc){
     if(!fc)
         return;
     // function defined
@@ -590,15 +666,15 @@ void check_FuncCall(std::ostream* out, aA_fnCall fc){
         error_print(out, fc->pos, "The number of arguments doesn't match!");
     for(int i = 0; i < fc->vals.size(); i++){
         if(func2Param[func_name]->at(i)->kind == A_varDeclType::A_varDeclScalarKind)
-            check_LeftRightVal(out, func2Param[func_name]->at(i)->u.declScalar->type, fc->vals[i]);
+            check_LeftRightVal(out, tc_Type(func2Param[func_name]->at(i)), fc->vals[i]);
         else if(func2Param[func_name]->at(i)->kind == A_varDeclType::A_varDeclArrayKind)
-            check_LeftRightVal(out, func2Param[func_name]->at(i)->u.declArray->type, fc->vals[i]);
+            check_LeftRightVal(out, tc_Type(func2Param[func_name]->at(i)), fc->vals[i]);
     }
     return ;
 }
 
 
-void check_WhileStmt(std::ostream* out, aA_whileStmt ws){
+void check_WhileStmt(std::ostream& out, aA_whileStmt ws){
     if(!ws)
         return;
     check_BoolExpr(out, ws->boolExpr);
@@ -611,7 +687,7 @@ void check_WhileStmt(std::ostream* out, aA_whileStmt ws){
 }
 
 
-void check_CallStmt(std::ostream* out, aA_callStmt cs){
+void check_CallStmt(std::ostream& out, aA_callStmt cs){
     if(!cs)
         return;
     check_FuncCall(out, cs->fnCall);
@@ -619,7 +695,7 @@ void check_CallStmt(std::ostream* out, aA_callStmt cs){
 }
 
 
-void check_ReturnStmt(std::ostream* out, aA_returnStmt rs){
+void check_ReturnStmt(std::ostream& out, aA_returnStmt rs){
     if(!rs)
         return;
     return;
