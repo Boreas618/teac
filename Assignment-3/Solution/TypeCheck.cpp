@@ -1,7 +1,6 @@
 #include "TypeCheck.h"
 
 //global tabels
-//typeMap func2retType; // function name to return type
 
 // global token ids to type
 typeMap g_token2Type; 
@@ -22,49 +21,40 @@ void error_print(std::ostream& out, A_pos p, string info)
     exit(0);
 }
 
-
-void print_token_map(typeMap* map){
-    for(auto it = map->begin(); it != map->end(); it++){
-        std::cout << it->first << " : ";
+void print_token_table(std::ostream& out, typeMap* token2Type){
+    for (auto it = token2Type->begin(); it != token2Type->end(); it++){
+        out << it->first << " : ";
+        switch(it->second->isVarArrFunc){
+            case 0:
+                // out << " scalar";
+                break;
+            case 1:
+                out << "array";
+                break;
+            case 2:
+                out << "function with return type ";
+                break;
+        }
         switch (it->second->type->type)
         {
         case A_dataType::A_nativeTypeKind:
             switch (it->second->type->u.nativeType)
             {
             case A_nativeType::A_intTypeKind:
-                std::cout << "int";
+                out << "int";
                 break;
             default:
                 break;
             }
             break;
         case A_dataType::A_structTypeKind:
-            std::cout << *(it->second->type->u.structType);
+            out << *(it->second->type->u.structType);
             break;
         default:
             break;
         }
-        switch(it->second->isVarArrFunc){
-            case 0:
-                std::cout << " scalar";
-                break;
-            case 1:
-                std::cout << " array";
-                break;
-            case 2:
-                std::cout << " function";
-                break;
-        }
-        std::cout << std::endl;
+        out << std::endl;
     }
-}
-
-
-void print_token_maps(){
-    std::cout << "global token2Type:" << std::endl;
-    print_token_map(&g_token2Type);
-    std::cout << "local token2Type:" << std::endl;
-    print_token_map(&funcparam_token2Type);
 }
 
 
@@ -219,6 +209,7 @@ void check_Prog(std::ostream& out, aA_program p)
         }
     }
 
+    print_token_table(out, &g_token2Type);
     out << "Typecheck passed!" << std::endl;
     return;
 }
@@ -358,16 +349,16 @@ void check_FnDef(std::ostream& out, aA_fnDef fd)
             funcparam_token2Type[*vd->u.declArray->id] = tc_Type(vd->u.declArray->type, 1);
     }
 
-    local_token2Type.push_back(new typeMap());
+    typeMap* new_map = new typeMap();
+    local_token2Type.push_back(new_map);
     for (aA_codeBlockStmt stmt : fd->stmts)
     {
         check_CodeblockStmt(out, stmt);
         // return value type should match
         if(stmt->kind == A_codeBlockStmtType::A_returnStmtKind)
             check_LeftRightVal(out, tc_Type(fd->fnDecl->type, 0), stmt->u.returnStmt->retVal);
-        // else if (stmt->kind == A_codeBlockStmtType::A_varDeclStmtKind)
-        //     local_vars.push_back(*stmt->u.varDeclStmt->u.varDecl->u.declArray->id);
     }
+    print_token_table(out, new_map);
     local_token2Type.pop_back();
 
     // erase local vars defined in this function
@@ -518,16 +509,20 @@ void check_IfStmt(std::ostream& out, aA_ifStmt is){
     if(!is)
         return;
     check_BoolExpr(out, is->boolExpr);
-    local_token2Type.push_back(new typeMap());
+    typeMap* new_map = new typeMap();
+    local_token2Type.push_back(new_map);
     for(aA_codeBlockStmt s : is->ifStmts){
         check_CodeblockStmt(out, s);
     }
+    print_token_table(out, new_map);
     local_token2Type.pop_back();
 
-    local_token2Type.push_back(new typeMap());
+    typeMap* new_map2 = new typeMap();
+    local_token2Type.push_back(new_map2);
     for(aA_codeBlockStmt s : is->elseStmts){
         check_CodeblockStmt(out, s);
     }
+    print_token_table(out, new_map2);
     local_token2Type.pop_back();
     return;
 }
@@ -678,10 +673,12 @@ void check_WhileStmt(std::ostream& out, aA_whileStmt ws){
     if(!ws)
         return;
     check_BoolExpr(out, ws->boolExpr);
-    local_token2Type.push_back(new typeMap());
+    typeMap* new_map = new typeMap();
+    local_token2Type.push_back(new_map);
     for(aA_codeBlockStmt s : ws->whileStmts){
         check_CodeblockStmt(out, s);
     }
+    print_token_table(out, new_map);
     local_token2Type.pop_back();
     return;
 }
