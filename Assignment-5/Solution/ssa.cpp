@@ -26,6 +26,7 @@ unordered_map<L_block*, unordered_set<L_block*>> DF_array;
 unordered_map<L_block*, Node<LLVMIR::L_block*>*> revers_graph;
 unordered_map<Temp_temp*, AS_operand*> temp2ASoper;
 
+unordered_map<Temp_temp*,bool> exitASoper;
 static void init_table() {
     dominators.clear();
     tree_dominators.clear();
@@ -377,9 +378,18 @@ static void Rename_temp(GRAPH::Graph<LLVMIR::L_block*>& bg, GRAPH::Node<LLVMIR::
         }
         auto defs = get_def_int_operand(stm);
         for (auto def : defs) {
-            auto temp = Temp_newtemp_int();
-            auto AS_op = AS_Operand_Temp(temp);
-            temp2ASoper[temp] = AS_op;
+            Temp_temp*temp;
+            AS_operand*AS_op;
+            temp=(**def).u.TEMP;
+            if(!exitASoper[temp]){
+                AS_op = *def;
+                exitASoper[temp]=true;
+            }
+            else{
+                temp = Temp_newtemp_int();
+                AS_op = AS_Operand_Temp(temp);
+                temp2ASoper[temp] = AS_op;
+            }
             def_temp[(**def).u.TEMP]++;
             Stack[(**def).u.TEMP].push(temp);
             *def = AS_op;
