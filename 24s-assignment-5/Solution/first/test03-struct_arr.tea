@@ -1,0 +1,56 @@
+struct Node {
+    l:int,
+    r:int
+}
+
+fn interpret(input[655]:int) {
+    let me:int =10;
+    
+    while(me<20)
+    {
+        putint(me);
+        putch(58);
+        putint(input[me]);
+        putint(input[30]);
+
+        putch(10);
+        me = me+1;
+
+
+    }
+    
+}
+
+fn main()->int{
+    let a[101]:int;
+    let b[78]:int;
+
+    let c:Node;
+    let d:Node;
+    a[0]=10;
+    a[20] = 1;
+
+    b[0] = a[20];
+
+    c.l = 1;
+    c.r = 1;
+    let k:int =1;
+    while(k < 20){
+        let j:int = k-1;
+        a[k] = a[j]+1;
+        putint(a[k]);
+        putch(10);
+        k = k+1;
+
+    }
+    putch(10);
+    putch(10);
+    interpret(a);
+    putint(a[20]);
+    putch(10);
+
+    d.r = c.l;
+    d.l = c.r;
+
+    ret 0;
+}

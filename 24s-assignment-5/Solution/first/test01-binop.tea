@@ -1,0 +1,78 @@
+fn add(x:int,y:int)->int{
+     putint(x);
+        putch(10);
+
+     putint(y);
+        putch(10);
+
+    if(x>100)
+    {
+        putint(x);
+        putch(10);
+
+     putint(y);
+        putch(10);
+        ret 100+y;
+    }else{
+         putint(x);
+        putch(10);
+
+     putint(y);
+        putch(10);
+
+
+        ret x+y;
+    }
+
+    ret 0;
+}
+fn a(){
+    let i:int =0;
+    while(i<100)
+    {
+        putint(i);
+        putch(10);
+        i = i+1;
+    }
+        putch(75);
+        putch(10);
+        ret;
+
+}
+fn b()
+{
+    let i:int =100;
+    putint(i);
+    putch(10);
+    //a();
+    putint(i);
+    putch(10);
+    putch(87);
+    putch(10);
+    while(i<109)
+    {
+        putint(i);
+        putch(10);
+        putint(add(i,i));
+        putch(10);
+        putint(i);
+        putch(10);
+        i = i+1;
+    }
+}
+fn main()->int{
+    let i:int = 10073;
+    let sum:int = 2102;
+    let x:int = 200;
+    let y:int = 1324;
+    putint(i);
+    putch(10);
+
+    sum = sum + i;
+    i = 1 - 7;
+    x = 900 / i;
+    y = x * 600;
+    b();
+    a();
+    ret 0;
+}
