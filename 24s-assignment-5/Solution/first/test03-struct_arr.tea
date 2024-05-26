@@ -22,6 +22,8 @@ fn interpret(input[655]:int) {
 }
 
 fn main()->int{
+    putint(1);
+
     let a[101]:int;
     let b[78]:int;
 
@@ -29,13 +31,21 @@ fn main()->int{
     let d:Node;
     a[0]=10;
     a[20] = 1;
+    putint(1);
 
     b[0] = a[20];
+    putint(1);
 
+
+    putint(1);
     c.l = 1;
     c.r = 1;
     let k:int =1;
+    putint(1);
+
     while(k < 20){
+    putint(1);
+
         let j:int = k-1;
         a[k] = a[j]+1;
         putint(a[k]);

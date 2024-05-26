@@ -71,6 +71,8 @@ ASM::AS_movk::AS_movk(AS_reg *_src, AS_reg *_dst) : src(_src), dst(_dst)
 }
 ASM::AS_ret::AS_ret() {}
 
+ASM::AS_llvmir::AS_llvmir(string _str) : llvmir(_str){};
+
 AS_stm *ASM::AS_Binop(AS_binopkind op, AS_reg *left, AS_reg *right, AS_reg *dst)
 {
     auto p = new AS_stm();
@@ -184,7 +186,13 @@ AS_stm *ASM::AS_Ret()
     p->u.RET = new AS_ret();
     return p;
 }
-
+AS_stm *ASM::AS_Llvmir(std::string _str)
+{
+    auto p = new AS_stm();
+    p->type = AS_stmkind::LLVMIR;
+    p->u.LLVMIR = new AS_llvmir(_str);
+    return p;
+}
 ASM::AS_func::AS_func(const std::list<AS_stm *> &_stms)
     : stms(_stms) {}
 

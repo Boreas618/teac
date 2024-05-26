@@ -13,28 +13,20 @@ test_single() {
 
 	./compiler $func_testcase_dir/$test_name.tea
 	if [ $? != 0 ]; then
-		echo fail; exit -1
+		echo fail compiler; exit -1
 	fi
 
 
 	aarch64-linux-gnu-gcc -c $func_testcase_dir/$test_name.S -o output/$test_name.o
-    aarch64-linux-gnu-gcc output/$test_name.o $func_testcase_dir/sylib/sylib.o -o output/$test_name
+    aarch64-linux-gnu-gcc output/$test_name.o sylib/sylib.o -o output/$test_name
 	if [ $? != 0 ]; then
 		echo "fail to compile"; exit -1
 	fi
 	ARCH=$(uname -m)
 	if [ -f $func_testcase_dir/$test_name.in ]; then
-		if [ "$ARCH" = "aarch64" ]; then
-			./output/$test_name < $func_testcase_dir/$test_name.in > output/$test_name.out
-		else
-			qemu-arm ./output/$test_name < $func_testcase_dir/$test_name.in > output/$test_name.out
-		fi
+		qemu-aarch64 ./output/$test_name < $func_testcase_dir/$test_name.in > output/$test_name.out
 	else
-		if [ "$ARCH" = "aarch64" ]; then
-			./output/$test_name > output/$test_name.out
-		else
-			qemu-arm ./output/$test_name > output/$test_name.out
-		fi
+		qemu-aarch64 ./output/$test_name > output/$test_name.out
 	fi
 	echo -e $? >> ./output/$test_name.out
 	diff -Bb ./output/$test_name.out $func_testcase_dir/$test_name.out > /dev/null 2>/dev/null

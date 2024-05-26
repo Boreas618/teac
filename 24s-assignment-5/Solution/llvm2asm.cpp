@@ -9,6 +9,8 @@
 #include "printASM.h"
 #include "printLLVM.h"
 #include "register_rules.h"
+#include <sstream>
+#include <iostream>
 using namespace std;
 using namespace LLVMIR;
 using namespace ASM;
@@ -34,7 +36,7 @@ struct StructDef
 };
 
 static AS_reg *sp = new AS_reg(AS_type::SP, -1);
-static unordered_map<int, AS_address *> ptrMap;
+static unordered_map<int, AS_address *> fpOffset;
 static unordered_map<int, AS_relopkind> condMap;
 static unordered_map<string, StructDef *> structLayout;
 int getMemLength(TempDef &members)
@@ -77,7 +79,6 @@ void structLayoutInit(vector<L_def *> &defs)
                 structdef->offset.push_back(structdef->size);
                 structdef->size += getMemLength(x);
             }
-            structdef->print();
             structLayout[def->u.SRT->name] = structdef;
         }
         case L_DefKind::GLOBAL:
@@ -107,7 +108,7 @@ void set_stack(L_func &func)
                 {
                 case TempType::INT_PTR:
 
-                    ptrMap.emplace(alloca->num, new AS_address(new AS_reg(AS_type::Xn, XnFP), -stack_frame - INT_LENGTH));
+                    fpOffset.emplace(alloca->num, new AS_address(new AS_reg(AS_type::Xn, XnFP), -stack_frame - INT_LENGTH));
                     stack_frame += max(8, 8 * alloca->len);
 
                     // printf("alloca->len:%d,INT_PTR,stack_frame:%d\n", alloca->len,stack_frame);
@@ -119,7 +120,7 @@ void set_stack(L_func &func)
                 case TempType::STRUCT_PTR:
                 {
                     int temp = structLayout[alloca->structname]->size;
-                    ptrMap.emplace(alloca->num, new AS_address(new AS_reg(AS_type::Xn, XnFP), -stack_frame - INT_LENGTH));
+                    fpOffset.emplace(alloca->num, new AS_address(new AS_reg(AS_type::Xn, XnFP), -stack_frame - INT_LENGTH));
                     stack_frame += max(temp, temp * alloca->len);
 
                     // printf("temp:%d,STRUCT_PTR.stack_frame:%d\n",temp, stack_frame);
@@ -128,7 +129,7 @@ void set_stack(L_func &func)
                 }
 
                 case TempType::STRUCT_TEMP:
-                    ptrMap.emplace(alloca->num, new AS_address(new AS_reg(AS_type::Xn, XnFP), -stack_frame - INT_LENGTH));
+                    fpOffset.emplace(alloca->num, new AS_address(new AS_reg(AS_type::Xn, XnFP), -stack_frame - INT_LENGTH));
                     stack_frame += structLayout[alloca->structname]->size;
 
                     // printf("STRUCT_TEMP.stack_frame:%d\n", stack_frame);
@@ -140,7 +141,7 @@ void set_stack(L_func &func)
     }
 
     stack_frame = ((stack_frame + 15) >> 4) << 4;
-    for (auto &x : ptrMap)
+    for (auto &x : fpOffset)
     {
         // printf("%r%d %s\n", x.first, printAS_add(x.second).c_str());
     }
@@ -169,9 +170,9 @@ void allignPtr(AS_reg *&op_reg, AS_operand *as_operand, list<AS_stm *> &as_list)
     {
     case OperandKind::TEMP:
     {
-        if (ptrMap.find(as_operand->u.TEMP->num) != ptrMap.end())
+        if (fpOffset.find(as_operand->u.TEMP->num) != fpOffset.end())
         {
-            auto ptr_fp = ptrMap[as_operand->u.TEMP->num];
+            auto ptr_fp = fpOffset[as_operand->u.TEMP->num];
             auto teg = new AS_reg(AS_type::Xn, Temp_newtemp_int()->num);
             auto base = new AS_reg(AS_type::Xn, Temp_newtemp_int()->num);
 
@@ -244,7 +245,6 @@ void allignLeftvRight(AS_reg *&op_reg, AS_operand *as_operand, list<AS_stm *> &a
         // move the instant into x2: mov x2, #1
         int instant = as_operand->u.ICONST;
         AS_reg *src_mov = new AS_reg(AS_type::IMM, instant);
-        INSERT1();
         AS_reg *dst_mov = new AS_reg(AS_type::Xn, Temp_newtemp_int()->num);
         as_list.push_back(AS_Mov(src_mov, dst_mov));
         op_reg = dst_mov;
@@ -290,7 +290,6 @@ void llvm2asmBinop(list<AS_stm *> &as_list, L_stm *binop_stm)
     case L_binopKind::T_plus:
     case L_binopKind::T_minus:
     {
-        INSERT1();
         allignLeftvRight(left, binop_stm->u.BINOP->left, as_list);
         allignLeftvRight2(right, binop_stm->u.BINOP->right);
 
@@ -352,9 +351,9 @@ void llvm2asmCmp(list<AS_stm *> &as_list, L_stm *cmp_stm)
 }
 void llvm2asmMov(list<AS_stm *> &as_list, L_stm *mov_stm)
 {
-    AS_reg* src;
-    allignLeftvRight(src,mov_stm->u.MOVE->src,as_list);
-    assert(mov_stm->u.MOVE->dst->kind==OperandKind::TEMP);
+    AS_reg *src;
+    allignLeftvRight(src, mov_stm->u.MOVE->src, as_list);
+    assert(mov_stm->u.MOVE->dst->kind == OperandKind::TEMP);
     as_list.push_back(AS_Mov(src, new AS_reg(AS_type::Xn, mov_stm->u.MOVE->dst->u.TEMP->num)));
 }
 void llvm2asmCJmp(list<AS_stm *> &as_list, L_stm *cjmp_stm)
@@ -646,13 +645,13 @@ void llvm2asmCall(list<AS_stm *> &as_list, L_stm *call)
         as_list.emplace_back(AS_Mov(param, new AS_reg(AS_type::Xn, paramRegs[n])));
         n += 1;
     }
-    // 强制返回值使用X0
-    call->u.CALL->res->u.TEMP->num = XXnret;
+
     save_register(as_list);
     as_list.push_back(AS_Mov(sp, new AS_reg(AS_type::Xn, XnFP)));
 
     as_list.emplace_back(AS_Bl(new AS_label(call->u.CALL->fun)));
     load_register(as_list);
+    as_list.emplace_back(AS_Mov(new AS_reg(AS_type::Xn, XXnret), new AS_reg(AS_type::Xn, call->u.CALL->res->u.TEMP->num)));
 }
 
 void allocReg(list<AS_stm *> &as_list, L_func &func)
@@ -663,68 +662,82 @@ void allocReg(list<AS_stm *> &as_list, L_func &func)
 
     livenessAnalysis(liveness, as_list);
 }
+struct BLOCKPHI
+{
+    string label;
+    L_stm *phi;
+    BLOCKPHI(string _label, L_stm *_phi) : label(_label), phi(_phi) {}
+};
+
 AS_func *llvm2asmFunc(L_func &func)
 {
     list<AS_stm *> stms;
-    list<L_phi *> phi;
+    list<BLOCKPHI *> phi;
     unordered_map<string, list<AS_stm *>::iterator> block_map;
     auto p = new AS_func(stms);
     auto func_label = new AS_label(func.name);
     p->stms.push_back(AS_Label(func_label));
-
+    for (auto &x : fpOffset)
+    {
+        std::ostringstream oss;
+        oss << x.first << ":" << printAS_add(x.second).c_str() << endl;
+        p->stms.push_back(AS_Llvmir(oss.str()));
+    }
     string temp_label = "";
     for (const auto &block : func.blocks)
     {
         for (const auto &instr : block->instrs)
         {
-            INSERT1();
-
-            printL_stm(std::cerr, instr);
-            INSERT1();
-
+            std::ostringstream oss;
+            printL_stm(oss, instr);
+            p->stms.push_back(AS_Llvmir(oss.str()));
             llvm2asmStm(p->stms, *instr, func);
-            printAS_stm(std::cerr,p->stms.back());
-            // if (instr->type == L_StmKind::T_PHI)
-            // {
-            //     phi.push_back(instr->u.PHI);
-            // }
-            // if (instr->type == L_StmKind::T_LABEL)
-            // {
-            //     temp_label = instr->u.LABEL->label->name;
-            // }
-            // if (temp_label.length()>0)
-            // {
-            //     block_map[temp_label] = --p->stms.end();
-            // }
+            if (instr->type == L_StmKind::T_PHI)
+            {
+                phi.push_back(new BLOCKPHI(temp_label, instr));
+            }
+            if (instr->type == L_StmKind::T_LABEL)
+            {
+                temp_label = instr->u.LABEL->label->name;
+            }
+            if (temp_label.length() > 0)
+            {
+                block_map[temp_label] = --p->stms.end();
+            }
         }
     }
-                INSERT1();
-
 
     for (auto &t_phi : phi)
     {
-        assert(t_phi->dst->kind == OperandKind::TEMP);
-        auto dst = new AS_reg(AS_type::Xn, t_phi->dst->u.TEMP->num);
-        for (auto &bh : t_phi->phis)
+        string temp_block = t_phi->label;
+        assert(t_phi->phi->u.PHI->dst->kind == OperandKind::TEMP);
+        auto dst = new AS_reg(AS_type::Xn, t_phi->phi->u.PHI->dst->u.TEMP->num);
+        for (auto &bh : t_phi->phi->u.PHI->phis)
         {
             auto src = new AS_reg(AS_type::Xn, bh.first->u.TEMP->num);
             assert(bh.first->kind == OperandKind::TEMP);
             string next_block = bh.second->name.c_str();
-            auto xx = block_map[bh.second->name.c_str()];
+            auto xx = block_map[next_block];
             while (true)
             {
                 if ((*xx)->type == AS_stmkind::B)
                 {
-                    if ((*xx)->u.B->jump->name == next_block)
+                    if ((*xx)->u.B->jump->name == temp_block)
                     {
+                        std::ostringstream oss;
+                        printL_stm(oss, t_phi->phi);
+                        p->stms.insert(xx, AS_Llvmir(temp_block + ":" + oss.str()));
                         p->stms.insert(xx, AS_Mov(src, dst));
                         break;
                     }
                 }
                 if ((*xx)->type == AS_stmkind::BCOND)
                 {
-                    if ((*xx)->u.BCOND->jump->name == next_block)
+                    if ((*xx)->u.BCOND->jump->name == temp_block)
                     {
+                        std::ostringstream oss;
+                        printL_stm(oss, t_phi->phi);
+                        p->stms.insert(xx, AS_Llvmir(temp_block + ":" + oss.str()));
                         p->stms.insert(xx, AS_Mov(src, dst));
                         break;
                     }
@@ -733,9 +746,7 @@ AS_func *llvm2asmFunc(L_func &func)
             }
         }
     }
-    INSERT1();
     allocReg(p->stms, func);
-    INSERT1();
     return p;
 }
 
@@ -766,35 +777,49 @@ void llvm2asmGlobal(vector<AS_global *> &globals, L_def &def)
     {
     case L_DefKind::GLOBAL:
     {
-        // Fixme: add here
-        /*
-        AS_global 是汇编代码内全局变量 DATA 的抽象，在全局有一个 label 作为标签。
-
-        对于 int 类型，init 存储初始化的整型值（缺省为 0 ）。
-        对于数组或结构体，全部初始化为 0 , len 记录全局变量需要多少字节，注意不是数组长度。*/
-        int _len = 8;
-        if (def.u.GLOBAL->def.kind == TempType::INT_PTR)
+        switch (def.u.GLOBAL->def.kind)
         {
-            _len = max(8 * def.u.GLOBAL->def.len, 8);
-        }
-        else if (def.u.GLOBAL->def.kind == TempType::STRUCT_PTR || def.u.GLOBAL->def.kind == TempType::STRUCT_TEMP)
+        case TempType::INT_TEMP:
         {
-            int temp = structLayout[def.u.GLOBAL->def.structname]->size;
-            _len = max(temp * def.u.GLOBAL->def.len, temp);
+            AS_label *label = new AS_label(def.u.GLOBAL->name);
+            int init;
+            if (def.u.GLOBAL->init.size() == 1)
+            {
+                init = def.u.GLOBAL->init[0];
+            }
+            else
+            {
+                init = 0;
+            }
+            auto global = new AS_global(label, init, 1);
+            globals.push_back(global);
+            break;
         }
-        int _init = 0;
-        if (def.u.GLOBAL->init.size() == 0 ||
-            def.u.GLOBAL->def.kind == TempType::STRUCT_PTR ||
-            def.u.GLOBAL->def.kind == TempType::STRUCT_TEMP)
-            ;
-        else
+        case TempType::INT_PTR:
         {
-            if (def.u.GLOBAL->def.kind == TempType::INT_PTR && def.u.GLOBAL->def.len > 0)
-                ;
-            _init = def.u.GLOBAL->init[0];
+            AS_label *label = new AS_label(def.u.GLOBAL->name);
+            auto global = new AS_global(label, 0, def.u.GLOBAL->def.len);
+            globals.push_back(global);
+            break;
         }
-
-        globals.push_back(new AS_global(new AS_label(def.u.GLOBAL->name), _init, _len));
+        case TempType::STRUCT_TEMP:
+        {
+            AS_label *label = new AS_label(def.u.GLOBAL->name);
+            int struct_len = structLayout[def.u.GLOBAL->def.structname]->size;
+            auto global = new AS_global(label, 0, struct_len);
+            globals.push_back(global);
+            break;
+        }
+        case TempType::STRUCT_PTR:
+        {
+            AS_label *label = new AS_label(def.u.GLOBAL->name);
+            int struct_len = structLayout[def.u.GLOBAL->def.structname]->size;
+            int sum_len = def.u.GLOBAL->def.len * struct_len;
+            auto global = new AS_global(label, 0, sum_len);
+            globals.push_back(global);
+            break;
+        }
+        }
         break;
     }
     case L_DefKind::FUNC:
@@ -846,7 +871,7 @@ AS_prog *llvm2asm(L_prog &prog)
 
         as_prog->funcs.push_back(llvm2asmFunc(*func));
 
-        ptrMap.clear();
+        fpOffset.clear();
         //
     }
 

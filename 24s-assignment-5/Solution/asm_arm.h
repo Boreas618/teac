@@ -93,6 +93,7 @@ enum class AS_stmkind {
     CMP,
     RET,
     ADR,
+    LLVMIR
 };
 
 struct AS_binop {
@@ -185,6 +186,11 @@ struct AS_ret {
 
     AS_ret();
 };
+struct AS_llvmir
+{
+    std::string llvmir;
+    AS_llvmir(std::string _str);
+};
 
 struct AS_stm {
     AS_stmkind type;
@@ -205,6 +211,7 @@ struct AS_stm {
         AS_cmp *CMP;
         
         AS_ret *RET;
+        AS_llvmir *LLVMIR;
     } u;
 };
 
@@ -223,6 +230,7 @@ AS_stm* AS_BCond(AS_relopkind _op, AS_label *_jump);
 AS_stm* AS_Bl(AS_label *jump);
 AS_stm* AS_Cmp(AS_reg *_left, AS_reg *_right);
 AS_stm* AS_Ret();
+AS_stm* AS_Llvmir(std::string _str);
 
 struct AS_func {
     std::list<AS_stm*> stms;

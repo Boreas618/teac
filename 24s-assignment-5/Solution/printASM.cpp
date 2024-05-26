@@ -7,18 +7,14 @@ using namespace ASM;
 
 void ASM::printAS_global(std::ostream &os, ASM::AS_global *global)
 {
-
-    // Fixme: add here
-    os << global->label->name << ":\n\n";
-    if (global->init == 0)
+    os << global->label->name << ":\n";
+    if (global->len == 1)
     {
-        os << "        .zero   " << global->len << endl
-           << std::flush;
+        os << "        .word   " << global->init << "\n";
     }
     else
     {
-        os << "        .word   " << global->init << endl
-           << std::flush;
+        os << "        .zero   " << 4 * global->len << "\n";
     }
 }
 
@@ -191,28 +187,9 @@ void ASM::printAS_stm(std::ostream &os, AS_stm *stm)
     case AS_stmkind::BL:
     {
         os
-            // << "        stp	x29, x30, [sp, #-32]!\n"
-            //    "        stp x9, x10, [sp, #-32]!\n"
-            //    "        stp x11, x12, [sp, #-32]!\n"
-            //    "        stp x13, x14, [sp, #-32]!\n"
-            //    "        stp x15, x20, [sp, #-32]!\n"
-            //    "        stp x21, x22, [sp, #-32]!\n"
-            //    "        stp x23, x24, [sp, #-32]!\n"
-            //    "        stp x25, x26, [sp, #-32]!\n"
-            //    "        stp x27, x28, [sp, #-32]!\n"
-            //    "        mov	x29, sp\n"
             << "        bl"
             << "     " << stm->u.BL->jump->name
             << endl
-            // << "        ldp x27, x28, [sp], #32\n"
-            //    "        ldp x25, x26, [sp], #32\n"
-            //    "        ldp x23, x24, [sp], #32\n"
-            //    "        ldp x21, x22, [sp], #32\n"
-            //    "        ldp x15, x20, [sp], #32\n"
-            //    "        ldp x13, x14, [sp], #32\n"
-            //    "        ldp x11, x12, [sp], #32\n"
-            //    "        ldp x9, x10, [sp], #32\n"
-            //    "        ldp	x29, x30, [sp], #32\n"
             << std::flush;
 
         break;
@@ -244,6 +221,14 @@ void ASM::printAS_stm(std::ostream &os, AS_stm *stm)
            << endl
            << std::flush;
 
+        break;
+    }
+    case AS_stmkind::LLVMIR:
+    {
+        os << "        //"
+           << stm->u.LLVMIR->llvmir
+           << endl
+           << std::flush;
         break;
     }
 
@@ -301,14 +286,19 @@ void ASM::printAS_func(std::ostream &os, AS_func *func)
 void ASM::printAS_prog(std::ostream &os, AS_prog *prog)
 {
 
-    os << ".section .data\n\n";
+    os << ".section .data\n";
+    for (const auto &global : prog->globals)
+    {
+        os << ".global    " << global->label->name << endl;
+        ;
+    }
     for (const auto &global : prog->globals)
     {
         printAS_global(os, global);
     }
 
-    os << ".section .text\n\n";
-    // os << ".global _start\n\
+    os << ".section .text\n";
+    //     os << ".global _start\n\
 // \n\
 // _start:\n\
 //     b main  \n\

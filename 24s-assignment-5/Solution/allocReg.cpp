@@ -7,7 +7,9 @@ using namespace GRAPH;
 #include "printASM.h"
 #include "register_rules.h"
 #define MYDEBUG() printf("%s:%d\n", __FILE__, __LINE__)
-
+#include <sstream>
+#include <iostream>
+#include "printASM.h"
 stack<Node<RegInfo> *> reg_stack;
 void getAllRegs(AS_stm *stm, vector<AS_reg *> &defs, vector<AS_reg *> &uses)
 {
@@ -151,11 +153,8 @@ void forwardLivenessAnalysis(std::list<InstructionNode *> &liveness, std::list<A
             assert(x->type != AS_type::ADR);
         }
     }
-    
 
     setControlFlowDiagram(liveness, blocks);
-    
-
 }
 void setControlFlowDiagram(std::list<InstructionNode *> &nodes, unordered_map<string, InstructionNode *> &blocks)
 {
@@ -182,6 +181,7 @@ void setControlFlowDiagram(std::list<InstructionNode *> &nodes, unordered_map<st
             {
                 currentNode->sucessor.emplace(nextNode);
             }
+            break;
         default:
             if (nextNode)
             {
@@ -191,7 +191,7 @@ void setControlFlowDiagram(std::list<InstructionNode *> &nodes, unordered_map<st
         }
     }
 }
-void init(std::list<InstructionNode *> &nodes, unordered_map<int, Node<RegInfo> *> &regNodes, Graph<RegInfo> &interferenceGraph)
+void init(std::list<InstructionNode *> &nodes, unordered_map<int, Node<RegInfo> *> &regNodes, Graph<RegInfo> &interferenceGraph, std::list<ASM::AS_stm *> &as_list)
 {
     assert(reg_stack.empty());
     bool changed;
@@ -204,10 +204,11 @@ void init(std::list<InstructionNode *> &nodes, unordered_map<int, Node<RegInfo> 
             n->previous_in = n->in;
             n->previous_out = n->out;
 
-            for (InstructionNode *s : n->sucessor)
-            {
-                n->out.insert(s->in.begin(), s->in.end());
-            }
+            if (n->sucessor.size())
+                for (InstructionNode *s : n->sucessor)
+                {
+                    n->out.insert(s->in.begin(), s->in.end());
+                }
 
             std::set<int> diff;
             std::set_difference(n->out.begin(), n->out.end(), n->def.begin(), n->def.end(), std::inserter(diff, diff.end()));
@@ -219,21 +220,23 @@ void init(std::list<InstructionNode *> &nodes, unordered_map<int, Node<RegInfo> 
             {
                 changed = true;
             }
-
         }
 
     } while (changed);
     set<int> regs;
+    set<int> defs;
+    set<int> uses;
 
     for (auto &x : nodes)
     {
-        regs.insert(x->def.begin(), x->def.end());
-        regs.insert(x->use.begin(), x->use.end());
+        defs.insert(x->def.begin(), x->def.end());
+        uses.insert(x->use.begin(), x->use.end());
     }
-
+    regs.insert(defs.begin(), defs.end());
+    regs.insert(uses.begin(), uses.end());
     for (auto x : regs)
     {
-        regNodes.insert({x, interferenceGraph.addNode({x, x, 0, 0})});
+        regNodes.insert({x, interferenceGraph.addNode({x, x, 0, 0, 0})});
     }
     for (auto x : nodes)
     {
@@ -247,23 +250,53 @@ void init(std::list<InstructionNode *> &nodes, unordered_map<int, Node<RegInfo> 
             }
         }
     }
-
     // 打印干扰图的边,并设置节点度数
-    std::cerr << "Interference Graph Edges:" << std::endl;
+    // std::cerr << "Interference Graph Edges:" << std::endl;
     auto nodes_ = interferenceGraph.nodes();
     for (auto &nodePair : *nodes_)
     {
         Node<RegInfo> *node = nodePair.second;
         NodeSet *successors = node->succ();
         node->info.degree = successors->size();
-        
-        std::cerr << "Reg " << node->nodeInfo().regNum << " interferes with "<< successors->size()<<" Regs: ";
-        if(successors->size())
-        for (int succKey : *successors)
+
+        // std::cerr << "Reg " << node->nodeInfo().regNum << " interferes with " << successors->size() << " Regs: ";
+        // if (successors->size())
+        // {
+        //     for (int succKey : *successors)
+        //     {
+        //         std::cerr << interferenceGraph.mynodes[succKey]->info.regNum << " ";
+        //     }
+        // }
+
+        // std::cerr << std::endl;
+    }
+    // 删除不使用的指令
+    std::set<int> to_delete;
+    std::set_difference(defs.begin(), defs.end(), uses.begin(), uses.end(), std::inserter(to_delete, to_delete.end()));
+
+    // printf("delete:");
+    // for (auto x : to_delete)
+    // {
+    //     printf("\%r%d ", x);
+    // }
+    // printf("\n");
+
+    for (auto it = as_list.begin(); it != as_list.end();)
+    {
+        vector<AS_reg *> defs;
+        vector<AS_reg *> uses;
+        getAllRegs(*it, defs, uses);
+        int n = 0;
+        if (defs.size() > 0)
         {
-            std::cerr << interferenceGraph.mynodes[succKey]->info.regNum << " ";
+            int regNo = defs.front()->u.offset;
+            if (to_delete.find(regNo) != to_delete.end())
+            {
+                it = as_list.erase(it);
+                continue;
+            }
         }
-        std::cerr << std::endl;
+        it++;
     }
 }
 static bool is_colored(Node<RegInfo> *node)
@@ -296,9 +329,7 @@ void livenessAnalysis(std::list<InstructionNode *> &nodes, std::list<ASM::AS_stm
 {
     Graph<RegInfo> interferenceGraph;
     unordered_map<int, Node<RegInfo> *> regNodes;
-    init(nodes, regNodes, interferenceGraph);
-    
-
+    init(nodes, regNodes, interferenceGraph, as_list);
 
     int x = 0;
 
@@ -306,11 +337,9 @@ void livenessAnalysis(std::list<InstructionNode *> &nodes, std::list<ASM::AS_stm
     {
         x++;
         Simplify(interferenceGraph);
-        MYDEBUG();
 
         P_Spill(interferenceGraph);
     }
-        MYDEBUG();
 
     Select(as_list, interferenceGraph, regNodes);
 }
@@ -369,8 +398,6 @@ void P_Spill(Graph<RegInfo> &ig)
             break;
         }
     }
-        MYDEBUG();
-
 }
 // 判断是否可以color，如果可以，返回color的register
 bool judge_add(Graph<RegInfo> &interferenceGraph, Node<RegInfo> *&head)
@@ -431,27 +458,32 @@ void Select(std::list<ASM::AS_stm *> &as_list, Graph<RegInfo> &interferenceGraph
             t_spill.push_back(top_temp);
         }
     }
-    for(auto x : regNodes)
-    {
-        printf("%d ",x.first);
-    }
-     printf("\n");
-    
-        MYDEBUG();
 
     color(as_list, regNodes);
-        MYDEBUG();
 
     // 处理栈指针
 
-    unordered_map<int, int> tempLayout;
+    unordered_map<int, int> tempSpOffset;
 
     int temp_offset = 0;
     int sp_offset = t_spill.size() * 8;
     for (auto x : t_spill)
     {
         temp_offset += 8;
-        tempLayout.emplace(x->info.regNum, -temp_offset + sp_offset);
+        tempSpOffset.emplace(x->info.regNum, -temp_offset + sp_offset);
+    }
+    for (auto x : regNodes)
+    {
+        std::ostringstream oss;
+        if (x.second->info.color < 100)
+        {
+            oss << "%r" << x.first << "->x" << x.second->info.color;
+        }
+        else
+        {
+            oss << "%r" << x.first << "->[sp,#" << tempSpOffset[x.second->info.regNum] << "]";
+        }
+        as_list.push_front(AS_Llvmir(oss.str()));
     }
     for (auto it = as_list.begin(); it != as_list.end(); /* no increment here */)
     {
@@ -472,7 +504,7 @@ void Select(std::list<ASM::AS_stm *> &as_list, Graph<RegInfo> &interferenceGraph
         it++;
     }
     // spill
-    
+    MYDEBUG();
     for (auto it = as_list.begin(); it != as_list.end(); /* no increment here */)
     {
         // 当前元素
@@ -490,7 +522,7 @@ void Select(std::list<ASM::AS_stm *> &as_list, Graph<RegInfo> &interferenceGraph
                 int abc = spillregs.back();
                 spillregs.pop_back();
                 auto temp = new AS_reg(AS_type::Xn, XXn1);
-                it = as_list.insert(it, AS_Mov(new AS_reg(AS_type::IMM, tempLayout[x->u.offset]), temp));
+                it = as_list.insert(it, AS_Mov(new AS_reg(AS_type::IMM, tempSpOffset[x->u.offset]), temp));
                 ++it;
                 AS_reg *ptr = new AS_reg(AS_type::ADR, new AS_address(new AS_reg(AS_type::SP, -1), temp));
                 it = as_list.insert(it, AS_Ldr(new AS_reg(AS_type::Xn, abc), ptr));
@@ -507,7 +539,7 @@ void Select(std::list<ASM::AS_stm *> &as_list, Graph<RegInfo> &interferenceGraph
                 int abc = spillregs.back();
                 spillregs.pop_back();
                 auto temp = new AS_reg(AS_type::Xn, XXn2);
-                auto newIt = as_list.insert(std::next(it), AS_Mov(new AS_reg(AS_type::IMM, tempLayout[x->u.offset]), temp));
+                auto newIt = as_list.insert(std::next(it), AS_Mov(new AS_reg(AS_type::IMM, tempSpOffset[x->u.offset]), temp));
 
                 AS_reg *ptr = new AS_reg(AS_type::ADR, new AS_address(new AS_reg(AS_type::SP, -1), temp));
                 as_list.insert(std::next(newIt), AS_Str(new AS_reg(AS_type::Xn, XXn1), ptr));
