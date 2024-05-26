@@ -3,8 +3,9 @@
 
 #include <set>
 #include <array>
-const std::set<int> allocateRegs{9, 10, 11, 12, 13, 14, 15, 20, 21, 22, 23, 24, 25, 26, 27, 28};
-
+const std::set<int> allocateRegs{9, 10, 11, 12, 13, 14, 15, 20, 21, 22, 23, 24, 25, 26};
+const int XXna = 28;
+const int XXnb = 27;
 const std::array<int, 8> paramRegs = {0, 1, 2, 3, 4, 5, 6, 7};
 const int XXn1 = 16;
 const int XXn2 = 17;

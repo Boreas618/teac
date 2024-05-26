@@ -10,11 +10,11 @@ void ASM::printAS_global(std::ostream &os, ASM::AS_global *global)
     os << global->label->name << ":\n";
     if (global->len == 1)
     {
-        os << "        .word   " << global->init << "\n";
+        os << "        .quad   " << global->init << "\n";
     }
     else
     {
-        os << "        .zero   " << 4 * global->len << "\n";
+        os << "        .zero   " << global->len << "\n";
     }
 }
 
@@ -91,6 +91,7 @@ void ASM::printAS_stm(std::ostream &os, AS_stm *stm)
                << stm->u.LDR->post_index
                << endl
                << std::flush;
+            break;
         }
         else
         {
@@ -130,6 +131,7 @@ void ASM::printAS_stm(std::ostream &os, AS_stm *stm)
                << "]!"
                << endl
                << std::flush;
+            break;
         }
         os << "        str     "
            << printAS_reg(stm->u.STR->src)
@@ -215,9 +217,14 @@ void ASM::printAS_stm(std::ostream &os, AS_stm *stm)
     }
     case AS_stmkind::ADR:
     {
-        os << "        adr     "
+        os << "        adrp     "
            << printAS_reg(stm->u.ADR->reg)
            << ", " << stm->u.ADR->label->name
+           << endl
+           << "        add     "
+           << printAS_reg(stm->u.ADR->reg)
+           << ", " << printAS_reg(stm->u.ADR->reg)
+           << ", #:lo12:" << stm->u.ADR->label->name
            << endl
            << std::flush;
 

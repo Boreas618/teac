@@ -195,6 +195,8 @@ void init(std::list<InstructionNode *> &nodes, unordered_map<int, Node<RegInfo> 
 {
     assert(reg_stack.empty());
     bool changed;
+    
+    int i = 0;
     do
     {
         changed = false;
@@ -221,23 +223,28 @@ void init(std::list<InstructionNode *> &nodes, unordered_map<int, Node<RegInfo> 
                 changed = true;
             }
         }
+        
 
     } while (changed);
     set<int> regs;
     set<int> defs;
     set<int> uses;
-
+    
     for (auto &x : nodes)
     {
         defs.insert(x->def.begin(), x->def.end());
         uses.insert(x->use.begin(), x->use.end());
     }
+    
+
     regs.insert(defs.begin(), defs.end());
     regs.insert(uses.begin(), uses.end());
     for (auto x : regs)
     {
         regNodes.insert({x, interferenceGraph.addNode({x, x, 0, 0, 0})});
     }
+    
+
     for (auto x : nodes)
     {
         std::vector<int> vec(x->in.begin(), x->in.end());
@@ -250,6 +257,8 @@ void init(std::list<InstructionNode *> &nodes, unordered_map<int, Node<RegInfo> 
             }
         }
     }
+    
+
     // 打印干扰图的边,并设置节点度数
     // std::cerr << "Interference Graph Edges:" << std::endl;
     auto nodes_ = interferenceGraph.nodes();
@@ -332,7 +341,7 @@ void livenessAnalysis(std::list<InstructionNode *> &nodes, std::list<ASM::AS_stm
     init(nodes, regNodes, interferenceGraph, as_list);
 
     int x = 0;
-
+    
     while (!is_all_colored(regNodes))
     {
         x++;
@@ -504,7 +513,7 @@ void Select(std::list<ASM::AS_stm *> &as_list, Graph<RegInfo> &interferenceGraph
         it++;
     }
     // spill
-    MYDEBUG();
+
     for (auto it = as_list.begin(); it != as_list.end(); /* no increment here */)
     {
         // 当前元素
