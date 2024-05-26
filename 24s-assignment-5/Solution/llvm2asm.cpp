@@ -72,8 +72,6 @@ void structLayoutInit(vector<L_def *> &defs)
         {
             StructDef *structdef = new StructDef(std::vector<int>(), 0);
 
-            // Fixme: add here
-            // 所有结构的体的定义，每个域只有整形值，不考虑结构题中有数组或嵌套其他结构体。但我们允许声明一个变量为结构体数组（但不能在域内）。
             for (auto x : def->u.SRT->members)
             {
                 structdef->offset.push_back(structdef->size);
@@ -457,9 +455,6 @@ void llvm2asmGep(list<AS_stm *> &as_list, L_stm *gep_stm)
     }
     case TempType::STRUCT_PTR:
     {
-        allignLeftvRight(index_, gep->index, as_list);
-        auto temp = new AS_reg(AS_type::Xn, Temp_newtemp_int()->num);
-        auto res = new AS_reg(AS_type::Xn, Temp_newtemp_int()->num);
         string struct_name = "";
         if (gep->base_ptr->kind == OperandKind::TEMP)
         {
@@ -469,6 +464,26 @@ void llvm2asmGep(list<AS_stm *> &as_list, L_stm *gep_stm)
         {
             struct_name = gep->base_ptr->u.NAME->structname;
         }
+        if (gep->base_ptr->u.TEMP->len == 0)
+        {
+            auto bits_ = new AS_reg(AS_type::IMM,
+                                    structLayout[struct_name]->offset[gep->index->u.ICONST]);
+            auto temp1 = new AS_reg(AS_type::Xn, Temp_newtemp_int()->num);
+
+            as_list.push_back(AS_Mov(bits_, temp1));
+            allignPtr(base_ptr, gep->base_ptr, as_list);
+
+            as_list.push_back(AS_Binop(
+                AS_binopkind::ADD_,
+                base_ptr->u.add->base,
+                temp1,
+                new_ptr));
+            break;
+        }
+        allignLeftvRight(index_, gep->index, as_list);
+        auto temp = new AS_reg(AS_type::Xn, Temp_newtemp_int()->num);
+        auto res = new AS_reg(AS_type::Xn, Temp_newtemp_int()->num);
+
         as_list.push_back(AS_Mov(new AS_reg(AS_type::IMM, structLayout[struct_name]->size), temp));
         as_list.push_back(AS_Binop(AS_binopkind::MUL_, index_, temp, res)); // XXn2,XXn1,空闲
         allignPtr(base_ptr, gep->base_ptr, as_list);
@@ -636,20 +651,77 @@ void load_register(list<AS_stm *> &as_list)
     }
     rbegin = as_list.insert(rbegin, AS_Ldp(new AS_reg(AS_type::Xn, XnFP), new AS_reg(AS_type::Xn, XXnl), sp, 2 * INT_LENGTH));
 }
+void getCalls(AS_reg *&op_reg, AS_operand *as_operand, list<AS_stm *> &as_list)
+{
+    switch (as_operand->kind)
+    {
+    case OperandKind::ICONST:
+    {
+
+        // store from the const: str #1, ...
+        // move the instant into x2: mov x2, #1
+        int instant = as_operand->u.ICONST;
+        AS_reg *src_mov = new AS_reg(AS_type::IMM, instant);
+        AS_reg *dst_mov = new AS_reg(AS_type::Xn, Temp_newtemp_int()->num);
+        as_list.push_back(AS_Mov(src_mov, dst_mov));
+        op_reg = dst_mov;
+
+        break;
+    }
+    case OperandKind::TEMP:
+    {
+        switch (as_operand->u.TEMP->type)
+        {
+        case TempType::INT_PTR:
+        case TempType::INT_TEMP:
+        {
+            int src_num = as_operand->u.TEMP->num;
+            if (as_operand->u.TEMP->len != 0)
+            {
+                allignPtr(op_reg, as_operand, as_list);
+                op_reg = op_reg->u.add->base;
+            }
+            else
+            {
+                op_reg = new AS_reg(AS_type::Xn, src_num);
+            }
+            break;
+        }
+
+        case TempType::STRUCT_PTR:
+        case TempType::STRUCT_TEMP:
+        {
+            allignPtr(op_reg, as_operand, as_list);
+            op_reg = op_reg->u.add->base;
+            break;
+        }
+        }
+        break;
+    }
+    case OperandKind::NAME:
+    {
+        auto Xn = new AS_reg(AS_type::Xn, Temp_newtemp_int()->num);
+        auto Xn2 = new AS_reg(AS_type::Xn, Temp_newtemp_int()->num);
+        as_list.push_back(AS_Adr(new AS_label(as_operand->u.NAME->name->name), Xn));
+        as_list.push_back(AS_Ldr(Xn2, new AS_reg(AS_type::ADR, new AS_address(Xn, 0))));
+        op_reg = Xn;
+    }
+    }
+}
 void llvm2asmVoidCall(list<AS_stm *> &as_list, L_stm *call)
 {
 
     for (int i = 0; i < 8 && i < call->u.VOID_CALL->args.size(); i++)
     {
         AS_reg *param;
-        allignLeftvRight(param, call->u.VOID_CALL->args[i], as_list);
+        getCalls(param, call->u.VOID_CALL->args[i], as_list);
         as_list.emplace_back(AS_Mov(param, new AS_reg(AS_type::Xn, paramRegs[i])));
     }
     vector<AS_reg *> abcd;
     for (int i = 8; i < call->u.VOID_CALL->args.size(); i++)
     {
         AS_reg *param;
-        allignLeftvRight(param, call->u.VOID_CALL->args[i], as_list);
+        getCalls(param, call->u.VOID_CALL->args[i], as_list);
         abcd.push_back(param);
     }
     if (abcd.size())
@@ -695,7 +767,7 @@ void llvm2asmCall(list<AS_stm *> &as_list, L_stm *call)
     for (int i = 0; i < 8 && i < call->u.CALL->args.size(); i++)
     {
         AS_reg *param;
-        allignLeftvRight(param, call->u.CALL->args[i], as_list);
+        getCalls(param, call->u.CALL->args[i], as_list);
 
         as_list.emplace_back(AS_Mov(param, new AS_reg(AS_type::Xn, paramRegs[i])));
     }
@@ -709,7 +781,7 @@ void llvm2asmCall(list<AS_stm *> &as_list, L_stm *call)
         for (int i = call->u.CALL->args.size() - 1; i >= 8; i--)
         {
             AS_reg *param;
-            allignLeftvRight(param, call->u.CALL->args[i], as_list);
+            getCalls(param, call->u.CALL->args[i], as_list);
             param_sub += INT_LENGTH;
             if (-sub - param_sub < -256)
             {
