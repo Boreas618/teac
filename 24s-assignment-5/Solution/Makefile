@@ -1,5 +1,6 @@
 CXX = clang++
 CXXFLAGS = -std=c++17 -g
+# TESTCASE_DIR := fproblem
 TESTCASE_DIR := private
 TESTCASES = $(wildcard $(TESTCASE_DIR)/*.tea)
 LLFILES = $(patsubst $(TESTCASE_DIR)/%.tea,$(TESTCASE_DIR)/%.ast,$(TESTCASES))
@@ -83,4 +84,4 @@ allocReg.o:allocReg.cpp allocReg.h asm_arm.cpp asm_arm.h temp.cpp temp.h registe
 	$(CXX) $(CXXFLAGS) -c $<
 
 clean:
-	rm *.o *.output y.tab.cpp y.tab.hpp lex.yy.cpp compiler tests/*.ast tests/*.ll output/* first/*.S first/*.ll
+	rm *.o *.output y.tab.cpp y.tab.hpp lex.yy.cpp compiler tests/*.ast tests/*.ll output/* ${TESTCASE_DIR}/*.S ${TESTCASE_DIR}/*.ll

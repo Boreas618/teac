@@ -195,7 +195,7 @@ void init(std::list<InstructionNode *> &nodes, unordered_map<int, Node<RegInfo> 
 {
     assert(reg_stack.empty());
     bool changed;
-    
+
     int i = 0;
     do
     {
@@ -223,19 +223,17 @@ void init(std::list<InstructionNode *> &nodes, unordered_map<int, Node<RegInfo> 
                 changed = true;
             }
         }
-        
 
     } while (changed);
     set<int> regs;
     set<int> defs;
     set<int> uses;
-    
+
     for (auto &x : nodes)
     {
         defs.insert(x->def.begin(), x->def.end());
         uses.insert(x->use.begin(), x->use.end());
     }
-    
 
     regs.insert(defs.begin(), defs.end());
     regs.insert(uses.begin(), uses.end());
@@ -243,7 +241,6 @@ void init(std::list<InstructionNode *> &nodes, unordered_map<int, Node<RegInfo> 
     {
         regNodes.insert({x, interferenceGraph.addNode({x, x, 0, 0, 0})});
     }
-    
 
     for (auto x : nodes)
     {
@@ -257,7 +254,6 @@ void init(std::list<InstructionNode *> &nodes, unordered_map<int, Node<RegInfo> 
             }
         }
     }
-    
 
     // 打印干扰图的边,并设置节点度数
     // std::cerr << "Interference Graph Edges:" << std::endl;
@@ -341,7 +337,7 @@ void livenessAnalysis(std::list<InstructionNode *> &nodes, std::list<ASM::AS_stm
     init(nodes, regNodes, interferenceGraph, as_list);
 
     int x = 0;
-    
+
     while (!is_all_colored(regNodes))
     {
         x++;
@@ -513,7 +509,7 @@ void Select(std::list<ASM::AS_stm *> &as_list, Graph<RegInfo> &interferenceGraph
         it++;
     }
     // spill
-
+    vector<AS_reg *> to_kill;
     for (auto it = as_list.begin(); it != as_list.end(); /* no increment here */)
     {
         // 当前元素
@@ -528,6 +524,7 @@ void Select(std::list<ASM::AS_stm *> &as_list, Graph<RegInfo> &interferenceGraph
         {
             if (x->u.offset >= 100)
             {
+                assert(!spillregs.empty());
                 int abc = spillregs.back();
                 spillregs.pop_back();
                 auto temp = new AS_reg(AS_type::Xn, XXn1);
@@ -545,6 +542,8 @@ void Select(std::list<ASM::AS_stm *> &as_list, Graph<RegInfo> &interferenceGraph
         {
             if (x->u.offset >= 100)
             {
+                to_kill.push_back(x);
+                assert(!spillregs.empty());
                 int abc = spillregs.back();
                 spillregs.pop_back();
                 auto temp = new AS_reg(AS_type::Xn, XXn2);
@@ -552,7 +551,6 @@ void Select(std::list<ASM::AS_stm *> &as_list, Graph<RegInfo> &interferenceGraph
 
                 AS_reg *ptr = new AS_reg(AS_type::ADR, new AS_address(new AS_reg(AS_type::SP, -1), temp));
                 as_list.insert(std::next(newIt), AS_Str(new AS_reg(AS_type::Xn, XXn1), ptr));
-                x->u.offset = XXn1;
                 it++;
                 it++;
             }
@@ -573,6 +571,10 @@ void Select(std::list<ASM::AS_stm *> &as_list, Graph<RegInfo> &interferenceGraph
         //     // newIt 现在指向新插入的元素
         //     // it 仍然指向当前元素
         // }
+    }
+    for (auto &x : to_kill)
+    {
+        x->u.offset = XXn1;
     }
     for (auto it = as_list.begin(); it != as_list.end(); /* no increment here */)
     {

@@ -699,37 +699,28 @@ void llvm2asmCall(list<AS_stm *> &as_list, L_stm *call)
 
         as_list.emplace_back(AS_Mov(param, new AS_reg(AS_type::Xn, paramRegs[i])));
     }
-    vector<AS_reg *> abcd;
-    for (int i = 8; i < call->u.CALL->args.size(); i++)
-    {
-        AS_reg *param;
-        allignLeftvRight(param, call->u.CALL->args[i], as_list);
-        abcd.push_back(param);
-    }
-    as_list.push_back(AS_Mov(sp, new AS_reg(AS_type::Xn, XXna)));
-    int sub = save_register(as_list);
-    as_list.push_back(AS_Mov(new AS_reg(AS_type::Xn, XXna), sp));
-
-    if (abcd.size())
+    if (call->u.CALL->args.size() > 8)
     {
         as_list.push_back(AS_Mov(sp, new AS_reg(AS_type::Xn, XXna)));
         int sub = save_register(as_list);
         as_list.push_back(AS_Mov(new AS_reg(AS_type::Xn, XXna), sp));
 
         int param_sub = 0;
-        for (auto &x : abcd)
+        for (int i = call->u.CALL->args.size() - 1; i >= 8; i--)
         {
+            AS_reg *param;
+            allignLeftvRight(param, call->u.CALL->args[i], as_list);
             param_sub += INT_LENGTH;
             if (-sub - param_sub < -256)
             {
                 auto temp = new AS_reg(AS_type::Xn, XXnb);
                 as_list.emplace_back(AS_Mov(new AS_reg(AS_type::IMM, -sub - param_sub), temp));
 
-                as_list.emplace_back(AS_Str(x, new AS_reg(AS_type::ADR, new AS_address(sp, temp))));
+                as_list.emplace_back(AS_Str(param, new AS_reg(AS_type::ADR, new AS_address(sp, temp))));
             }
             else
             {
-                as_list.emplace_back(AS_Str(x, new AS_reg(AS_type::ADR, new AS_address(sp, -sub - param_sub))));
+                as_list.emplace_back(AS_Str(param, new AS_reg(AS_type::ADR, new AS_address(sp, -sub - param_sub))));
             }
         }
         as_list.emplace_back(AS_Binop(AS_binopkind::SUB_, sp, new AS_reg(AS_type::IMM, sub + param_sub), sp));
@@ -741,9 +732,9 @@ void llvm2asmCall(list<AS_stm *> &as_list, L_stm *call)
     as_list.push_back(AS_Mov(sp, new AS_reg(AS_type::Xn, XnFP)));
 
     as_list.emplace_back(AS_Bl(new AS_label(call->u.CALL->fun)));
-    if (abcd.size())
+    if (call->u.CALL->args.size() > 8)
     {
-        as_list.emplace_back(AS_Binop(AS_binopkind::ADD_, sp, new AS_reg(AS_type::IMM, -abcd.size() * INT_LENGTH), sp));
+        as_list.emplace_back(AS_Binop(AS_binopkind::ADD_, sp, new AS_reg(AS_type::IMM, (call->u.CALL->args.size() - 8) * INT_LENGTH), sp));
     }
     load_register(as_list);
     as_list.emplace_back(AS_Mov(new AS_reg(AS_type::Xn, XXnret), new AS_reg(AS_type::Xn, call->u.CALL->res->u.TEMP->num)));

@@ -14,21 +14,21 @@ ascii_0:
 .global mod
 .global my_putint
 .global main
-        //%r174->x10
+        //%r174->x11
         //%r203->x9
-        //%r173->x11
+        //%r173->x9
         //%r202->x9
         //%r171->x9
-        //%r113->x9
+        //%r113->x10
         //%r200->x10
         //%r170->x11
-        //%r112->x10
+        //%r112->x11
         //%r199->x9
         //%r167->x9
         //%r172->x9
         //%r201->x9
         //%r120->x9
-        //%r207->x9
+        //%r207->x10
         //%r169->x9
         //%r198->x9
         //%r104->x9
@@ -38,11 +38,11 @@ ascii_0:
         //%r175->x9
         //%r204->x9
         //%r176->x10
-        //%r205->x10
-        //%r206->x9
-        //%r208->x9
-        //%r209->x9
-        //%r210->x9
+        //%r205->x11
+        //%r206->x10
+        //%r208->x10
+        //%r209->x10
+        //%r210->x10
 my_getint:
 
         //bb1:
@@ -97,30 +97,15 @@ bb3:
         stp     x9, x10, [sp, #-16]!
         stp     x11, x12, [sp, #-16]!
         stp     x13, x14, [sp, #-16]!
-        stp     x15, x20, [sp, #-16]!
-        stp     x21, x22, [sp, #-16]!
-        stp     x23, x24, [sp, #-16]!
-        stp     x25, x26, [sp, #-16]!
-        str     x27, [sp, #-8]!
         stp     x29, x30, [sp, #-16]!
         mov     sp, x28
         stp     x9, x10, [sp, #-16]!
         stp     x11, x12, [sp, #-16]!
         stp     x13, x14, [sp, #-16]!
-        stp     x15, x20, [sp, #-16]!
-        stp     x21, x22, [sp, #-16]!
-        stp     x23, x24, [sp, #-16]!
-        stp     x25, x26, [sp, #-16]!
-        str     x27, [sp, #-8]!
         stp     x29, x30, [sp, #-16]!
         mov     x29, sp
         bl     getch
         ldp     x29, x30, [sp], #16
-        ldr     x27, [sp], #8
-        ldp     x25, x26, [sp], #16
-        ldp     x23, x24, [sp], #16
-        ldp     x21, x22, [sp], #16
-        ldp     x15, x20, [sp], #16
         ldp     x13, x14, [sp], #16
         ldp     x11, x12, [sp], #16
         ldp     x9, x10, [sp], #16
@@ -191,7 +176,7 @@ bb4:
 
         //bb9:  %r173 = phi i32 [ %r172, %bb4 ], [ %r175, %bb12 ]
 
-        mov     x11, x9
+        mov     x9, x9
         b     bb9
         //bb9:
 
@@ -201,9 +186,9 @@ bb9:
 
         //  %r111 = icmp sgt i32 1, 0
 
-        mov     x10, #1
-        mov     x9, #0
-        cmp     x10, x9
+        mov     x11, #1
+        mov     x10, #0
+        cmp     x11, x10
         //  br i1 %r111, label %bb10, label %bb11
 
 
@@ -219,46 +204,31 @@ bb10:
         stp     x9, x10, [sp, #-16]!
         stp     x11, x12, [sp, #-16]!
         stp     x13, x14, [sp, #-16]!
-        stp     x15, x20, [sp, #-16]!
-        stp     x21, x22, [sp, #-16]!
-        stp     x23, x24, [sp, #-16]!
-        stp     x25, x26, [sp, #-16]!
-        str     x27, [sp, #-8]!
         stp     x29, x30, [sp, #-16]!
         mov     sp, x28
         stp     x9, x10, [sp, #-16]!
         stp     x11, x12, [sp, #-16]!
         stp     x13, x14, [sp, #-16]!
-        stp     x15, x20, [sp, #-16]!
-        stp     x21, x22, [sp, #-16]!
-        stp     x23, x24, [sp, #-16]!
-        stp     x25, x26, [sp, #-16]!
-        str     x27, [sp, #-8]!
         stp     x29, x30, [sp, #-16]!
         mov     x29, sp
         bl     getch
         ldp     x29, x30, [sp], #16
-        ldr     x27, [sp], #8
-        ldp     x25, x26, [sp], #16
-        ldp     x23, x24, [sp], #16
-        ldp     x21, x22, [sp], #16
-        ldp     x15, x20, [sp], #16
         ldp     x13, x14, [sp], #16
         ldp     x11, x12, [sp], #16
         ldp     x9, x10, [sp], #16
-        mov     x10, x0
+        mov     x11, x0
         //  %r113 = load i32, i32* @ascii_0
 
-        adrp     x9, ascii_0
-        add     x9, x9, #:lo12:ascii_0
-        ldr     x9, [x9]
+        adrp     x10, ascii_0
+        add     x10, x10, #:lo12:ascii_0
+        ldr     x10, [x10]
         //  %r174 = sub i32 %r112, %r113
 
-        sub     x10, x10, x9
+        sub     x11, x11, x10
         //  %r116 = icmp sge i32 %r174, 0
 
-        mov     x9, #0
-        cmp     x10, x9
+        mov     x10, #0
+        cmp     x11, x10
         //  br i1 %r116, label %bb15, label %bb13
 
 
@@ -270,8 +240,8 @@ bb15:
 
         //  %r118 = icmp sle i32 %r174, 9
 
-        mov     x9, #9
-        cmp     x10, x9
+        mov     x10, #9
+        cmp     x11, x10
         //  br i1 %r118, label %bb12, label %bb13
 
 
@@ -283,17 +253,17 @@ bb12:
 
         //  %r120 = mul i32 %r173, 10
 
-        mov     x9, #10
-        mul     x9, x11, x9
+        mov     x10, #10
+        mul     x9, x9, x10
         //  %r175 = add i32 %r120, %r174
 
-        add     x9, x9, x10
+        add     x9, x9, x11
         //  br label %bb9
 
 
         //bb9:  %r173 = phi i32 [ %r172, %bb4 ], [ %r175, %bb12 ]
 
-        mov     x11, x9
+        mov     x9, x9
         b     bb9
         //bb13:
 
@@ -309,7 +279,7 @@ bb11:
 
         //  ret i32 %r173
 
-        mov     x0, x11
+        mov     x0, x9
         mov     sp, x29
         ret
         //%r124->x10
@@ -360,38 +330,38 @@ bb31:
         mov     sp, x29
         ret
         //%r224->x9
-        //%r223->x10
-        //%r221->x10
-        //%r220->x11
-        //%r219->x10
-        //%r190->x10
-        //%r218->x10
-        //%r189->x9
-        //%r217->x10
-        //%r188->x11
-        //%r216->x10
-        //%r157->x9
+        //%r223->x11
+        //%r221->x12
+        //%r220->x13
+        //%r219->x12
+        //%r190->x9
+        //%r218->x11
+        //%r189->x10
+        //%r217->x11
+        //%r188->x9
+        //%r216->x11
+        //%r157->x10
         //%r187->x10
-        //%r222->x10
+        //%r222->x12
         //%r135->x10
-        //%r142->x11
+        //%r142->x12
         //%r181->x9
-        //%r143->x10
+        //%r143->x11
         //%r182->x9
-        //%r144->x13
-        //%r183->x11
-        //%r146->x10
+        //%r144->x11
+        //%r183->x10
+        //%r146->x12
         //%r214->x9
-        //%r156->x9
+        //%r156->x10
         //%r215->x9
-        //%r185->x9
+        //%r185->x10
         //%r213->x9
-        //%r184->x10
-        //%r186->x12
-        //%r225->x9
-        //%r226->x10
-        //%r227->x9
-        //%r228->x9
+        //%r184->x9
+        //%r186->x9
+        //%r225->x10
+        //%r226->x11
+        //%r227->x10
+        //%r228->x10
 my_putint:
 
         //137:x29,#-128
@@ -413,20 +383,20 @@ bb32:
         mov     x9, #0
         //  %r183 = add i32 %r135, 0
 
-        mov     x11, x10
+        mov     x10, x10
         //  %r184 = add i32 0, 0
 
         mov     x9, #0
-        mov     x10, x9
+        mov     x9, x9
         //  br label %bb18
 
 
         //bb18:  %r185 = phi i32 [ %r183, %bb32 ], [ %r189, %bb19 ]
 
-        mov     x9, x11
+        mov     x10, x10
         //bb18:  %r186 = phi i32 [ %r184, %bb32 ], [ %r190, %bb19 ]
 
-        mov     x12, x10
+        mov     x9, x9
         b     bb18
         //bb18:
 
@@ -438,8 +408,8 @@ bb18:
 
         //  %r140 = icmp sgt i32 %r185, 0
 
-        mov     x10, #0
-        cmp     x9, x10
+        mov     x11, #0
+        cmp     x10, x11
         //  br i1 %r140, label %bb19, label %bb20
 
 
@@ -451,75 +421,60 @@ bb19:
 
         //  %r142 = call i32 @mod(i32 %r185, i32 10)
 
-        mov     x0, x9
-        mov     x10, #10
-        mov     x1, x10
+        mov     x0, x10
+        mov     x11, #10
+        mov     x1, x11
         mov     x28, sp
         stp     x9, x10, [sp, #-16]!
         stp     x11, x12, [sp, #-16]!
         stp     x13, x14, [sp, #-16]!
-        stp     x15, x20, [sp, #-16]!
-        stp     x21, x22, [sp, #-16]!
-        stp     x23, x24, [sp, #-16]!
-        stp     x25, x26, [sp, #-16]!
-        str     x27, [sp, #-8]!
         stp     x29, x30, [sp, #-16]!
         mov     sp, x28
         stp     x9, x10, [sp, #-16]!
         stp     x11, x12, [sp, #-16]!
         stp     x13, x14, [sp, #-16]!
-        stp     x15, x20, [sp, #-16]!
-        stp     x21, x22, [sp, #-16]!
-        stp     x23, x24, [sp, #-16]!
-        stp     x25, x26, [sp, #-16]!
-        str     x27, [sp, #-8]!
         stp     x29, x30, [sp, #-16]!
         mov     x29, sp
         bl     mod
         ldp     x29, x30, [sp], #16
-        ldr     x27, [sp], #8
-        ldp     x25, x26, [sp], #16
-        ldp     x23, x24, [sp], #16
-        ldp     x21, x22, [sp], #16
-        ldp     x15, x20, [sp], #16
         ldp     x13, x14, [sp], #16
         ldp     x11, x12, [sp], #16
         ldp     x9, x10, [sp], #16
-        mov     x11, x0
+        mov     x12, x0
         //  %r143 = load i32, i32* @ascii_0
 
-        adrp     x10, ascii_0
-        add     x10, x10, #:lo12:ascii_0
-        ldr     x10, [x10]
+        adrp     x11, ascii_0
+        add     x11, x11, #:lo12:ascii_0
+        ldr     x11, [x11]
         //  %r144 = add i32 %r142, %r143
 
-        add     x13, x11, x10
+        add     x11, x12, x11
         //  %r146 = getelementptr [16 x i32 ], [16 x i32 ]* %r137, i32 0 , i32 %r186
 
-        mov     x10, #8
-        mul     x11, x12, x10
-        mov     x10, #-128
-        add     x10, x29, x10
-        add     x10, x10, x11
+        mov     x12, #8
+        mul     x13, x9, x12
+        mov     x12, #-128
+        add     x12, x29, x12
+        add     x12, x12, x13
         //  store i32 %r144, i32* %r146
 
-        str     x13, [x10]
+        str     x11, [x12]
         //  %r189 = sdiv i32 %r185, 10
 
-        mov     x10, #10
-        sdiv     x9, x9, x10
+        mov     x11, #10
+        sdiv     x10, x10, x11
         //  %r190 = add i32 %r186, 1
 
-        add     x10, x12, #1
+        add     x9, x9, #1
         //  br label %bb18
 
 
         //bb18:  %r185 = phi i32 [ %r183, %bb32 ], [ %r189, %bb19 ]
 
-        mov     x9, x9
+        mov     x10, x10
         //bb18:  %r186 = phi i32 [ %r184, %bb32 ], [ %r190, %bb19 ]
 
-        mov     x12, x10
+        mov     x9, x9
         b     bb18
         //bb20:
 
@@ -530,7 +485,7 @@ bb20:
 
         //bb21:  %r187 = phi i32 [ %r186, %bb20 ], [ %r188, %bb22 ]
 
-        mov     x10, x12
+        mov     x10, x9
         b     bb21
         //bb21:
 
@@ -553,37 +508,27 @@ bb22:
 
         //  %r188 = sub i32 %r187, 1
 
-        sub     x11, x10, #1
+        sub     x9, x10, #1
         //  %r156 = getelementptr [16 x i32 ], [16 x i32 ]* %r137, i32 0 , i32 %r188
 
-        mov     x9, #8
-        mul     x10, x11, x9
-        mov     x9, #-128
-        add     x9, x29, x9
-        add     x9, x9, x10
+        mov     x10, #8
+        mul     x11, x9, x10
+        mov     x10, #-128
+        add     x10, x29, x10
+        add     x10, x10, x11
         //  %r157 = load i32, i32* %r156
 
-        ldr     x9, [x9]
+        ldr     x10, [x10]
         //  call void @putch(i32 %r157)
 
-        mov     x0, x9
+        mov     x0, x10
         stp     x9, x10, [sp, #-16]!
         stp     x11, x12, [sp, #-16]!
         stp     x13, x14, [sp, #-16]!
-        stp     x15, x20, [sp, #-16]!
-        stp     x21, x22, [sp, #-16]!
-        stp     x23, x24, [sp, #-16]!
-        stp     x25, x26, [sp, #-16]!
-        str     x27, [sp, #-8]!
         stp     x29, x30, [sp, #-16]!
         mov     x29, sp
         bl     putch
         ldp     x29, x30, [sp], #16
-        ldr     x27, [sp], #8
-        ldp     x25, x26, [sp], #16
-        ldp     x23, x24, [sp], #16
-        ldp     x21, x22, [sp], #16
-        ldp     x15, x20, [sp], #16
         ldp     x13, x14, [sp], #16
         ldp     x11, x12, [sp], #16
         ldp     x9, x10, [sp], #16
@@ -592,7 +537,7 @@ bb22:
 
         //bb21:  %r187 = phi i32 [ %r186, %bb20 ], [ %r188, %bb22 ]
 
-        mov     x10, x11
+        mov     x10, x9
         b     bb21
         //bb23:
 
@@ -633,20 +578,10 @@ bb24:
         stp     x9, x10, [sp, #-16]!
         stp     x11, x12, [sp, #-16]!
         stp     x13, x14, [sp, #-16]!
-        stp     x15, x20, [sp, #-16]!
-        stp     x21, x22, [sp, #-16]!
-        stp     x23, x24, [sp, #-16]!
-        stp     x25, x26, [sp, #-16]!
-        str     x27, [sp, #-8]!
         stp     x29, x30, [sp, #-16]!
         mov     x29, sp
         bl     _sysy_starttime
         ldp     x29, x30, [sp], #16
-        ldr     x27, [sp], #8
-        ldp     x25, x26, [sp], #16
-        ldp     x23, x24, [sp], #16
-        ldp     x21, x22, [sp], #16
-        ldp     x15, x20, [sp], #16
         ldp     x13, x14, [sp], #16
         ldp     x11, x12, [sp], #16
         ldp     x9, x10, [sp], #16
@@ -659,30 +594,15 @@ bb24:
         stp     x9, x10, [sp, #-16]!
         stp     x11, x12, [sp, #-16]!
         stp     x13, x14, [sp, #-16]!
-        stp     x15, x20, [sp, #-16]!
-        stp     x21, x22, [sp, #-16]!
-        stp     x23, x24, [sp, #-16]!
-        stp     x25, x26, [sp, #-16]!
-        str     x27, [sp, #-8]!
         stp     x29, x30, [sp, #-16]!
         mov     sp, x28
         stp     x9, x10, [sp, #-16]!
         stp     x11, x12, [sp, #-16]!
         stp     x13, x14, [sp, #-16]!
-        stp     x15, x20, [sp, #-16]!
-        stp     x21, x22, [sp, #-16]!
-        stp     x23, x24, [sp, #-16]!
-        stp     x25, x26, [sp, #-16]!
-        str     x27, [sp, #-8]!
         stp     x29, x30, [sp, #-16]!
         mov     x29, sp
         bl     my_getint
         ldp     x29, x30, [sp], #16
-        ldr     x27, [sp], #8
-        ldp     x25, x26, [sp], #16
-        ldp     x23, x24, [sp], #16
-        ldp     x21, x22, [sp], #16
-        ldp     x15, x20, [sp], #16
         ldp     x13, x14, [sp], #16
         ldp     x11, x12, [sp], #16
         ldp     x9, x10, [sp], #16
@@ -719,30 +639,15 @@ bb26:
         stp     x9, x10, [sp, #-16]!
         stp     x11, x12, [sp, #-16]!
         stp     x13, x14, [sp, #-16]!
-        stp     x15, x20, [sp, #-16]!
-        stp     x21, x22, [sp, #-16]!
-        stp     x23, x24, [sp, #-16]!
-        stp     x25, x26, [sp, #-16]!
-        str     x27, [sp, #-8]!
         stp     x29, x30, [sp, #-16]!
         mov     sp, x28
         stp     x9, x10, [sp, #-16]!
         stp     x11, x12, [sp, #-16]!
         stp     x13, x14, [sp, #-16]!
-        stp     x15, x20, [sp, #-16]!
-        stp     x21, x22, [sp, #-16]!
-        stp     x23, x24, [sp, #-16]!
-        stp     x25, x26, [sp, #-16]!
-        str     x27, [sp, #-8]!
         stp     x29, x30, [sp, #-16]!
         mov     x29, sp
         bl     my_getint
         ldp     x29, x30, [sp], #16
-        ldr     x27, [sp], #8
-        ldp     x25, x26, [sp], #16
-        ldp     x23, x24, [sp], #16
-        ldp     x21, x22, [sp], #16
-        ldp     x15, x20, [sp], #16
         ldp     x13, x14, [sp], #16
         ldp     x11, x12, [sp], #16
         ldp     x9, x10, [sp], #16
@@ -753,20 +658,10 @@ bb26:
         stp     x9, x10, [sp, #-16]!
         stp     x11, x12, [sp, #-16]!
         stp     x13, x14, [sp, #-16]!
-        stp     x15, x20, [sp, #-16]!
-        stp     x21, x22, [sp, #-16]!
-        stp     x23, x24, [sp, #-16]!
-        stp     x25, x26, [sp, #-16]!
-        str     x27, [sp, #-8]!
         stp     x29, x30, [sp, #-16]!
         mov     x29, sp
         bl     my_putint
         ldp     x29, x30, [sp], #16
-        ldr     x27, [sp], #8
-        ldp     x25, x26, [sp], #16
-        ldp     x23, x24, [sp], #16
-        ldp     x21, x22, [sp], #16
-        ldp     x15, x20, [sp], #16
         ldp     x13, x14, [sp], #16
         ldp     x11, x12, [sp], #16
         ldp     x9, x10, [sp], #16
@@ -777,20 +672,10 @@ bb26:
         stp     x9, x10, [sp, #-16]!
         stp     x11, x12, [sp, #-16]!
         stp     x13, x14, [sp, #-16]!
-        stp     x15, x20, [sp, #-16]!
-        stp     x21, x22, [sp, #-16]!
-        stp     x23, x24, [sp, #-16]!
-        stp     x25, x26, [sp, #-16]!
-        str     x27, [sp, #-8]!
         stp     x29, x30, [sp, #-16]!
         mov     x29, sp
         bl     putch
         ldp     x29, x30, [sp], #16
-        ldr     x27, [sp], #8
-        ldp     x25, x26, [sp], #16
-        ldp     x23, x24, [sp], #16
-        ldp     x21, x22, [sp], #16
-        ldp     x15, x20, [sp], #16
         ldp     x13, x14, [sp], #16
         ldp     x11, x12, [sp], #16
         ldp     x9, x10, [sp], #16
@@ -815,20 +700,10 @@ bb27:
         stp     x9, x10, [sp, #-16]!
         stp     x11, x12, [sp, #-16]!
         stp     x13, x14, [sp, #-16]!
-        stp     x15, x20, [sp, #-16]!
-        stp     x21, x22, [sp, #-16]!
-        stp     x23, x24, [sp, #-16]!
-        stp     x25, x26, [sp, #-16]!
-        str     x27, [sp, #-8]!
         stp     x29, x30, [sp, #-16]!
         mov     x29, sp
         bl     _sysy_stoptime
         ldp     x29, x30, [sp], #16
-        ldr     x27, [sp], #8
-        ldp     x25, x26, [sp], #16
-        ldp     x23, x24, [sp], #16
-        ldp     x21, x22, [sp], #16
-        ldp     x15, x20, [sp], #16
         ldp     x13, x14, [sp], #16
         ldp     x11, x12, [sp], #16
         ldp     x9, x10, [sp], #16
