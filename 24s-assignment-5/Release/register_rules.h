@@ -10,7 +10,8 @@ const int XXn2 = 17;
 const int XXn3 = 18;
 const int XXn4 = 19;
 
-
+const int XXna = 28;
+const int XXnb = 27;
 const std::array<int, 8> paramRegs = {0, 1, 2, 3, 4, 5, 6, 7};
 const int XnFP = 29;
 const int XXnret = 0;

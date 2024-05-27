@@ -210,17 +210,10 @@ void init(std::list<InstructionNode *> &nodes, unordered_map<int, Node<RegInfo> 
                 {
                     n->out.insert(s->in.begin(), s->in.end());
                 }
-
-            // std::set<int> diff;
-            // std::set_difference(n->out.begin(), n->out.end(), n->def.begin(), n->def.end(), std::inserter(diff, diff.end()));
-            // diff.insert(n->use.begin(), n->use.end());
-
-            // n->in = diff;
             n->in.clear();
             std::set_difference(n->out.begin(), n->out.end(), n->def.begin(), n->def.end(), std::inserter(n->in, n->in.end()));
             n->in.insert(n->use.begin(), n->use.end());
             set_size += n->in.size();
-            // printf("%d += %d ,%d ",n->in.size(), set_size,nodes.size());
             if (n->in != n->previous_in || n->out != n->previous_out)
             {
                 changed = true;
@@ -244,7 +237,6 @@ void init(std::list<InstructionNode *> &nodes, unordered_map<int, Node<RegInfo> 
     for (auto x : regs)
     {
         regNodes.insert({x, interferenceGraph.addNode({x, x, 0, 0, 0})});
-        // printf("%d:%lu ", ++ijj, regs.size());
     }
 
     for (auto x : nodes)
@@ -284,12 +276,6 @@ void init(std::list<InstructionNode *> &nodes, unordered_map<int, Node<RegInfo> 
     std::set<int> to_delete;
     std::set_difference(defs.begin(), defs.end(), uses.begin(), uses.end(), std::inserter(to_delete, to_delete.end()));
 
-    // printf("delete:");
-    // for (auto x : to_delete)
-    // {
-    //     printf("\%r%d ", x);
-    // }
-    // printf("\n");
     for (auto &x : nodes)
         delete x;
 
@@ -311,286 +297,12 @@ void init(std::list<InstructionNode *> &nodes, unordered_map<int, Node<RegInfo> 
         it++;
     }
 }
-static bool is_colored(Node<RegInfo> *node)
-{
-    if (node->info.color >= 100)
-    {
-        return false;
-    }
-    return true;
-}
-static bool is_all_colored(unordered_map<int, Node<RegInfo> *> &regNodes)
-{
-    bool x = true;
-    int i = 0;
-    for (auto node : regNodes)
-    {
-        if (node.second->info.bit_map)
-        {
-            continue;
-        }
-        if (!is_colored(node.second))
-        {
-            x = false;
-            break;
-        }
-    }
-    return x;
-}
 void livenessAnalysis(std::list<InstructionNode *> &nodes, std::list<ASM::AS_stm *> &as_list)
 {
     Graph<RegInfo> interferenceGraph;
-    unordered_map<int, Node<RegInfo> *> regNodes;
+    unordered_map<int, Node<RegInfo> *> regNodes;//虚拟器寄存器根据编号到干扰图上的映射
     init(nodes, regNodes, interferenceGraph, as_list);
 
-    int x = 0;
-
-    while (!is_all_colored(regNodes))
-    {
-        x++;
-        Simplify(interferenceGraph);
-
-        P_Spill(interferenceGraph);
-    }
-
-    Select(as_list, interferenceGraph, regNodes);
-}
-void rm_all_edge(Graph<RegInfo> &ig, Node<RegInfo> *&head)
-{
-    for (auto x : head->succs)
-    {
-        if (ig.mynodes[x]->info.bit_map)
-            ig.mynodes[x]->info.degree -= 1;
-    }
-}
-void Simplify(Graph<RegInfo> &ig)
-{
-    bool change = true;
-    while (change)
-    {
-        change = false;
-        int i = 0;
-        for (auto &x : ig.mynodes)
-        {
-            // 已经在栈中
-            if (x.second->info.bit_map)
-            {
-                continue;
-            }
-            // 入栈
-            if ((!is_colored(x.second)) && x.second->info.degree < allocateRegs.size())
-            {
-                reg_stack.push(ig.mynodes[x.first]);
-                rm_all_edge(ig, x.second);
-                x.second->info.bit_map = true;
-
-                change = true;
-            }
-        }
-    }
-}
-void P_Spill(Graph<RegInfo> &ig)
-{
-    int i = 0;
-    for (auto &x : ig.mynodes)
-    {
-        // 已经在栈中
-        if (x.second->info.bit_map)
-        {
-            continue;
-        }
-        // 入栈
-        if ((!is_colored(x.second)) && x.second->info.degree >= allocateRegs.size())
-        {
-            reg_stack.push(ig.mynodes[x.first]);
-            x.second->info.is_spill = true;
-            x.second->info.bit_map = true;
-
-            rm_all_edge(ig, x.second);
-            break;
-        }
-    }
-}
-// 判断是否可以color，如果可以，返回color的register
-bool judge_add(Graph<RegInfo> &interferenceGraph, Node<RegInfo> *&head)
-{
-    set<int> neighbor;
-    for (auto x : head->succs)
-    {
-        auto reginfo = interferenceGraph.mynodes[x]->info;
-        if (!reginfo.bit_map && reginfo.color < 100)
-        {
-            neighbor.emplace(reginfo.color);
-        }
-    }
-    set<int> result;
-    std::set_difference(allocateRegs.begin(), allocateRegs.end(), neighbor.begin(), neighbor.end(),
-                        std::inserter(result, result.end()));
-
-    if (!result.empty())
-    {
-        std::set<int>::iterator it = result.begin();
-        int firstElement = *it;
-        head->info.color = firstElement;
-        return true;
-    }
-    return false;
-}
-void color(std::list<ASM::AS_stm *> &as_list, unordered_map<int, Node<RegInfo> *> &regNodes)
-{
-    for (const auto &stm : as_list)
-    {
-        vector<AS_reg *> defs;
-        vector<AS_reg *> uses;
-        getAllRegs(stm, defs, uses);
-
-        for (auto &x : defs)
-        {
-            vreg_map(x, regNodes);
-        }
-        for (auto &x : uses)
-        {
-            vreg_map(x, regNodes);
-        }
-    }
-}
-void Select(std::list<ASM::AS_stm *> &as_list, Graph<RegInfo> &interferenceGraph, unordered_map<int, Node<RegInfo> *> &regNodes)
-{
-    vector<Node<RegInfo> *> t_spill;
-    while (reg_stack.size())
-    {
-        Node<RegInfo> *top_temp = reg_stack.top();
-        reg_stack.pop();
-        bool res = judge_add(interferenceGraph, top_temp);
-        top_temp->info.bit_map = false;
-        if (!res)
-        {
-            // 只有是p_spill的，才会真正spill
-            assert(top_temp->info.is_spill);
-            t_spill.push_back(top_temp);
-        }
-    }
-
-    color(as_list, regNodes);
-
-    // 处理栈指针
-
-    unordered_map<int, int> tempSpOffset;
-
-    int temp_offset = 0;
-    int sp_offset = t_spill.size() * 8;
-    for (auto x : t_spill)
-    {
-        temp_offset += 8;
-        tempSpOffset.emplace(x->info.regNum, -temp_offset + sp_offset);
-    }
-    for (auto x : regNodes)
-    {
-        std::ostringstream oss;
-        if (x.second->info.color < 100)
-        {
-            oss << "%r" << x.first << "->x" << x.second->info.color;
-        }
-        else
-        {
-            oss << "%r" << x.first << "->[sp,#" << tempSpOffset[x.second->info.regNum] << "]";
-        }
-        as_list.push_front(AS_Llvmir(oss.str()));
-    }
-    for (auto it = as_list.begin(); it != as_list.end(); /* no increment here */)
-    {
-        auto currentElement = *it;
-        if (currentElement->type == AS_stmkind::BINOP)
-        {
-            auto binop = currentElement->u.BINOP;
-            if (binop->op == AS_binopkind::SUB_ && binop->dst->type == AS_type::SP && binop->left->type == AS_type::SP)
-            {
-                int imm = binop->right->u.offset;
-                imm += temp_offset;
-                auto temp = new AS_reg(AS_type::Xn, XXn1);
-                it = as_list.insert(it, AS_Mov(new AS_reg(AS_type::IMM, imm), temp));
-                currentElement->u.BINOP->right = temp;
-                break;
-            }
-        }
-        it++;
-    }
-    // spill
-    vector<AS_reg *> to_kill;
-    for (auto it = as_list.begin(); it != as_list.end(); /* no increment here */)
-    {
-        // 当前元素
-        auto currentElement = *it;
-        vector<AS_reg *> defs;
-        vector<AS_reg *> uses;
-        getAllRegs(currentElement, defs, uses);
-        vector<int> spillregs{XXn2, XXn3, XXn4};
-
-        // 根据条件在当前元素前面插入新元素
-        for (auto &x : uses)
-        {
-            if (x->u.offset >= 100)
-            {
-                assert(!spillregs.empty());
-                int abc = spillregs.back();
-                spillregs.pop_back();
-                auto temp = new AS_reg(AS_type::Xn, XXn1);
-                it = as_list.insert(it, AS_Mov(new AS_reg(AS_type::IMM, tempSpOffset[x->u.offset]), temp));
-                ++it;
-                AS_reg *ptr = new AS_reg(AS_type::ADR, new AS_address(new AS_reg(AS_type::SP, -1), temp));
-                it = as_list.insert(it, AS_Ldr(new AS_reg(AS_type::Xn, abc), ptr));
-                ++it;
-                x->u.offset = abc;
-            }
-        }
-        // 根据条件在当前元素后面插入新元素
-
-        for (auto &x : defs)
-        {
-            if (x->u.offset >= 100)
-            {
-                to_kill.push_back(x);
-                assert(!spillregs.empty());
-                int abc = spillregs.back();
-                spillregs.pop_back();
-                auto temp = new AS_reg(AS_type::Xn, XXn2);
-                auto newIt = as_list.insert(std::next(it), AS_Mov(new AS_reg(AS_type::IMM, tempSpOffset[x->u.offset]), temp));
-
-                AS_reg *ptr = new AS_reg(AS_type::ADR, new AS_address(new AS_reg(AS_type::SP, -1), temp));
-                as_list.insert(std::next(newIt), AS_Str(new AS_reg(AS_type::Xn, XXn1), ptr));
-                it++;
-                it++;
-            }
-        }
-        ++it;
-    }
-    for (auto &x : to_kill)
-    {
-        x->u.offset = XXn1;
-    }
-    for (auto it = as_list.begin(); it != as_list.end(); /* no increment here */)
-    {
-        auto currentElement = *it;
-        if (currentElement->type == AS_stmkind::MOV && currentElement->u.MOV->src->type == AS_type::IMM)
-        {
-            int imm = currentElement->u.MOV->src->u.offset;
-            if (imm < 0)
-            {
-                it++;
-
-                continue;
-            }
-            auto dst = currentElement->u.MOV->dst;
-            uint16_t low = imm & 0xFFFF; // 使用掩码保留低16位
-
-            // 取高16位
-            uint16_t high = (imm >> 16) & 0xFFFF; // 先右移16位，然后使用掩码保留这16位
-            if (high != 0)
-            {
-                *it = AS_Movz(new AS_reg(AS_type::IMM, high), dst);
-                it = as_list.insert(std::next(it), AS_Movk(new AS_reg(AS_type::IMM, low), dst));
-            }
-        }
-        it++;
-    }
+    //寄存器分配
+    
 }

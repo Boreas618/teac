@@ -30,10 +30,7 @@ struct InstructionNode
 };
 void getDefReg(ASM::AS_reg *reg, std::vector<ASM::AS_reg *> &defs);
 void getUseReg(ASM::AS_reg *reg, std::vector<ASM::AS_reg *> &uses);
-void P_Spill(GRAPH::Graph<RegInfo> &ig);
-void Simplify(GRAPH::Graph<RegInfo> &ig);
 void forwardLivenessAnalysis(std::list<InstructionNode *> &liveness, std::list<ASM::AS_stm *> &as_list);
 void setControlFlowDiagram(std::list<InstructionNode *> &nodes, std::unordered_map<std::string, InstructionNode *> &blocks);
 void livenessAnalysis(std::list<InstructionNode *> &nodes, std::list<ASM::AS_stm *> &as_list);
-void Select(std::list<ASM::AS_stm *> &as_list, GRAPH::Graph<RegInfo> &interferenceGraph, std::unordered_map<int, GRAPH::Node<RegInfo> *> &regNodes);
 #endif

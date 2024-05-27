@@ -9,10 +9,10 @@
 
 namespace ASM {
 enum AS_type{
-    IMM,
-    SP,
-    Xn,
-    ADR
+    IMM,//立即数
+    SP,//栈指针
+    Xn,//x0-x30
+    ADR//地址
 };
 struct AS_reg {
     AS_type type;
@@ -21,9 +21,6 @@ struct AS_reg {
         int offset;
         struct AS_address *add;
     } u;
-
-    
-    
 
     AS_reg(AS_type _type, int _offset);
     AS_reg(AS_type _type, AS_address *_add);
