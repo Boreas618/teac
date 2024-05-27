@@ -196,7 +196,7 @@ void init(std::list<InstructionNode *> &nodes, unordered_map<int, Node<RegInfo> 
     assert(reg_stack.empty());
     bool changed;
 
-    int i = 0;
+    int set_size = 0;
     do
     {
         changed = false;
@@ -212,12 +212,16 @@ void init(std::list<InstructionNode *> &nodes, unordered_map<int, Node<RegInfo> 
                     n->out.insert(s->in.begin(), s->in.end());
                 }
 
-            std::set<int> diff;
-            std::set_difference(n->out.begin(), n->out.end(), n->def.begin(), n->def.end(), std::inserter(diff, diff.end()));
-            diff.insert(n->use.begin(), n->use.end());
+            // std::set<int> diff;
+            // std::set_difference(n->out.begin(), n->out.end(), n->def.begin(), n->def.end(), std::inserter(diff, diff.end()));
+            // diff.insert(n->use.begin(), n->use.end());
 
-            n->in = diff;
-
+            // n->in = diff;
+            n->in.clear();
+            std::set_difference(n->out.begin(), n->out.end(), n->def.begin(), n->def.end(), std::inserter(n->in, n->in.end()));
+            n->in.insert(n->use.begin(), n->use.end());
+            set_size += n->in.size();
+            // printf("%d += %d ,%d ",n->in.size(), set_size,nodes.size());
             if (n->in != n->previous_in || n->out != n->previous_out)
             {
                 changed = true;
@@ -237,9 +241,11 @@ void init(std::list<InstructionNode *> &nodes, unordered_map<int, Node<RegInfo> 
 
     regs.insert(defs.begin(), defs.end());
     regs.insert(uses.begin(), uses.end());
+    int ijj = 0;
     for (auto x : regs)
     {
         regNodes.insert({x, interferenceGraph.addNode({x, x, 0, 0, 0})});
+        // printf("%d:%lu ", ++ijj, regs.size());
     }
 
     for (auto x : nodes)
@@ -285,6 +291,8 @@ void init(std::list<InstructionNode *> &nodes, unordered_map<int, Node<RegInfo> 
     //     printf("\%r%d ", x);
     // }
     // printf("\n");
+    for (auto &x : nodes)
+        delete x;
 
     for (auto it = as_list.begin(); it != as_list.end();)
     {
@@ -556,21 +564,6 @@ void Select(std::list<ASM::AS_stm *> &as_list, Graph<RegInfo> &interferenceGraph
             }
         }
         ++it;
-        // // 根据条件在当前元素前面插入新元素
-        // if (shouldInsertBefore(currentElement))
-        // {
-        //     it = as_list.insert(it, newElementBefore);
-        //     // it 现在指向新插入的元素
-        //     ++it; // 移动到原来的元素
-        // }
-
-        // // 根据条件在当前元素后面插入新元素
-        // if (shouldInsertAfter(currentElement))
-        // {
-        //     auto newIt = as_list.insert(std::next(it), newElementAfter);
-        //     // newIt 现在指向新插入的元素
-        //     // it 仍然指向当前元素
-        // }
     }
     for (auto &x : to_kill)
     {

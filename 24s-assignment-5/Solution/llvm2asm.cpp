@@ -206,9 +206,6 @@ void allignPtr(AS_reg *&op_reg, AS_operand *as_operand, list<AS_stm *> &as_list)
         assert(0);
         break;
     }
-
-        /* code */
-
     default:
         assert(0);
 
