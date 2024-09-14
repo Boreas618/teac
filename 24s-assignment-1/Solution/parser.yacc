@@ -119,9 +119,13 @@ extern int  yywrap();
 %type <fnDecl> FnDecl
 %type <varDeclList> VarDeclList
 %type <varDeclList> VarDeclRestList
+%type <varDeclList> FieldDeclList
+%type <varDeclList> FieldDeclRestList
 %type <varDef> VarDef
 %type <varDecl> VarDecl
 %type <varDecl> VarDeclRest
+%type <varDecl> FieldDecl
+%type <varDecl> FieldDeclRest
 %type <leftVal> LeftVal
 %type <rightVal> RightVal
 %type <rightVal> RightValRest
@@ -406,6 +410,16 @@ VarDecl: ID COLON Type
 }
 ;
 
+FieldDecl: ID COLON Type
+{
+  $$ = A_VarDecl_Scalar($1->pos, A_VarDeclScalar($1->pos, $1->id, $3));
+}
+| ID LSB NUM RSB COLON Type
+{
+  $$ = A_VarDecl_Array($1->pos, A_VarDeclArray($1->pos, $1->id, $3->num, $6));
+}
+;
+
 VarDef: ID COLON Type AS RightVal
 {
   $$ = A_VarDef_Scalar($1->pos, A_VarDefScalar($1->pos, $1->id, $3, $5));
@@ -458,7 +472,31 @@ VarDeclRest: COMMA VarDecl
 }
 ;
 
-StructDef: STRUCT ID LB VarDeclList RB
+FieldDeclList: FieldDecl FieldDeclRestList
+{
+  $$ = A_VarDeclList($1, $2);
+}
+|
+{
+  $$ = nullptr;
+}
+;
+FieldDeclRestList: FieldDeclRest FieldDeclRestList
+{
+  $$ = A_VarDeclList($1, $2);
+}
+|
+{
+  $$ = nullptr;
+}
+;
+FieldDeclRest: COMMA FieldDecl
+{
+  $$ = $2;
+}
+;
+
+StructDef: STRUCT ID LB FieldDeclList RB
 {
   $$ = A_StructDef($1, $2->id, $4);
 }
