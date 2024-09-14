@@ -126,6 +126,7 @@ extern int  yywrap();
 %type <rightVal> RightVal
 %type <rightVal> RightValRest
 %type <boolUnit> BoolUnit
+%type <boolUnit> BoolUnit_
 %type <boolExpr> BoolExpr
 %type <arithExpr> ArithExpr
 %type <exprUnit> ExprUnit
@@ -253,29 +254,29 @@ BoolExpr: BoolExpr AND BoolExpr
 }
 ;
 
-BoolUnit: ExprUnit LT ExprUnit
+BoolUnit: LP ExprUnit LT ExprUnit RP
 {
-  $$ = A_ComExprUnit($1->pos, A_ComExpr($1->pos, A_lt, $1, $3));
+  $$ = A_ComExprUnit($2->pos, A_ComExpr($2->pos, A_lt, $2, $4));
 }
-| ExprUnit LE ExprUnit
+| LP ExprUnit LE ExprUnit RP
 {
-  $$ = A_ComExprUnit($1->pos, A_ComExpr($1->pos, A_le, $1, $3));
+  $$ = A_ComExprUnit($2->pos, A_ComExpr($2->pos, A_le, $2, $4));
 }
-| ExprUnit GT ExprUnit
+| LP ExprUnit GT ExprUnit RP
 {
-  $$ = A_ComExprUnit($1->pos, A_ComExpr($1->pos, A_gt, $1, $3));
+  $$ = A_ComExprUnit($2->pos, A_ComExpr($2->pos, A_gt, $2, $4));
 }
-| ExprUnit GE ExprUnit
+| LP ExprUnit GE ExprUnit RP
 {
-  $$ = A_ComExprUnit($1->pos, A_ComExpr($1->pos, A_ge, $1, $3));
+  $$ = A_ComExprUnit($2->pos, A_ComExpr($2->pos, A_ge, $2, $4));
 }
-| ExprUnit EQ ExprUnit
+| LP ExprUnit EQ ExprUnit RP
 {
-  $$ = A_ComExprUnit($1->pos, A_ComExpr($1->pos, A_eq, $1, $3));
+  $$ = A_ComExprUnit($2->pos, A_ComExpr($2->pos, A_eq, $2, $4));
 }
-| ExprUnit NE ExprUnit
+| LP ExprUnit NE ExprUnit RP
 {
-  $$ = A_ComExprUnit($1->pos, A_ComExpr($1->pos, A_ne, $1, $3));
+  $$ = A_ComExprUnit($2->pos, A_ComExpr($2->pos, A_ne, $2, $4));
 }
 | LP BoolExpr RP
 {
@@ -284,6 +285,40 @@ BoolUnit: ExprUnit LT ExprUnit
 | NOT BoolUnit
 {
   $$ = A_BoolUOpExprUnit($1, A_BoolUOpExpr($1, A_not, $2));
+}
+;
+
+BoolUnit_: LP ExprUnit LT ExprUnit RP
+{
+  $$ = A_ComExprUnit($2->pos, A_ComExpr($2->pos, A_lt, $2, $4));
+}
+| LP ExprUnit LE ExprUnit RP
+{
+  $$ = A_ComExprUnit($2->pos, A_ComExpr($2->pos, A_le, $2, $4));
+}
+| LP ExprUnit GT ExprUnit RP
+{
+  $$ = A_ComExprUnit($2->pos, A_ComExpr($2->pos, A_gt, $2, $4));
+}
+| LP ExprUnit GE ExprUnit RP
+{
+  $$ = A_ComExprUnit($2->pos, A_ComExpr($2->pos, A_ge, $2, $4));
+}
+| LP ExprUnit EQ ExprUnit RP
+{
+  $$ = A_ComExprUnit($2->pos, A_ComExpr($2->pos, A_eq, $2, $4));
+}
+| LP ExprUnit NE ExprUnit RP
+{
+  $$ = A_ComExprUnit($2->pos, A_ComExpr($2->pos, A_ne, $2, $4));
+}
+| LP BoolExpr RP
+{
+  $$ = A_BoolExprUnit($1, $2);
+}
+| LP NOT BoolUnit RP
+{
+  $$ = A_BoolUOpExprUnit($2, A_BoolUOpExpr($2, A_not, $3));
 }
 ;
 
@@ -310,10 +345,6 @@ LeftVal: ID
 RightVal: ArithExpr
 {
   $$ = A_ArithExprRVal($1->pos, $1);
-}
-| BoolExpr
-{
-  $$ = A_BoolExprRVal($1->pos, $1);
 }
 ;
 
@@ -531,19 +562,19 @@ CallStmt: FnCall SEMICOLON
 }
 ;
 
-IfStmt: IF LP BoolExpr RP CodeBlock
+IfStmt: IF BoolUnit_ CodeBlock
 {
-  $$ = A_IfStmt($1, $3, $5, nullptr);
+  $$ = A_IfStmt($1, $2, $3, nullptr);
 }
-| IF LP BoolExpr RP CodeBlock ELSE CodeBlock
+| IF BoolUnit_ CodeBlock ELSE CodeBlock
 {
-  $$ = A_IfStmt($1, $3, $5, $7);
+  $$ = A_IfStmt($1, $2, $3, $5);
 }
 ;
 
-WhileStmt: WHILE LP BoolExpr RP CodeBlock
+WhileStmt: WHILE BoolUnit_ CodeBlock
 {
-  $$ = A_WhileStmt($1, $3, $5);
+  $$ = A_WhileStmt($1, $2, $3);
 }
 ;
 
