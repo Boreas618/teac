@@ -50,7 +50,7 @@ extern int  yywrap();
 }
 
 %token <tokenId> ID
-%token <tokenNum> NUM
+%token <tokenNum> UNUM
 %token <pos> INT
 %token <pos> LET
 %token <pos> STRUCT
@@ -99,6 +99,7 @@ extern int  yywrap();
 %right NOT NEG
 %left LP RP DOT LSB RSB
 
+%type <tokenNum> NUM
 %type <type> Type
 %type <program> Program
 %type <programElementList> ProgramElementList
@@ -204,6 +205,16 @@ ArithExpr: ArithExpr ADD ArithExpr
 }
 ;
 
+NUM: UNUM
+{
+  $$ = A_TokenNum($1->pos, $1->num);
+}
+| SUB UNUM %prec NEG
+{
+  $$ = A_TokenNum($1, -$2->num);
+}
+;
+
 ArrayExpr: LeftVal LSB ID RSB
 {
   $$ = A_ArrayExpr($1->pos, $1, A_IdIndexExpr($3->pos, $3->id));
@@ -237,10 +248,6 @@ ExprUnit: NUM
 | LeftVal DOT ID
 {
   $$ = A_MemberExprUnit($1->pos, A_MemberExpr($1->pos, $1, $3->id));
-}
-| SUB ExprUnit %prec NEG
-{
-  $$ = A_ArithUExprUnit($1, A_ArithUExpr($1, A_neg, $2));
 }
 ;
 
