@@ -9,459 +9,158 @@
 .global _sysy_stoptime
 .global uniquePaths
 .global main
-        //%r221->x9
-        //%r216->x11
-        //%r215->x11
-        //%r214->x11
-        //%r207->x12
-        //%r206->x9
-        //%r204->x9
-        //%r203->x10
-        //%r202->x9
-        //%r201->x11
-        //%r199->x12
-        //%r198->x9
-        //%r197->x13
-        //%r196->x9
-        //%r195->x9
-        //%r193->x9
-        //%r192->x9
-        //%r191->x14
-        //%r153->x10
-        //%r194->x9
-        //%r135->x12
-        //%r164->x15
-        //%r189->x9
-        //%r130->x12
-        //%r257->x9
-        //%r188->x9
-        //%r208->x9
-        //%r149->x9
-        //%r120->x11
-        //%r247->x9
-        //%r123->x12
-        //%r250->x10
-        //%r205->x12
-        //%r146->x9
-        //%r175->x9
-        //%r190->x10
-        //%r131->x11
-        //%r258->x9
-        //%r220->x9
-        //%r102->x9
-        //%r229->x11
-        //%r219->x11
-        //%r160->x10
-        //%r118->x11
-        //%r245->x15
-        //%r176->x9
-        //%r213->x11
-        //%r154->x9
-        //%r183->x9
-        //%r200->x9
-        //%r141->x9
-        //%r170->x10
-        //%r218->x11
-        //%r100->x10
-        //%r227->x11
-        //%r217->x11
-        //%r158->x10
-        //%r187->x9
-        //%r222->x9
-        //%r163->x9
-        //%r166->x9
-        //%r167->x9
-        //%r168->x9
-        //%r184->x9
-        //%r185->x9
-        //%r186->x9
-        //%r223->x9
-        //%r224->x11
-        //%r225->x11
-        //%r226->x12
-        //%r228->x11
-        //%r230->x9
-        //%r231->x11
-        //%r232->x11
-        //%r233->x12
-        //%r234->x11
-        //%r235->x11
-        //%r236->x11
-        //%r237->x9
-        //%r238->x9
-        //%r239->x9
-        //%r240->x9
-        //%r241->x10
-        //%r242->x15
-        //%r243->x9
-        //%r244->x15
-        //%r246->x9
-        //%r248->x10
-        //%r249->x10
-        //%r251->x11
-        //%r252->x10
-        //%r253->x10
-        //%r254->x10
-        //%r255->x9
-        //%r256->x10
 uniquePaths:
-
-        //108:x29,#-72
-
-        //bb19:
 
 bb19:
 
-        //  %r183 = add i32 0, 0
-
         mov     x16, #80
         sub     sp, sp, x16
-        mov     x10, x0
-        mov     x9, x1
-        mov     x11, #0
-        //  %r184 = add i32 0, 0
-
-        mov     x11, #0
-        //  %r185 = add i32 0, 0
-
-        mov     x11, #0
-        //  %r186 = add i32 0, 0
-
-        mov     x11, #0
-        //  %r187 = add i32 0, 0
-
-        mov     x11, #0
-        //  %r108 = alloca [ 9 x i32 ]
-
-        //  %r188 = add i32 0, 0
-
-        mov     x11, #0
-        //  %r190 = add i32 %r100, 0
-
-        mov     x10, x10
-        //  %r189 = add i32 0, 0
-
-        mov     x11, #0
-        //  %r191 = add i32 %r102, 0
-
-        mov     x14, x9
-        //  %r105 = icmp eq i32 %r190, 1
-
-        mov     x9, #1
-        cmp     x10, x9
-        //  br i1 %r105, label %bb2, label %bb5
-
-
+        mov     w10, w0
+        mov     w9, w1
+        mov     w11, #0
+        mov     w11, #0
+        mov     w11, #0
+        mov     w11, #0
+        mov     w11, #0
+        mov     w11, #0
+        mov     w10, w10
+        mov     w11, #0
+        mov     w14, w9
+        mov     w9, #1
+        cmp     w10, w9
         b.eq     bb2
         b     bb5
-        //bb5:
-
 bb5:
 
-        //  %r107 = icmp eq i32 %r191, 1
-
-        mov     x9, #1
-        cmp     x14, x9
-        //  br i1 %r107, label %bb2, label %bb3
-
-
+        mov     w9, #1
+        cmp     w14, w9
         b.eq     bb2
         b     bb3
-        //bb2:
-
 bb2:
 
-        //  ret i32 1
-
-        mov     x9, #1
-        mov     x0, x9
+        mov     w9, #1
+        mov     w0, w9
         mov     sp, x29
         ret
-        //bb3:
-
 bb3:
 
-        //  %r192 = add i32 0, 0
-
-        mov     x9, #0
-        mov     x9, x9
-        //  br label %bb6
-
-
-        //bb6:  %r193 = phi i32 [ %r192, %bb3 ], [ %r208, %bb7 ]
-
-        mov     x9, x9
+        mov     w9, #0
+        mov     w9, w9
+        mov     w9, w9
         b     bb6
-        //bb6:
-
 bb6:
 
-        //  %r193 = phi i32 [ %r192, %bb3 ], [ %r208, %bb7 ]
-
-        //  %r116 = icmp slt i32 %r193, %r190
-
-        cmp     x9, x10
-        //  br i1 %r116, label %bb7, label %bb8
-
-
+        cmp     w9, w10
         b.lt     bb7
         b     bb8
-        //bb7:
-
 bb7:
 
-        //  %r118 = mul i32 %r193, 3
-
-        mov     x11, #3
-        mul     x11, x9, x11
-        //  %r120 = add i32 %r118, %r191
-
-        add     x11, x11, x14
-        //  %r207 = sub i32 %r120, 1
-
-        sub     x12, x11, #1
-        //  %r123 = getelementptr [9 x i32 ], [9 x i32 ]* %r108, i32 0 , i32 %r207
-
+        mov     w11, #3
+        mul     w11, w9, w11
+        add     w11, w11, w14
+        sub     w12, w11, #1
         mov     x11, #8
         mul     x12, x12, x11
         mov     x11, #-72
         add     x11, x29, x11
         add     x12, x11, x12
-        //  store i32 1, i32* %r123
-
-        mov     x11, #1
-        str     x11, [x12]
-        //  %r208 = add i32 %r193, 1
-
-        add     x9, x9, #1
-        //  br label %bb6
-
-
-        //bb6:  %r193 = phi i32 [ %r192, %bb3 ], [ %r208, %bb7 ]
-
-        mov     x9, x9
+        mov     w11, #1
+        str     w11, [x12]
+        add     w9, w9, #1
+        mov     w9, w9
         b     bb6
-        //bb8:
-
 bb8:
 
-        //  %r194 = add i32 0, 0
-
-        mov     x9, #0
-        mov     x9, x9
-        //  br label %bb9
-
-
-        //bb9:  %r195 = phi i32 [ %r194, %bb8 ], [ %r206, %bb10 ]
-
-        mov     x9, x9
+        mov     w9, #0
+        mov     w9, w9
+        mov     w9, w9
         b     bb9
-        //bb9:
-
 bb9:
 
-        //  %r195 = phi i32 [ %r194, %bb8 ], [ %r206, %bb10 ]
-
-        //  %r128 = icmp slt i32 %r195, %r191
-
-        cmp     x9, x14
-        //  br i1 %r128, label %bb10, label %bb11
-
-
+        cmp     w9, w14
         b.lt     bb10
         b     bb11
-        //bb10:
-
 bb10:
 
-        //  %r130 = sub i32 %r190, 1
-
-        sub     x12, x10, #1
-        //  %r131 = mul i32 %r130, 3
-
-        mov     x11, #3
-        mul     x11, x12, x11
-        //  %r205 = add i32 %r131, %r195
-
-        add     x12, x11, x9
-        //  %r135 = getelementptr [9 x i32 ], [9 x i32 ]* %r108, i32 0 , i32 %r205
-
+        sub     w12, w10, #1
+        mov     w11, #3
+        mul     w11, w12, w11
+        add     w12, w11, w9
         mov     x11, #8
         mul     x12, x12, x11
         mov     x11, #-72
         add     x11, x29, x11
         add     x12, x11, x12
-        //  store i32 1, i32* %r135
-
-        mov     x11, #1
-        str     x11, [x12]
-        //  %r206 = add i32 %r195, 1
-
-        add     x9, x9, #1
-        //  br label %bb9
-
-
-        //bb9:  %r195 = phi i32 [ %r194, %bb8 ], [ %r206, %bb10 ]
-
-        mov     x9, x9
+        mov     w11, #1
+        str     w11, [x12]
+        add     w9, w9, #1
+        mov     w9, w9
         b     bb9
-        //bb11:
-
 bb11:
 
-        //  %r196 = sub i32 %r190, 2
-
-        sub     x9, x10, #2
-        //  br label %bb12
-
-
-        //bb12:  %r197 = phi i32 [ %r196, %bb11 ], [ %r200, %bb17 ]
-
-        mov     x13, x9
+        sub     w9, w10, #2
+        mov     w13, w9
         b     bb12
-        //bb12:
-
 bb12:
 
-        //  %r197 = phi i32 [ %r196, %bb11 ], [ %r200, %bb17 ]
-
-        //  %r141 = sub i32 0, 1
-
-        mov     x9, #0
-        sub     x9, x9, #1
-        //  %r142 = icmp sgt i32 %r197, %r141
-
-        cmp     x13, x9
-        //  br i1 %r142, label %bb13, label %bb14
-
-
+        mov     w9, #0
+        sub     w9, w9, #1
+        cmp     w13, w9
         b.gt     bb13
         b     bb14
-        //bb13:
-
 bb13:
 
-        //  %r198 = sub i32 %r191, 2
-
-        sub     x9, x14, #2
-        //  br label %bb15
-
-
-        //bb15:  %r199 = phi i32 [ %r198, %bb13 ], [ %r204, %bb16 ]
-
-        mov     x12, x9
+        sub     w9, w14, #2
+        mov     w12, w9
         b     bb15
-        //bb15:
-
 bb15:
 
-        //  %r199 = phi i32 [ %r198, %bb13 ], [ %r204, %bb16 ]
-
-        //  %r146 = sub i32 0, 1
-
-        mov     x9, #0
-        sub     x9, x9, #1
-        //  %r147 = icmp sgt i32 %r199, %r146
-
-        cmp     x12, x9
-        //  br i1 %r147, label %bb16, label %bb17
-
-
+        mov     w9, #0
+        sub     w9, w9, #1
+        cmp     w12, w9
         b.gt     bb16
         b     bb17
-        //bb16:
-
 bb16:
 
-        //  %r149 = mul i32 %r197, 3
-
-        mov     x9, #3
-        mul     x9, x13, x9
-        //  %r201 = add i32 %r149, %r199
-
-        add     x11, x9, x12
-        //  %r153 = add i32 %r197, 1
-
-        add     x10, x13, #1
-        //  %r154 = mul i32 %r153, 3
-
-        mov     x9, #3
-        mul     x9, x10, x9
-        //  %r202 = add i32 %r154, %r199
-
-        add     x9, x9, x12
-        //  %r158 = mul i32 %r197, 3
-
-        mov     x10, #3
-        mul     x10, x13, x10
-        //  %r160 = add i32 %r158, %r199
-
-        add     x10, x10, x12
-        //  %r203 = add i32 %r160, 1
-
-        add     x10, x10, #1
-        //  %r163 = getelementptr [9 x i32 ], [9 x i32 ]* %r108, i32 0 , i32 %r202
-
+        mov     w9, #3
+        mul     w9, w13, w9
+        add     w11, w9, w12
+        add     w10, w13, #1
+        mov     w9, #3
+        mul     w9, w10, w9
+        add     w9, w9, w12
+        mov     w10, #3
+        mul     w10, w13, w10
+        add     w10, w10, w12
+        add     w10, w10, #1
         mov     x15, #8
         mul     x9, x9, x15
         mov     x15, #-72
         add     x15, x29, x15
         add     x9, x15, x9
-        //  %r164 = load i32, i32* %r163
-
-        ldr     x15, [x9]
-        //  %r166 = getelementptr [9 x i32 ], [9 x i32 ]* %r108, i32 0 , i32 %r203
-
+        ldr     w15, [x9]
         mov     x9, #8
         mul     x9, x10, x9
         mov     x10, #-72
         add     x10, x29, x10
         add     x9, x10, x9
-        //  %r167 = load i32, i32* %r166
-
-        ldr     x9, [x9]
-        //  %r168 = add i32 %r164, %r167
-
-        add     x9, x15, x9
-        //  %r170 = getelementptr [9 x i32 ], [9 x i32 ]* %r108, i32 0 , i32 %r201
-
+        ldr     w9, [x9]
+        add     w9, w15, w9
         mov     x10, #8
         mul     x11, x11, x10
         mov     x10, #-72
         add     x10, x29, x10
         add     x10, x10, x11
-        //  store i32 %r168, i32* %r170
-
-        str     x9, [x10]
-        //  %r204 = sub i32 %r199, 1
-
-        sub     x9, x12, #1
-        //  br label %bb15
-
-
-        //bb15:  %r199 = phi i32 [ %r198, %bb13 ], [ %r204, %bb16 ]
-
-        mov     x12, x9
+        str     w9, [x10]
+        sub     w9, w12, #1
+        mov     w12, w9
         b     bb15
-        //bb17:
-
 bb17:
 
-        //  %r200 = sub i32 %r197, 1
-
-        sub     x9, x13, #1
-        //  br label %bb12
-
-
-        //bb12:  %r197 = phi i32 [ %r196, %bb11 ], [ %r200, %bb17 ]
-
-        mov     x13, x9
+        sub     w9, w13, #1
+        mov     w13, w9
         b     bb12
-        //bb14:
-
 bb14:
-
-        //  %r175 = getelementptr [9 x i32 ], [9 x i32 ]* %r108, i32 0 , i32 0
 
         mov     x10, #0
         mov     x9, #8
@@ -469,35 +168,18 @@ bb14:
         mov     x9, #-72
         add     x9, x29, x9
         add     x9, x9, x10
-        //  %r176 = load i32, i32* %r175
-
-        ldr     x9, [x9]
-        //  ret i32 %r176
-
-        mov     x0, x9
+        ldr     w9, [x9]
+        mov     w0, w9
         mov     sp, x29
         ret
-        //%r209->x9
-        //%r261->x9
-        //%r210->x9
-        //%r262->x9
-        //%r211->x9
-        //%r263->x9
-        //%r212->x10
-        //%r259->x9
-        //%r260->x9
 main:
-
-        //bb18:
 
 bb18:
 
-        //  call void @_sysy_starttime(i32 40)
-
         mov     x16, #0
         sub     sp, sp, x16
-        mov     x9, #40
-        mov     x0, x9
+        mov     w9, #40
+        mov     w0, w9
         stp     x9, x10, [sp, #-16]!
         stp     x11, x12, [sp, #-16]!
         stp     x13, x14, [sp, #-16]!
@@ -510,20 +192,12 @@ bb18:
         ldp     x13, x14, [sp], #16
         ldp     x11, x12, [sp], #16
         ldp     x9, x10, [sp], #16
-        //  %r209 = add i32 0, 0
-
-        mov     x9, #0
-        //  %r210 = add i32 0, 0
-
-        mov     x9, #0
-        //  %r211 = add i32 3, 0
-
-        mov     x9, #3
-        mov     x9, x9
-        //  %r212 = call i32 @uniquePaths(i32 %r211, i32 %r211)
-
-        mov     x0, x9
-        mov     x1, x9
+        mov     w9, #0
+        mov     w9, #0
+        mov     w9, #3
+        mov     w9, w9
+        mov     w0, w9
+        mov     w1, w9
         stp     x9, x10, [sp, #-16]!
         stp     x11, x12, [sp, #-16]!
         stp     x13, x14, [sp, #-16]!
@@ -536,11 +210,9 @@ bb18:
         ldp     x13, x14, [sp], #16
         ldp     x11, x12, [sp], #16
         ldp     x9, x10, [sp], #16
-        mov     x10, x0
-        //  call void @_sysy_stoptime(i32 45)
-
-        mov     x9, #45
-        mov     x0, x9
+        mov     w10, w0
+        mov     w9, #45
+        mov     w0, w9
         stp     x9, x10, [sp, #-16]!
         stp     x11, x12, [sp, #-16]!
         stp     x13, x14, [sp, #-16]!
@@ -553,8 +225,6 @@ bb18:
         ldp     x13, x14, [sp], #16
         ldp     x11, x12, [sp], #16
         ldp     x9, x10, [sp], #16
-        //  ret i32 %r212
-
-        mov     x0, x10
+        mov     w0, w10
         mov     sp, x29
         ret

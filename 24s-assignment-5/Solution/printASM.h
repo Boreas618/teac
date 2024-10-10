@@ -14,5 +14,5 @@ namespace ASM
     void printAS_func(std::ostream &os, ASM::AS_func *func);
     void printAS_prog(std::ostream &os, ASM::AS_prog *prog);
 }
-
+extern int asmdebug;
 #endif

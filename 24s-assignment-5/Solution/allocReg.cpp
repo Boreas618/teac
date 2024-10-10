@@ -53,6 +53,7 @@ void getDefReg(AS_reg *reg, vector<AS_reg *> &defs)
     switch (reg->type)
     {
     case AS_type::Xn:
+    case AS_type::Wn:
     {
         defs.push_back(reg);
         break;
@@ -75,6 +76,7 @@ void getUseReg(AS_reg *reg, vector<AS_reg *> &uses)
     switch (reg->type)
     {
     case AS_type::Xn:
+    case AS_type::Wn:
     {
         uses.push_back(reg);
         break;
@@ -101,6 +103,7 @@ void vreg_map(AS_reg *reg, unordered_map<int, Node<RegInfo> *> &regNodes)
     switch (reg->type)
     {
     case AS_type::Xn:
+    case AS_type::Wn:
     {
         int regNo = reg->u.offset;
         if (regNo < 100)
