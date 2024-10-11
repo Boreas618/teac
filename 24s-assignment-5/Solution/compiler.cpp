@@ -14,13 +14,14 @@
 #include "graph.hpp"
 #include "bg_llvm.h"
 #define YACCDEBUG 0
-
+#define ASMDEBUG 0
 using namespace std;
 using namespace LLVMIR;
 
 extern int yyparse();
 extern YYSTYPE yylval;
 extern int yydebug;
+int asmdebug;
 
 int line, col;
 
@@ -31,6 +32,9 @@ int main(int argc, char * argv[]) {
 
     #if YACCDEBUG
         yydebug = 1;
+    #endif
+    #if ASMDEBUG
+        asmdebug = 1;
     #endif
 
     line = 1;

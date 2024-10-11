@@ -11,8 +11,8 @@ const int XXn1 = 16;
 const int XXn2 = 17;
 const int XXn3 = 18;
 const int XXn4 = 19;
-const int XnFP = 29;
-const int XXnret = 0;
-const int XXnl = 30;
+const int FPR = 29;
+const int RETR = 0;
+const int LNR = 30;
 const int INT_LENGTH = 8;
 #endif
