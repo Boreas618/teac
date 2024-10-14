@@ -1,0 +1,25 @@
+struct MyStruct { 
+    node:int,
+    len:int  
+}
+
+fn main(a:int, b:int)->int{
+    let c:MyStruct;
+    let a:MyStruct;
+    c.node = 1;
+    c.len = 3;
+    ret a - b;
+}
+
+;
+
+fn foo(a:int, b:int)->int{
+    ret a+1+b+2;
+}
+
+
+/*
+    key:
+    Typecheck error in line 8, col 9: This id is already defined!
+*/
+
