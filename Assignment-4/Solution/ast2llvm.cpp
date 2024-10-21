@@ -723,7 +723,7 @@ void ast2llvmBlock(aA_codeBlockStmt b,Temp_label *con_label,Temp_label *bre_labe
         auto true_label = Temp_newlabel();
         auto false_label = Temp_newlabel();
         auto end_label = Temp_newlabel();
-        ast2llvmBoolExpr(b->u.ifStmt->boolExpr,true_label,false_label);
+        ast2llvmBoolUnit(b->u.ifStmt->boolUnit, true_label, false_label);
         emit_irs.push_back(L_Label(true_label));
         for(const auto &v : b->u.ifStmt->ifStmts)
         {
@@ -745,7 +745,7 @@ void ast2llvmBlock(aA_codeBlockStmt b,Temp_label *con_label,Temp_label *bre_labe
         auto true_label = Temp_newlabel();
         auto false_label = Temp_newlabel();
         emit_irs.push_back(L_Label(test_label));
-        ast2llvmBoolExpr(b->u.whileStmt->boolExpr,true_label,false_label);
+        ast2llvmBoolUnit(b->u.whileStmt->boolUnit, true_label, false_label);
         emit_irs.push_back(L_Label(true_label));
         for(const auto &v : b->u.whileStmt->whileStmts)
         {
