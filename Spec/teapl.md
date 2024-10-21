@@ -1,5 +1,7 @@
 ## Grammar of TeaPL
 
+**Note: The precedence and associativity of operators in TeaPL are the same as [those in C language](https://c-cpp.com/c/language/operator_precedence).**
+
 Each program is composed of variable declarations, function declarations, function definitions, and comments.
 
 ```
@@ -11,7 +13,7 @@ program := (varDeclStmt | structDef | fnDeclStmt | fnDef | comment | < ; >)*
 Each identifier begins with an alphabat and contains only alphabats and digits, e.g., alice, a0.
 
 ```
-id := [a-zA-Z][a-zA-Z0-9]*   
+id := [a-z_A-Z][a-z_A-Z0-9]*   
 ```
 
 TeaPL allows integers, e.g., 123
@@ -28,8 +30,6 @@ exprUnit :=  num | id | < ( > arithExpr < ) > | fnCall | leftVal < [ > id | num 
 arithBiOp := < + > | < - > | < * > | < / >
 arithUOp := < - >
 ```
-
-主要可能是优先级的问题
 
 **Condition Expressions**
 
@@ -195,5 +195,14 @@ fn foo(){
 ```
 
 ```
-comment :=  < // > _* | < /* > _* < */ >  
+comment :=  < // > .* | < /* > [^]* < */ >  
 ```
+`.`: This is a special character that matches almost any character except `\n`.
+
+`[^]`: This is a character class that matches any character not in the brackets(`[^ABC]`: A single character that is not 'A', 'B', or 'C'). Since there are no characters in the brackets, it matches any character.
+
+`*`: This is a quantifier that means "zero or more of the preceding element".
+
+`.*`: This regular expression matches any number (including zero) of almost any character, except for newline characters.
+
+`[^]*`: This regular expression matches any number (including zero) of any character, including newline characters. 

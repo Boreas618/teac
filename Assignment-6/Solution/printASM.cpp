@@ -1,17 +1,23 @@
 #include "printASM.h"
 #include "asm_arm.h"
 #include <iostream>
-#include <cassert>
 
 using namespace std;
 using namespace ASM;
 
 void ASM::printAS_global(std::ostream &os, ASM::AS_global *global) {
     os << global->label->name << ":\n";
-    for (int i = 0; i < global->len; i++) {
+    if (global->len == 1) {
         os << "        .word   " << global->init << "\n";
+    } else {
+        os << "        .zero   " << 4 * global->len << "\n";
     }
 }
+
+void ASM::printAS_decl(std::ostream &os, ASM::AS_decl *decl) {
+    os << ".global " << decl->name << "\n";
+}
+
 
 void ASM::printAS_stm(std::ostream &os, AS_stm *stm) {
     switch (stm->type) {
@@ -63,10 +69,10 @@ void ASM::printAS_stm(std::ostream &os, AS_stm *stm) {
             printAS_reg(os,stm->u.STR->src);
             break;
         }
-        case AS_stmkind::ADRP: {
-            os << "        " << "adrp    ";
-            printAS_reg(os, stm->u.ADRP->reg);
-            os << ", " << stm->u.ADRP->label->name;
+        case AS_stmkind::ADR: {
+            os << "        " << "adr     ";
+            printAS_reg(os, stm->u.ADR->reg);
+            os << ", " << stm->u.ADR->label->name;
             break;
         }
         case AS_stmkind::LABEL: {
@@ -130,12 +136,16 @@ void ASM::printAS_stm(std::ostream &os, AS_stm *stm) {
 }
 
 void ASM::printAS_reg(std::ostream &os, AS_reg *reg) {
-    if (reg->reg == -1 && reg->offset != -1 ) {
-        os << "[sp";
-        if (reg->offset != 0) {
-            os << ", #" << reg->offset << "]";
+    if (reg->reg == -1) {
+        if (reg->offset == -1) {
+            os << "sp";
         } else {
-            os << "]";
+            os << "[sp";
+            if (reg->offset != 0) {
+                os << ", #" << reg->offset << "]";
+            } else {
+                os << "]";
+            }
         }
     } else if (reg->reg == -3) {
         os << "#" << reg->offset;
@@ -148,7 +158,6 @@ void ASM::printAS_reg(std::ostream &os, AS_reg *reg) {
     }
 }
 
-
 void ASM::printAS_func(std::ostream &os, AS_func *func) {
     for(const auto &stm : func->stms) {
         printAS_stm(os, stm);
@@ -156,10 +165,20 @@ void ASM::printAS_func(std::ostream &os, AS_func *func) {
 }
 
 void ASM::printAS_prog(std::ostream &os, AS_prog *prog) {
+
+    os << ".section .data\n";
     for(const auto &global : prog->globals) {
         printAS_global(os, global);
     }
+
+    os << ".section .text\n";
+
+    for(const auto &decl : prog->decls) {
+        printAS_decl(os, decl);
+    }
+
     for(const auto &func : prog->funcs) {
         printAS_func(os, func);
     }
+
 }
