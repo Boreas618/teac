@@ -419,7 +419,7 @@ std::vector<LLVMIR::L_def*> ast2llvmProg_first(aA_program p)
             {
                 type.type = ReturnType::VOID_TYPE;
             }
-            if(v->u.fnDeclStmt->fnDecl->type->type == A_nativeTypeKind)
+            else if(v->u.fnDeclStmt->fnDecl->type->type == A_nativeTypeKind)
             {
                 type.type = ReturnType::INT_TYPE;
             }
