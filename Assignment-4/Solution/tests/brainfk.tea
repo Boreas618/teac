@@ -9,6 +9,13 @@ let BUFFER_LEN:int = 32768;
 let tape[65536]:int;
 let program[32768]:int;
 let ptr:int = 0;
+fn getch()->int;
+fn getint()->int;
+fn putint(a:int);
+fn putch(a:int);
+fn putarray(n:int,a[10]:int);
+fn _sysy_starttime(a:int);
+fn _sysy_stoptime(a:int);
 
 // read the input program
 fn read_program() {
