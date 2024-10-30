@@ -71,12 +71,12 @@ int calc(char *s, int len);
 <INITIAL>[1-9][0-9]* {
     yylval.tokenNum = A_TokenNum(A_Pos(line, col), calc(yytext, yyleng));
     col+=yyleng;
-    return NUM;
+    return UNUM;
 }
 <INITIAL>0 {
     yylval.tokenNum = A_TokenNum(A_Pos(line, col), 0);
     ++col;
-    return NUM;
+    return UNUM;
 }
 <INITIAL>. {
     printf("Illegal input \"%c\"\n", yytext[0]);
