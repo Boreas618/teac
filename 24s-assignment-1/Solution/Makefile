@@ -15,6 +15,11 @@ $(TESTCASE_DIR)/%.ast: $(TESTCASE_DIR)/%.tea $(TESTCASE_DIR)/%.refast compiler
 	@echo PASS $*
 	@echo
 
+# $(TESTCASE_DIR)/%.ast: $(TESTCASE_DIR)/%.tea compiler
+# 	@./compiler $< $@
+# 	@echo PASS $*
+# 	@echo
+
 compiler: y.tab.o lex.yy.o TeaplAst.o TeaplaAst.o PrintTeaplaAst.o compiler.o 
 	$(CXX) $(CXXFLAGS) -o compiler $^ 
 
