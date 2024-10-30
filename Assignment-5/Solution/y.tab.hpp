@@ -55,7 +55,7 @@ extern int yydebug;
     YYerror = 256,                 /* error  */
     YYUNDEF = 257,                 /* "invalid token"  */
     ID = 258,                      /* ID  */
-    NUM = 259,                     /* NUM  */
+    UNUM = 259,                    /* UNUM  */
     INT = 260,                     /* INT  */
     LET = 261,                     /* LET  */
     STRUCT = 262,                  /* STRUCT  */
@@ -101,7 +101,7 @@ extern int yydebug;
 #define YYerror 256
 #define YYUNDEF 257
 #define ID 258
-#define NUM 259
+#define UNUM 259
 #define INT 260
 #define LET 261
 #define STRUCT 262

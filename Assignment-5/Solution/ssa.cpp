@@ -108,7 +108,7 @@ void mem2reg(LLVMIR::L_func* fun) {
             auto dst=(*stm)->u.ALLOCA->dst;
             variables.insert({dst, AS_Operand_Temp(Temp_newtemp_int())});
             stm = fi_block->instrs.erase(stm);
-            // fi_block->instrs.insert(stm, L_Move(AS_Operand_Const(0), variables[dst]));
+            fi_block->instrs.insert(stm, L_Move(AS_Operand_Const(0), variables[dst]));
         } else {
             ++stm;
         }

@@ -33,7 +33,7 @@ fn radixSort( bitround:int, a[0]:int, l:int, r:int){
         iii=iii+1;
     }
 
-    if (bitround == -1 || (l + 1) >= r) {
+    if ((bitround == -1) || ((l + 1) >= r)) {
         ret;
     }
 
@@ -126,7 +126,7 @@ fn main()->int{
     }
 
     if (ans < 0){
-        ans = -ans;
+        ans = 0-ans;
     }
     _sysy_stoptime(117);
     putint(ans);

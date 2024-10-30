@@ -1040,7 +1040,7 @@ YY_RULE_SETUP
 {
     yylval.tokenNum = A_TokenNum(A_Pos(line, col), calc(yytext, yyleng));
     col+=yyleng;
-    return NUM;
+    return UNUM;
 }
 	YY_BREAK
 case 49:
@@ -1049,7 +1049,7 @@ YY_RULE_SETUP
 {
     yylval.tokenNum = A_TokenNum(A_Pos(line, col), 0);
     ++col;
-    return NUM;
+    return UNUM;
 }
 	YY_BREAK
 case 50:
