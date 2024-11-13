@@ -301,9 +301,9 @@ bb46:
   br label %bb47
 
 bb47:
-  %r476 = phi i32 [ %r474, %bb46 ], [ %r482, %bb88 ]
-  %r477 = phi i32 [ %r475, %bb46 ], [ %r483, %bb88 ]
-  %r265 = icmp slt i32 %r477, 10
+  %r476 = phi i32 [ %r475, %bb46 ], [ %r483, %bb88 ]
+  %r477 = phi i32 [ %r474, %bb46 ], [ %r482, %bb88 ]
+  %r265 = icmp slt i32 %r476, 10
   br i1 %r265, label %bb48, label %bb49
 
 bb48:
@@ -311,9 +311,9 @@ bb48:
   br label %bb50
 
 bb50:
-  %r480 = phi i32 [ %r476, %bb48 ], [ %r487, %bb85 ]
-  %r481 = phi i32 [ %r479, %bb48 ], [ %r488, %bb85 ]
-  %r267 = icmp slt i32 %r481, 100
+  %r480 = phi i32 [ %r479, %bb48 ], [ %r488, %bb85 ]
+  %r481 = phi i32 [ %r477, %bb48 ], [ %r487, %bb85 ]
+  %r267 = icmp slt i32 %r480, 100
   br i1 %r267, label %bb51, label %bb52
 
 bb51:
@@ -321,7 +321,7 @@ bb51:
   br label %bb53
 
 bb53:
-  %r485 = phi i32 [ %r480, %bb51 ], [ %r492, %bb82 ]
+  %r485 = phi i32 [ %r481, %bb51 ], [ %r492, %bb82 ]
   %r486 = phi i32 [ %r484, %bb51 ], [ %r493, %bb82 ]
   %r269 = icmp slt i32 %r486, 1000
   br i1 %r269, label %bb54, label %bb55
@@ -331,9 +331,9 @@ bb54:
   br label %bb56
 
 bb56:
-  %r490 = phi i32 [ %r485, %bb54 ], [ %r497, %bb79 ]
-  %r491 = phi i32 [ %r489, %bb54 ], [ %r498, %bb79 ]
-  %r271 = icmp slt i32 %r491, 10000
+  %r490 = phi i32 [ %r489, %bb54 ], [ %r498, %bb79 ]
+  %r491 = phi i32 [ %r485, %bb54 ], [ %r497, %bb79 ]
+  %r271 = icmp slt i32 %r490, 10000
   br i1 %r271, label %bb57, label %bb58
 
 bb57:
@@ -341,7 +341,7 @@ bb57:
   br label %bb59
 
 bb59:
-  %r495 = phi i32 [ %r490, %bb57 ], [ %r502, %bb76 ]
+  %r495 = phi i32 [ %r491, %bb57 ], [ %r502, %bb76 ]
   %r496 = phi i32 [ %r494, %bb57 ], [ %r503, %bb76 ]
   %r273 = icmp slt i32 %r496, 100000
   br i1 %r273, label %bb60, label %bb61
@@ -370,13 +370,13 @@ bb66:
   %r280 = sdiv i32 %r505, 817
   %r281 = mul i32 %r280, 817
   %r282 = sub i32 %r505, %r281
-  %r284 = getelementptr [10 x %my_struct_6 ], [10 x %my_struct_6 ]* @arr1, i32 0, i32 %r477
+  %r284 = getelementptr [10 x %my_struct_6 ], [10 x %my_struct_6 ]* @arr1, i32 0, i32 %r476
   %r285 = getelementptr %my_struct_6, %my_struct_6* %r284, i32 0, i32 0
-  %r287 = getelementptr [2 x %my_struct_5 ], [2 x %my_struct_5 ]* %r285, i32 0, i32 %r481
+  %r287 = getelementptr [2 x %my_struct_5 ], [2 x %my_struct_5 ]* %r285, i32 0, i32 %r480
   %r288 = getelementptr %my_struct_5, %my_struct_5* %r287, i32 0, i32 0
   %r290 = getelementptr [3 x %my_struct_4 ], [3 x %my_struct_4 ]* %r288, i32 0, i32 %r486
   %r291 = getelementptr %my_struct_4, %my_struct_4* %r290, i32 0, i32 0
-  %r293 = getelementptr [4 x %my_struct_3 ], [4 x %my_struct_3 ]* %r291, i32 0, i32 %r491
+  %r293 = getelementptr [4 x %my_struct_3 ], [4 x %my_struct_3 ]* %r291, i32 0, i32 %r490
   %r294 = getelementptr %my_struct_3, %my_struct_3* %r293, i32 0, i32 0
   %r296 = getelementptr [5 x %my_struct_2 ], [5 x %my_struct_2 ]* %r294, i32 0, i32 %r496
   %r297 = getelementptr %my_struct_2, %my_struct_2* %r296, i32 0, i32 0
@@ -385,13 +385,13 @@ bb66:
   %r302 = getelementptr [7 x i32 ], [7 x i32 ]* %r300, i32 0, i32 %r506
   %r303 = load i32, i32* %r302
   %r304 = add i32 %r282, %r303
-  %r306 = getelementptr [10 x %my_struct_6 ], [10 x %my_struct_6 ]* @arr2, i32 0, i32 %r477
+  %r306 = getelementptr [10 x %my_struct_6 ], [10 x %my_struct_6 ]* @arr2, i32 0, i32 %r476
   %r307 = getelementptr %my_struct_6, %my_struct_6* %r306, i32 0, i32 0
-  %r309 = getelementptr [2 x %my_struct_5 ], [2 x %my_struct_5 ]* %r307, i32 0, i32 %r481
+  %r309 = getelementptr [2 x %my_struct_5 ], [2 x %my_struct_5 ]* %r307, i32 0, i32 %r480
   %r310 = getelementptr %my_struct_5, %my_struct_5* %r309, i32 0, i32 0
   %r312 = getelementptr [3 x %my_struct_4 ], [3 x %my_struct_4 ]* %r310, i32 0, i32 %r486
   %r313 = getelementptr %my_struct_4, %my_struct_4* %r312, i32 0, i32 0
-  %r315 = getelementptr [4 x %my_struct_3 ], [4 x %my_struct_3 ]* %r313, i32 0, i32 %r491
+  %r315 = getelementptr [4 x %my_struct_3 ], [4 x %my_struct_3 ]* %r313, i32 0, i32 %r490
   %r316 = getelementptr %my_struct_3, %my_struct_3* %r315, i32 0, i32 0
   %r318 = getelementptr [5 x %my_struct_2 ], [5 x %my_struct_2 ]* %r316, i32 0, i32 %r496
   %r319 = getelementptr %my_struct_2, %my_struct_2* %r318, i32 0, i32 0
@@ -445,7 +445,7 @@ bb76:
 
 bb61:
   %r497 = phi i32 [ %r495, %bb59 ], [ %r502, %bb74 ]
-  %r498 = add i32 %r491, 1
+  %r498 = add i32 %r490, 1
   %r346 = icmp sge i32 %r498, %r470
   br i1 %r346, label %bb77, label %bb78
 
@@ -459,7 +459,7 @@ bb79:
   br label %bb56
 
 bb58:
-  %r492 = phi i32 [ %r490, %bb56 ], [ %r497, %bb77 ]
+  %r492 = phi i32 [ %r491, %bb56 ], [ %r497, %bb77 ]
   %r493 = add i32 %r486, 1
   %r351 = icmp sge i32 %r493, %r469
   br i1 %r351, label %bb80, label %bb81
@@ -475,7 +475,7 @@ bb82:
 
 bb55:
   %r487 = phi i32 [ %r485, %bb53 ], [ %r492, %bb80 ]
-  %r488 = add i32 %r481, 1
+  %r488 = add i32 %r480, 1
   %r356 = icmp sge i32 %r488, %r468
   br i1 %r356, label %bb83, label %bb84
 
@@ -489,8 +489,8 @@ bb85:
   br label %bb50
 
 bb52:
-  %r482 = phi i32 [ %r480, %bb50 ], [ %r487, %bb83 ]
-  %r483 = add i32 %r477, 1
+  %r482 = phi i32 [ %r481, %bb50 ], [ %r487, %bb83 ]
+  %r483 = add i32 %r476, 1
   %r361 = icmp sge i32 %r483, %r467
   br i1 %r361, label %bb86, label %bb87
 
@@ -504,7 +504,7 @@ bb88:
   br label %bb47
 
 bb49:
-  %r478 = phi i32 [ %r476, %bb47 ], [ %r482, %bb86 ]
+  %r478 = phi i32 [ %r477, %bb47 ], [ %r482, %bb86 ]
   ret i32 %r478
 }
 

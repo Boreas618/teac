@@ -98,8 +98,8 @@ bb43:
   br label %bb17
 
 bb17:
-  %r155 = sub i32 0, %r292
-  ret i32 %r155
+  %r156 = sub i32 0, %r292
+  ret i32 %r156
 }
 
 define i32 @func6( i32 %r157, i32 %r159 ) {

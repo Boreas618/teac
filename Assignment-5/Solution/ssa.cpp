@@ -229,32 +229,38 @@ void Dominators(GRAPH::Graph<LLVMIR::L_block*>& bg) {
 void printf_domi() {
     printf("Dominator:\n");
     for (auto x : dominators) {
-        printf("%s :\n", x.first->label->name.c_str());
+        printf("Dom(%s)={", x.first->label->name.c_str());
         for (auto t : x.second) {
-            printf("%s ", t->label->name.c_str());
+            printf("%s , ", t->label->name.c_str());
         }
-        printf("\n\n");
+        if(x.second.size()>=1){
+            printf("\b\b");
+        }
+        printf("}\n");
     }
 }
 
 void printf_D_tree() {
     printf("dominator tree:\n");
     for (auto x : tree_dominators) {
-        printf("%s :\n", x.first->label->name.c_str());
+        printf("%s ", x.first->label->name.c_str());
         for (auto t : x.second.succs) {
             printf("%s ", t->label->name.c_str());
         }
-        printf("\n\n");
+        printf("}\n\n");
     }
 }
 void printf_DF() {
     printf("DF:\n");
     for (auto x : DF_array) {
-        printf("%s :\n", x.first->label->name.c_str());
+        printf("DF(%s)={", x.first->label->name.c_str());
         for (auto t : x.second) {
-            printf("%s ", t->label->name.c_str());
+            printf("%s , ", t->label->name.c_str());
         }
-        printf("\n\n");
+        if(x.second.size()>=1){
+            printf("\b\b");
+        }
+        printf("}\n");
     }
 }
 

@@ -3,7 +3,7 @@
 #include "TeaplAst.h"
 #include "TeaplaAst.h"
 #include "PrintTeaplaAst.h"
-// #include "TypeCheck.h"
+#include "TypeCheck.h"
 #include "y.tab.hpp"
 #include "llvm_ir.h"
 #include "ast2llvm.h"
@@ -54,7 +54,7 @@ int main(int argc, char * argv[]) {
     // print_aA_Program(aroot, ASTStream);
     // ASTStream.close();
 
-    // check_Prog(&std::cout, aroot);
+    // check_Prog(std::cout, aroot);
 
     ofstream LLVMStream;
     LLVMStream.open(file_name + ".ll");
