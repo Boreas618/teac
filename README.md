@@ -2,6 +2,12 @@
 
 A Rust-based re-implementation of the [Teapl compiler](https://github.com/hxuhack/compiler_project.git).
 
+## Quick Start
+
+```
+cargo run tests/progs/dfs.tea
+```
+
 ## Milestones
 
 * ~Grammar definition.~

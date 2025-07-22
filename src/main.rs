@@ -6,9 +6,23 @@ use lalrpop_util::lalrpop_mod;
 use std::fs::File;
 use std::io::Read;
 
+use clap::Parser;
+
+#[derive(Parser, Debug)]
+#[command(name = "teaplc")]
+#[command(about = "A compiler written in Rust for teapl")]
+struct Cli {
+    input: String,
+
+    #[clap(short, long, value_name = "FILE")]
+    output: Option<String>,
+}
+
 fn main() {
-    let path = "tests/progs/dfs.tea";
-    let mut file = File::open(path).unwrap();
+    let cli = Cli::parse();
+    let input_path = cli.input;
+
+    let mut file = File::open(input_path).unwrap();
     let mut prog = String::new();
     file.read_to_string(&mut prog).unwrap();
     let ast = teapl::ProgramParser::new().parse(&prog).unwrap();
