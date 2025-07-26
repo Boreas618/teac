@@ -3,20 +3,20 @@ use std::rc::Rc;
 type Pos = usize;
 
 #[derive(Debug)]
-pub enum NativeType {
+pub enum BuiltIn {
     Int,
 }
 
 #[derive(Debug)]
-pub enum TypeInner {
-    NativeType(Box<NativeType>),
-    StructType(Box<String>),
+pub enum DtypeInner {
+    BuiltIn(Box<BuiltIn>),
+    Composite(Box<String>),
 }
 
 #[derive(Debug)]
-pub struct Type {
+pub struct Dtype {
     pub pos: Pos,
-    pub inner: TypeInner,
+    pub inner: DtypeInner,
 }
 
 #[derive(Debug)]
@@ -247,7 +247,7 @@ pub struct VarDeclScalar {
 #[derive(Debug)]
 pub struct VarDeclArray {
     pub pos: Pos,
-    pub len: isize,
+    pub len: usize,
 }
 
 #[derive(Debug)]
@@ -259,8 +259,8 @@ pub enum VarDeclInner {
 #[derive(Debug)]
 pub struct VarDecl {
     pub pos: Pos,
-    pub id: String,
-    pub real_type: Rc<Option<Type>>,
+    pub identifier: String,
+    pub dtype: Rc<Option<Dtype>>,
     pub inner: VarDeclInner,
 }
 
@@ -273,8 +273,8 @@ pub enum VarDefInner {
 #[derive(Debug)]
 pub struct VarDef {
     pub pos: Pos,
-    pub id: String,
-    pub real_type: Rc<Option<Type>>,
+    pub identifier: String,
+    pub dtype: Rc<Option<Dtype>>,
     pub inner: VarDefInner,
 }
 
@@ -287,7 +287,7 @@ pub struct VarDefScalar {
 #[derive(Debug)]
 pub struct VarDefArray {
     pub pos: Pos,
-    pub len: isize,
+    pub len: usize,
     pub vals: Box<RightValList>,
 }
 
@@ -298,17 +298,17 @@ pub enum VarDeclStmtInner {
 }
 
 impl VarDeclStmtInner {
-    pub fn get_id(&self) -> &String {
+    pub fn identifier(&self) -> &String {
         match self {
-            VarDeclStmtInner::Decl(decl) => &decl.id,
-            VarDeclStmtInner::Def(def) => &def.id,
+            VarDeclStmtInner::Decl(decl) => &decl.identifier,
+            VarDeclStmtInner::Def(def) => &def.identifier,
         }
     }
 
-    pub fn get_type(&self) -> &Rc<Option<Type>> {
+    pub fn dtype(&self) -> &Rc<Option<Dtype>> {
         match self {
-            VarDeclStmtInner::Decl(decl) => &decl.real_type,
-            VarDeclStmtInner::Def(def) => &def.real_type,
+            VarDeclStmtInner::Decl(decl) => &decl.dtype,
+            VarDeclStmtInner::Def(def) => &def.dtype,
         }
     }
 }
@@ -360,7 +360,7 @@ pub struct FnDecl {
     pub pos: Pos,
     pub id: String,
     pub param_decl: Option<Box<ParamDecl>>,
-    pub ret_type: Rc<Option<Type>>,
+    pub ret_type: Rc<Option<Dtype>>,
 }
 
 #[derive(Debug)]

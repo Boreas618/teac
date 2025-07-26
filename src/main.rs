@@ -1,5 +1,7 @@
 mod ast;
 mod ir;
+mod common;
+
 lalrpop_mod!(pub teapl);
 
 use lalrpop_util::lalrpop_mod;

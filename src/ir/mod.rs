@@ -1,16 +1,43 @@
+mod gen;
 mod stmt;
 
 use crate::ast::{self, BoolBiOp};
+use clap::builder::Str;
 use core::panic;
 use indexmap::IndexMap;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicI32, Ordering};
+use thiserror::Error;
 
-pub enum VariableType {
-    Int,
-    IntPtr,
-    Struct,
-    StructPtr,
+#[derive(Clone)]
+pub enum Dtype {
+    I32 {
+        is_const: bool,
+    },
+    I64 {
+        is_const: bool,
+    },
+    U32 {
+        is_const: bool,
+    },
+    U64 {
+        is_const: bool,
+    },
+    F32 {
+        is_const: bool,
+    },
+    F64 {
+        is_const: bool,
+    },
+    Struct {
+        name: String,
+        is_const: bool,
+    },
+    Pointer {
+        inner: Box<Dtype>,
+        is_const: bool,
+        length: usize,
+    },
 }
 
 #[derive(Clone)]
@@ -37,7 +64,7 @@ pub enum RelOpKind {
 }
 
 pub struct MemberDecl {
-    kind: VariableType,
+    kind: Dtype,
     len: usize,
     struct_name: String,
 }
@@ -60,9 +87,8 @@ pub struct FnDecl {
 }
 
 pub struct VarDef {
-    name: String,
-    var: Rc<Operand>,
-    init: Vec<i32>,
+    inner: Rc<Operand>,
+    initializers: Option<Vec<i32>>,
 }
 
 pub enum GlobalDef {
@@ -89,78 +115,48 @@ impl BlockLabel {
     }
 }
 
-pub trait Variable {
-    fn len(&self) -> &isize;
-    fn kind(&self) -> &VariableType;
-    fn struct_name(&self) -> &Option<String>;
-}
-
-pub struct VariableBase {
-    kind: VariableType,
-    len: isize,
-    struct_name: Option<String>,
+pub trait Typed {
+    fn dtype(&self) -> &Dtype;
 }
 
 pub struct GlobalVar {
-    base: VariableBase,
+    dtype: Dtype,
     name: BlockLabel,
 }
 
+impl Typed for GlobalVar {
+    fn dtype(&self) -> &Dtype {
+        &self.dtype
+    }
+}
+
 pub struct LocalVar {
-    base: VariableBase,
+    dtype: Dtype,
     num: i32,
     name: String,
 }
 
-// Generic implementation for any struct that contains a `VariableBase`
-impl<T> Variable for T
-where
-    T: AsRef<VariableBase>, // T must provide a reference to a `VariableBase`
-{
-    fn len(&self) -> &isize {
-        &self.as_ref().len
-    }
-
-    fn kind(&self) -> &VariableType {
-        &self.as_ref().kind
-    }
-
-    fn struct_name(&self) -> &Option<String> {
-        &self.as_ref().struct_name
-    }
-}
-
-impl AsRef<VariableBase> for GlobalVar {
-    fn as_ref(&self) -> &VariableBase {
-        &self.base
-    }
-}
-
-impl AsRef<VariableBase> for LocalVar {
-    fn as_ref(&self) -> &VariableBase {
-        &self.base
+impl Typed for LocalVar {
+    fn dtype(&self) -> &Dtype {
+        &self.dtype
     }
 }
 
 impl LocalVar {
     pub fn create_int(index: i32) -> Self {
         LocalVar {
-            base: VariableBase {
-                kind: VariableType::Int,
-                len: 0,
-                struct_name: None,
-            },
+            dtype: Dtype::I32 { is_const: false },
             num: index,
             name: String::new(),
         }
     }
 
-    pub fn create_int_ptr(index: i32, len: isize) -> Self {
+    pub fn create_int_ptr(index: i32, length: usize) -> Self {
         LocalVar {
-            base: VariableBase {
-                kind: VariableType::IntPtr,
-                len,
-                struct_name: None,
+            dtype: Dtype::Pointer {
+                inner: Box::new(Dtype::I32 { is_const: false }),
+                is_const: false,
+                length,
             },
             num: index,
             name: String::new(),
@@ -169,22 +165,24 @@ impl LocalVar {
 
     pub fn create_struct(index: i32, name: String) -> Self {
         LocalVar {
-            base: VariableBase {
-                kind: VariableType::Struct,
-                len: 0,
-                struct_name: Some(name),
+            dtype: Dtype::Struct {
+                name,
+                is_const: false,
             },
             num: index,
             name: String::new(),
         }
     }
 
-    pub fn create_struct_ptr(index: i32, len: isize, name: String) -> Self {
+    pub fn create_struct_ptr(index: i32, length: usize, name: String) -> Self {
         LocalVar {
-            base: VariableBase {
-                kind: VariableType::StructPtr,
-                len,
-                struct_name: Some(name),
+            dtype: Dtype::Pointer {
+                inner: Box::new(Dtype::Struct {
+                    name,
+                    is_const: false,
+                }),
+                is_const: false,
+                length,
             },
             num: index,
             name: String::new(),
@@ -194,8 +192,8 @@ impl LocalVar {
 
 // An abstraction over local and global variable.
 pub enum Operand {
-    Local(Box<dyn Variable>),
-    Global(Box<dyn Variable>),
+    Local(Box<dyn Typed>),
+    Global(Box<dyn Typed>),
     Interger(i32),
 }
 
@@ -215,9 +213,17 @@ pub struct FnProp {
     irs: Vec<stmt::Stmt>,
 }
 
-pub struct GeneratorStore {
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error("initialization of structs not supported")]
+    StructInitialization,
+}
+
+pub struct Program {}
+
+pub struct Generator {
     global_defs: IndexMap<String, GlobalDef>,
-    global_vars: IndexMap<String, VarDef>,
+    global_variables: IndexMap<String, VarDef>,
     local_vars: IndexMap<String, VarDef>,
     ret_types: IndexMap<String, FnType>,
     label_index: AtomicI32,
@@ -226,11 +232,11 @@ pub struct GeneratorStore {
     struct_props: IndexMap<String, StructProp>,
 }
 
-impl GeneratorStore {
+impl Generator {
     fn new() -> Self {
         Self {
             global_defs: IndexMap::new(),
-            global_vars: IndexMap::new(),
+            global_variables: IndexMap::new(),
             local_vars: IndexMap::new(),
             ret_types: IndexMap::new(),
             label_index: AtomicI32::new(0),
@@ -249,122 +255,18 @@ impl GeneratorStore {
     }
 }
 
-pub fn gen(prog: Box<ast::Program>) {
-    let mut store = GeneratorStore::new();
-    handle_global_defs(&prog, &mut store);
-}
-
-fn handle_global_defs(prog: &Box<ast::Program>, store: &mut GeneratorStore) {
-    for elem in prog.elements.iter() {
-        use ast::ProgramElementInner::*;
-
-        match &elem.inner {
-            VarDeclStmt(stmt) => {
-                handle_global_var_decl_stmt(stmt, store);
-            }
-            StructDef(_) => {
-                // handle_struct_def(struct_def, store);
-                todo!()
-            }
-            FnDeclStmt(fn_decl) => {
-                handle_fn_decl(fn_decl, store);
-            }
-            FnDef(fn_def) => {
-                handle_fn_def(fn_def, store);
-            }
-            _ => {
-                panic!("[Error] Unsupported program element: {:?}", elem);
-            }
-        }
-    }
-}
-
-fn handle_global_var_decl_stmt(stmt: &Box<ast::VarDeclStmt>, store: &mut GeneratorStore) {
-    let val_type = stmt.inner.get_type().as_ref();
-    let id = stmt.inner.get_id();
-    let name = BlockLabel::from_str(id);
-
-    let (kind, len, struct_name, init) = match &stmt.inner {
-        ast::VarDeclStmtInner::Decl(decl) => match val_type {
-            Some(ast::Type {
-                inner: ast::TypeInner::StructType(ref name),
-                ..
-            }) => {
-                let (kind, len) = match &decl.inner {
-                    ast::VarDeclInner::Array(array_decl) => {
-                        (VariableType::StructPtr, array_decl.len)
-                    }
-                    _ => (VariableType::Struct, 0),
-                };
-                (kind, len, Some(name.to_string()), Vec::new())
-            }
-            _ => {
-                let (kind, len) = match &decl.inner {
-                    ast::VarDeclInner::Array(array_decl) => (VariableType::IntPtr, array_decl.len),
-                    _ => (VariableType::Int, 0),
-                };
-                (kind, len, None, Vec::new())
-            }
-        },
-        ast::VarDeclStmtInner::Def(def) => match val_type {
-            Some(ast::Type {
-                inner: ast::TypeInner::StructType(ref name),
-                ..
-            }) => {
-                let (kind, len) = match &def.inner {
-                    ast::VarDefInner::Array(array_def) => (VariableType::StructPtr, array_def.len),
-                    _ => (VariableType::Struct, 0),
-                };
-                (kind, len, Some(name.to_string()), Vec::new())
-            }
-            _ => {
-                let mut init = Vec::new();
-                let (kind, len) = match &def.inner {
-                    ast::VarDefInner::Array(array_def) => {
-                        for val in array_def.vals.iter() {
-                            init.push(handle_right_val_first(val, store));
-                        }
-                        (VariableType::IntPtr, array_def.len)
-                    }
-                    ast::VarDefInner::Scalar(scalar) => {
-                        init.push(handle_right_val_first(scalar.val.as_ref(), store));
-                        (VariableType::Int, 0)
-                    }
-                };
-                (kind, len, None, init)
-            }
-        },
-    };
-
-    store.global_vars.insert(
-        id.clone(),
-        VarDef {
-            name: id.to_string(),
-            var: Rc::new(Operand::Global(Box::new(GlobalVar {
-                base: VariableBase {
-                    kind,
-                    len,
-                    struct_name,
-                },
-                name,
-            }))),
-            init,
-        },
-    );
-}
-
-fn handle_fn_decl(stmt: &Box<ast::FnDeclStmt>, store: &mut GeneratorStore) {
+fn handle_fn_decl(stmt: &Box<ast::FnDeclStmt>, store: &mut Generator) {
     let ft = match stmt.fn_decl.ret_type.as_ref() {
         None => FnType {
             ret_type: RetType::Void,
             struct_name: String::new(),
         },
         Some(t) => match &t.inner {
-            ast::TypeInner::NativeType(_) => FnType {
+            ast::DtypeInner::BuiltIn(_) => FnType {
                 ret_type: RetType::Int,
                 struct_name: String::new(),
             },
-            ast::TypeInner::StructType(type_name) => FnType {
+            ast::DtypeInner::Composite(type_name) => FnType {
                 ret_type: RetType::Struct,
                 struct_name: type_name.as_ref().clone(),
             },
@@ -382,7 +284,7 @@ fn handle_fn_decl(stmt: &Box<ast::FnDeclStmt>, store: &mut GeneratorStore) {
         Some(params) => {
             for decl in params.decls.iter() {
                 match &decl.inner {
-                    ast::VarDeclInner::Scalar(_) => match decl.real_type.as_ref() {
+                    ast::VarDeclInner::Scalar(_) => match decl.dtype.as_ref() {
                         None => args.push(VarDef {
                             name: String::new(),
                             var: Rc::new(Operand::Local(Box::new(LocalVar::create_int(
@@ -391,7 +293,7 @@ fn handle_fn_decl(stmt: &Box<ast::FnDeclStmt>, store: &mut GeneratorStore) {
                             init: Vec::new(),
                         }),
                         Some(inner) => match &inner.inner {
-                            ast::TypeInner::StructType(t) => {
+                            ast::DtypeInner::Composite(t) => {
                                 args.push(VarDef {
                                     name: t.as_ref().clone(),
                                     var: Rc::new(Operand::Local(Box::new(
@@ -404,7 +306,7 @@ fn handle_fn_decl(stmt: &Box<ast::FnDeclStmt>, store: &mut GeneratorStore) {
                                     init: Vec::new(),
                                 });
                             }
-                            ast::TypeInner::NativeType(_) => {
+                            ast::DtypeInner::BuiltIn(_) => {
                                 args.push(VarDef {
                                     name: String::new(),
                                     var: Rc::new(Operand::Local(Box::new(LocalVar::create_int(
@@ -415,7 +317,7 @@ fn handle_fn_decl(stmt: &Box<ast::FnDeclStmt>, store: &mut GeneratorStore) {
                             }
                         },
                     },
-                    ast::VarDeclInner::Array(_) => match decl.real_type.as_ref() {
+                    ast::VarDeclInner::Array(_) => match decl.dtype.as_ref() {
                         None => args.push(VarDef {
                             name: String::new(),
                             var: Rc::new(Operand::Local(Box::new(LocalVar::create_int(
@@ -424,7 +326,7 @@ fn handle_fn_decl(stmt: &Box<ast::FnDeclStmt>, store: &mut GeneratorStore) {
                             init: Vec::new(),
                         }),
                         Some(inner) => match &inner.inner {
-                            ast::TypeInner::StructType(t) => {
+                            ast::DtypeInner::Composite(t) => {
                                 args.push(VarDef {
                                     name: t.as_ref().clone(),
                                     var: Rc::new(Operand::Local(Box::new(
@@ -437,7 +339,7 @@ fn handle_fn_decl(stmt: &Box<ast::FnDeclStmt>, store: &mut GeneratorStore) {
                                     init: Vec::new(),
                                 });
                             }
-                            ast::TypeInner::NativeType(_) => {
+                            ast::DtypeInner::BuiltIn(_) => {
                                 args.push(VarDef {
                                     name: String::new(),
                                     var: Rc::new(Operand::Local(Box::new(
@@ -463,7 +365,7 @@ fn handle_fn_decl(stmt: &Box<ast::FnDeclStmt>, store: &mut GeneratorStore) {
     );
 }
 
-fn handle_fn_def(stmt: &Box<ast::FnDef>, store: &mut GeneratorStore) {
+fn handle_fn_def(stmt: &Box<ast::FnDef>, store: &mut Generator) {
     let id = stmt.fn_decl.id.clone();
     if store.ret_types.get(&id).is_none() {
         let ft = match stmt.fn_decl.ret_type.as_ref() {
@@ -472,11 +374,11 @@ fn handle_fn_def(stmt: &Box<ast::FnDef>, store: &mut GeneratorStore) {
                 struct_name: String::new(),
             },
             Some(t) => match &t.inner {
-                ast::TypeInner::NativeType(_) => FnType {
+                ast::DtypeInner::BuiltIn(_) => FnType {
                     ret_type: RetType::Int,
                     struct_name: String::new(),
                 },
-                ast::TypeInner::StructType(type_name) => FnType {
+                ast::DtypeInner::Composite(type_name) => FnType {
                     ret_type: RetType::Struct,
                     struct_name: type_name.as_ref().clone(),
                 },
@@ -487,7 +389,7 @@ fn handle_fn_def(stmt: &Box<ast::FnDef>, store: &mut GeneratorStore) {
     }
 }
 
-fn handle_right_val_first(r: &ast::RightVal, store: &mut GeneratorStore) -> i32 {
+fn handle_right_val_first(r: &ast::RightVal, store: &mut Generator) -> i32 {
     match &r.inner {
         ast::RightValInner::ArithExpr(expr) => handle_arith_expr_first(&expr),
         ast::RightValInner::BoolExpr(expr) => handle_bool_expr_first(&expr, store),
@@ -501,7 +403,7 @@ fn handle_arith_expr_first(expr: &ast::ArithExpr) -> i32 {
     }
 }
 
-fn handle_bool_expr_first(expr: &ast::BoolExpr, store: &mut GeneratorStore) -> i32 {
+fn handle_bool_expr_first(expr: &ast::BoolExpr, store: &mut Generator) -> i32 {
     match &expr.inner {
         ast::BoolExprInner::BoolBiOpExpr(expr) => handle_bool_biop_expr_first(&expr, store),
         ast::BoolExprInner::BoolUnit(unit) => handle_bool_unit_first(&unit, store),
@@ -536,7 +438,7 @@ fn handle_arith_uexpr_first(u: &ast::ArithUExpr) -> i32 {
     }
 }
 
-fn handle_bool_biop_expr_first(expr: &ast::BoolBiOpExpr, store: &mut GeneratorStore) -> i32 {
+fn handle_bool_biop_expr_first(expr: &ast::BoolBiOpExpr, store: &mut Generator) -> i32 {
     let left = handle_bool_expr_first(&expr.left, store) != 0;
     let right = handle_bool_expr_first(&expr.right, store) != 0;
     if expr.op == ast::BoolBiOp::And {
@@ -546,7 +448,7 @@ fn handle_bool_biop_expr_first(expr: &ast::BoolBiOpExpr, store: &mut GeneratorSt
     }
 }
 
-fn handle_bool_unit_first(unit: &ast::BoolUnit, store: &mut GeneratorStore) -> i32 {
+fn handle_bool_unit_first(unit: &ast::BoolUnit, store: &mut Generator) -> i32 {
     match &unit.inner {
         ast::BoolUnitInner::ComExpr(expr) => handle_com_op_expr(&expr, store),
         ast::BoolUnitInner::BoolExpr(expr) => handle_bool_expr_first(&expr, store),
@@ -554,7 +456,7 @@ fn handle_bool_unit_first(unit: &ast::BoolUnit, store: &mut GeneratorStore) -> i
     }
 }
 
-fn handle_com_op_expr(expr: &ast::ComExpr, store: &mut GeneratorStore) -> i32 {
+fn handle_com_op_expr(expr: &ast::ComExpr, store: &mut Generator) -> i32 {
     let _ = ptr_deref(handle_expr_unit(&expr.left, store), store).as_ref();
     let _ = ptr_deref(handle_expr_unit(&expr.right, store), store).as_ref();
     /*match &expr.op {
@@ -568,7 +470,7 @@ fn handle_com_op_expr(expr: &ast::ComExpr, store: &mut GeneratorStore) -> i32 {
     return 0;
 }
 
-fn handle_bool_uop_expr(expr: &ast::BoolUOpExpr, store: &mut GeneratorStore) -> i32 {
+fn handle_bool_uop_expr(expr: &ast::BoolUOpExpr, store: &mut Generator) -> i32 {
     if expr.op == ast::BoolUOp::Not {
         (handle_bool_unit_first(&expr.cond, store) == 0) as i32
     } else {
@@ -576,14 +478,14 @@ fn handle_bool_uop_expr(expr: &ast::BoolUOpExpr, store: &mut GeneratorStore) -> 
     }
 }
 
-fn handle_expr_unit(unit: &ast::ExprUnit, store: &mut GeneratorStore) -> Rc<Operand> {
+fn handle_expr_unit(unit: &ast::ExprUnit, store: &mut Generator) -> Rc<Operand> {
     match &unit.inner {
         ast::ExprUnitInner::Num(num) => Rc::new(Operand::Interger(*num)),
         ast::ExprUnitInner::Id(id) => {
             if let Some(def) = store.local_vars.get(id) {
-                Rc::clone(&def.var)
-            } else if let Some(def) = store.global_vars.get(id) {
-                Rc::clone(&def.var)
+                Rc::clone(&def.inner)
+            } else if let Some(def) = store.global_variables.get(id) {
+                Rc::clone(&def.inner)
             } else {
                 panic!("[Error] {} undefined.", id);
             }
@@ -628,14 +530,14 @@ fn handle_expr_unit(unit: &ast::ExprUnit, store: &mut GeneratorStore) -> Rc<Oper
     }
 }
 
-fn handle_arith_expr(expr: &ast::ArithExpr, store: &mut GeneratorStore) -> Rc<Operand> {
+fn handle_arith_expr(expr: &ast::ArithExpr, store: &mut Generator) -> Rc<Operand> {
     match &expr.inner {
         ast::ArithExprInner::ArithBiOpExpr(expr) => handle_arith_biop_expr(&expr, store),
         ast::ArithExprInner::ExprUnit(unit) => handle_expr_unit(&unit, store),
     }
 }
 
-fn handle_arith_biop_expr(expr: &ast::ArithBiOpExpr, store: &mut GeneratorStore) -> Rc<Operand> {
+fn handle_arith_biop_expr(expr: &ast::ArithBiOpExpr, store: &mut Generator) -> Rc<Operand> {
     let left = handle_arith_expr(&expr.left, store);
     let right = handle_arith_expr(&expr.right, store);
     let dst = Rc::new(Operand::Local(Box::new(LocalVar::create_int(
@@ -655,7 +557,7 @@ fn handle_arith_biop_expr(expr: &ast::ArithBiOpExpr, store: &mut GeneratorStore)
     dst
 }
 
-fn handle_right_val(val: &ast::RightVal, store: &mut GeneratorStore) -> Rc<Operand> {
+fn handle_right_val(val: &ast::RightVal, store: &mut Generator) -> Rc<Operand> {
     match &val.inner {
         ast::RightValInner::ArithExpr(expr) => handle_arith_expr(expr, store),
         ast::RightValInner::BoolExpr(expr) => {
@@ -700,7 +602,7 @@ fn handle_bool_expr(
     expr: &ast::BoolExpr,
     true_label: Option<BlockLabel>,
     false_label: Option<BlockLabel>,
-    store: &mut GeneratorStore,
+    store: &mut Generator,
 ) -> Option<Rc<Operand>> {
     if true_label.is_none() && false_label.is_none() {
         let true_label = BlockLabel::from_index(store.get_next_label_index());
@@ -776,7 +678,7 @@ fn handle_bool_biop_expr(
     expr: &ast::BoolBiOpExpr,
     true_label: Option<BlockLabel>,
     false_label: Option<BlockLabel>,
-    store: &mut GeneratorStore,
+    store: &mut Generator,
 ) {
     let eval_right_label = BlockLabel::from_index(store.get_next_label_index());
     let lhs = handle_bool_expr(&expr.left, None, None, store);
@@ -822,7 +724,7 @@ fn handle_bool_unit(
     unit: &ast::BoolUnit,
     true_label: Option<BlockLabel>,
     false_label: Option<BlockLabel>,
-    store: &mut GeneratorStore,
+    store: &mut Generator,
 ) {
     match &unit.inner {
         ast::BoolUnitInner::ComExpr(expr) => {
@@ -842,7 +744,7 @@ fn produce_bool_val(
     false_label: BlockLabel,
     after_label: BlockLabel,
     bool_evaluated: Rc<Operand>,
-    store: &mut GeneratorStore,
+    store: &mut Generator,
 ) {
     let store_src_true = Rc::new(Operand::Interger(1));
     let store_src_false = Rc::new(Operand::Interger(0));
@@ -864,12 +766,12 @@ fn produce_bool_val(
     store.emit_irs.push(stmt::Stmt::as_jump(after_label));
 }
 
-fn handle_array_expr(expr: &ast::ArrayExpr, store: &mut GeneratorStore) -> Rc<Operand> {
+fn handle_array_expr(expr: &ast::ArrayExpr, store: &mut Generator) -> Rc<Operand> {
     let arr = handle_left_val(&expr.arr, store);
     let target = match arr.as_ref() {
         Operand::Interger(_) => panic!("[Error] Invalid array expression"),
         Operand::Local(inner) | Operand::Global(inner) => {
-            if let VariableType::IntPtr = inner.kind() {
+            if let Dtype::IntPtr = inner.kind() {
                 Rc::new(Operand::Local(Box::new(LocalVar::create_int_ptr(
                     store.get_next_vreg_index(),
                     0,
@@ -894,7 +796,7 @@ fn handle_array_expr(expr: &ast::ArrayExpr, store: &mut GeneratorStore) -> Rc<Op
     target
 }
 
-fn handle_left_val(val: &ast::LeftVal, store: &mut GeneratorStore) -> Rc<Operand> {
+fn handle_left_val(val: &ast::LeftVal, store: &mut Generator) -> Rc<Operand> {
     match &val.inner {
         ast::LeftValInner::Id(id) => {
             let lval;
@@ -912,7 +814,7 @@ fn handle_left_val(val: &ast::LeftVal, store: &mut GeneratorStore) -> Rc<Operand
     }
 }
 
-fn handle_member_expr(expr: &ast::MemberExpr, store: &mut GeneratorStore) -> Rc<Operand> {
+fn handle_member_expr(expr: &ast::MemberExpr, store: &mut Generator) -> Rc<Operand> {
     let s = handle_left_val(&expr.struct_id, store);
     let type_name = match s.as_ref() {
         Operand::Interger(_) => panic!("[Error]: Invalid Left value."),
@@ -932,26 +834,24 @@ fn handle_member_expr(expr: &ast::MemberExpr, store: &mut GeneratorStore) -> Rc<
     let target = match member.def.var.as_ref() {
         Operand::Interger(_) => panic!("Invalid member"),
         Operand::Local(inner) | Operand::Global(inner) => match inner.kind() {
-            VariableType::Int => Rc::new(Operand::Local(Box::new(LocalVar::create_int_ptr(
+            Dtype::Int => Rc::new(Operand::Local(Box::new(LocalVar::create_int_ptr(
                 store.get_next_vreg_index(),
                 0,
             )))),
-            VariableType::IntPtr => Rc::new(Operand::Local(Box::new(LocalVar::create_int_ptr(
+            Dtype::IntPtr => Rc::new(Operand::Local(Box::new(LocalVar::create_int_ptr(
                 store.get_next_vreg_index(),
                 *inner.len(),
             )))),
-            VariableType::Struct => Rc::new(Operand::Local(Box::new(LocalVar::create_struct_ptr(
+            Dtype::Struct => Rc::new(Operand::Local(Box::new(LocalVar::create_struct_ptr(
                 store.get_next_vreg_index(),
                 0,
                 inner.struct_name().clone().unwrap(),
             )))),
-            VariableType::StructPtr => {
-                Rc::new(Operand::Local(Box::new(LocalVar::create_struct_ptr(
-                    store.get_next_vreg_index(),
-                    *inner.len(),
-                    inner.struct_name().clone().unwrap(),
-                ))))
-            }
+            Dtype::StructPtr => Rc::new(Operand::Local(Box::new(LocalVar::create_struct_ptr(
+                store.get_next_vreg_index(),
+                *inner.len(),
+                inner.struct_name().clone().unwrap(),
+            )))),
         },
     };
 
@@ -964,7 +864,7 @@ fn handle_member_expr(expr: &ast::MemberExpr, store: &mut GeneratorStore) -> Rc<
     target
 }
 
-fn handle_index_expr(expr: &ast::IndexExpr, store: &mut GeneratorStore) -> Rc<Operand> {
+fn handle_index_expr(expr: &ast::IndexExpr, store: &mut Generator) -> Rc<Operand> {
     match &expr.inner {
         ast::IndexExprInner::Id(id) => {
             let idx = LocalVar::create_int(store.get_next_vreg_index());
@@ -989,7 +889,7 @@ fn handle_index_expr(expr: &ast::IndexExpr, store: &mut GeneratorStore) -> Rc<Op
     }
 }
 
-fn handle_arith_uexpr(expr: &ast::ArithUExpr, store: &mut GeneratorStore) -> Rc<Operand> {
+fn handle_arith_uexpr(expr: &ast::ArithUExpr, store: &mut Generator) -> Rc<Operand> {
     let val = ptr_deref(handle_expr_unit(expr.expr.as_ref(), store), store);
     let res = LocalVar::create_int(store.get_next_vreg_index());
     let res_op = Rc::new(Operand::Local(Box::new(res)));
@@ -1003,11 +903,11 @@ fn handle_arith_uexpr(expr: &ast::ArithUExpr, store: &mut GeneratorStore) -> Rc<
     res_op
 }
 
-fn ptr_deref(op: Rc<Operand>, store: &mut GeneratorStore) -> Rc<Operand> {
+fn ptr_deref(op: Rc<Operand>, store: &mut Generator) -> Rc<Operand> {
     match op.as_ref() {
         Operand::Interger(_) => op,
         Operand::Local(inner) | Operand::Global(inner) => {
-            if let VariableType::IntPtr = inner.kind() {
+            if let Dtype::IntPtr = inner.kind() {
                 if *inner.len() == 0 {
                     let val = LocalVar::create_int(store.get_next_vreg_index());
                     let dst = Rc::new(Operand::Local(Box::new(val)));
@@ -1018,7 +918,7 @@ fn ptr_deref(op: Rc<Operand>, store: &mut GeneratorStore) -> Rc<Operand> {
                 } else {
                     return op;
                 }
-            } else if let VariableType::Int = inner.kind() {
+            } else if let Dtype::Int = inner.kind() {
                 op
             } else {
                 op
