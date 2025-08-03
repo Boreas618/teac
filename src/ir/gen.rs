@@ -1,7 +1,141 @@
-use crate::ast;
+use crate::ast::{self};
 use crate::common::Translate;
-use crate::ir;
+use crate::ir::{self, Dtype};
 use std::rc::Rc;
+use std::usize;
+
+pub trait BaseDtype {
+    fn type_specifier(&self) -> &Option<ast::TypeSepcifier>;
+
+    fn base_dtype(&self) -> Dtype {
+        match self.type_specifier().as_ref().as_ref().map(|t| &t.inner) {
+            Some(ast::TypeSpecifierInner::Composite(name)) => Dtype::Struct {
+                name: name.to_string(),
+            },
+            Some(ast::TypeSpecifierInner::BuiltIn(_)) | None => Dtype::I32,
+        }
+    }
+}
+
+pub trait Named {
+    fn identifier(&self) -> String;
+}
+
+impl BaseDtype for ast::VarDecl {
+    fn type_specifier(&self) -> &Option<ast::TypeSepcifier> {
+        &self.type_specifier
+    }
+}
+
+impl Named for ast::VarDecl {
+    fn identifier(&self) -> String {
+        self.identifier.clone()
+    }
+}
+
+impl BaseDtype for ast::VarDef {
+    fn type_specifier(&self) -> &Option<ast::TypeSepcifier> {
+        &self.type_specifier
+    }
+}
+
+impl Named for ast::VarDef {
+    fn identifier(&self) -> String {
+        self.identifier.clone()
+    }
+}
+
+impl Named for ast::VarDeclStmt {
+    fn identifier(&self) -> String {
+        match &self.inner {
+            ast::VarDeclStmtInner::Decl(d) => d.identifier.clone(),
+            ast::VarDeclStmtInner::Def(d) => d.identifier.clone(),
+        }
+    }
+}
+
+impl ast::VarDef {
+    fn initializers(&self) -> Vec<i32> {
+        match &self.inner {
+            ast::VarDefInner::Array(def) => {
+                let initializers = def
+                    .vals
+                    .iter()
+                    .map(|val| ir::Generator::handle_right_val_static(val))
+                    .collect();
+
+                initializers
+            }
+
+            // Global variable should be statically assigned
+            ast::VarDefInner::Scalar(scalar) => {
+                let value = ir::Generator::handle_right_val_static(&scalar.val);
+                vec![value]
+            }
+        }
+    }
+}
+
+impl From<ast::TypeSepcifier> for Dtype {
+    fn from(a: ast::TypeSepcifier) -> Self {
+        Self::from(&a)
+    }
+}
+
+impl From<&ast::TypeSepcifier> for Dtype {
+    fn from(a: &ast::TypeSepcifier) -> Self {
+        match &a.inner {
+            ast::TypeSpecifierInner::BuiltIn(_) => Self::I32,
+            ast::TypeSpecifierInner::Composite(name) => Self::Struct {
+                name: name.to_string(),
+            },
+        }
+    }
+}
+
+impl TryFrom<&ast::VarDecl> for Dtype {
+    type Error = ir::Error;
+
+    fn try_from(decl: &ast::VarDecl) -> Result<Self, Self::Error> {
+        let base_dtype = decl.base_dtype();
+        match &decl.inner {
+            ast::VarDeclInner::Array(decl) => Ok(Dtype::Pointer {
+                inner: Box::new(base_dtype),
+                length: decl.len,
+            }),
+            ast::VarDeclInner::Scalar(_) => Ok(decl.base_dtype()),
+        }
+    }
+}
+
+impl TryFrom<&ast::VarDef> for Dtype {
+    type Error = ir::Error;
+
+    fn try_from(def: &ast::VarDef) -> Result<Self, Self::Error> {
+        if let Dtype::Struct { .. } = &def.base_dtype() {
+            return Err(ir::Error::StructInitialization);
+        }
+        let base_dtype = def.base_dtype();
+        match &def.inner {
+            ast::VarDefInner::Array(def) => Ok(Dtype::Pointer {
+                inner: Box::new(base_dtype),
+                length: def.len,
+            }),
+            ast::VarDefInner::Scalar(_) => Ok(base_dtype),
+        }
+    }
+}
+
+impl TryFrom<&ast::VarDeclStmt> for Dtype {
+    type Error = ir::Error;
+
+    fn try_from(value: &ast::VarDeclStmt) -> Result<Self, Self::Error> {
+        match &value.inner {
+            ast::VarDeclStmtInner::Decl(d) => Dtype::try_from(d.as_ref()),
+            ast::VarDeclStmtInner::Def(d) => Dtype::try_from(d.as_ref()),
+        }
+    }
+}
 
 impl Translate<ast::Program> for ir::Generator {
     type Target = ir::Program;
@@ -15,17 +149,14 @@ impl Translate<ast::Program> for ir::Generator {
                     self.handle_global_var_decl_stmt(stmt)?;
                 }
                 StructDef(_) => {
-                    // handle_struct_def(struct_def, store);
-                    todo!()
+                    // self.handle_struct_def(struct_def);
+                    todo!();
                 }
                 FnDeclStmt(fn_decl) => {
-                    // handle_fn_decl(fn_decl, store);
+                    self.handle_fn_decl(fn_decl);
                 }
                 FnDef(fn_def) => {
-                    // handle_fn_def(fn_def, store);
-                }
-                _ => {
-                    panic!("[Error] Unsupported program element: {:?}", elem);
+                    self.handle_fn_def(fn_def);
                 }
             }
         }
@@ -34,105 +165,38 @@ impl Translate<ast::Program> for ir::Generator {
 }
 
 impl ir::Generator {
-    fn handle_global_var_decl_stmt(
-        &mut self,
-        stmt: &Box<ast::VarDeclStmt>,
-    ) -> Result<(), ir::Error> {
-        let inner_stmt = &stmt.inner;
-        let id = inner_stmt.identifier();
-        let name = ir::BlockLabel::from_str(id);
+    /// Static methods used during IR generation for static evaluation.
+    ///
+    /// Some parts of the program, such as global variable initializations,
+    /// must be evaluated statically rather than at runtime. Also, we expose
+    /// these static evaluation functions publicly. This won't be probelmatic,
+    /// as they do not produce side effects on the internal state of the IR
+    /// generator.
 
-        let base_dtype = match inner_stmt.dtype().as_ref() {
-            Some(ast::Dtype {
-                inner: ast::DtypeInner::Composite(name),
-                ..
-            }) => ir::Dtype::Struct {
-                name: name.to_string(),
-                is_const: false,
-            },
-            _ => ir::Dtype::I32 { is_const: false },
-        };
-
-        // If the statement declares an array or pointer
-        let (extended_dtype, initializers) = match inner_stmt {
-            ast::VarDeclStmtInner::Decl(decl) => {
-                let dtype = match &decl.inner {
-                    ast::VarDeclInner::Array(array_decl) => ir::Dtype::Pointer {
-                        inner: Box::new(base_dtype),
-                        is_const: false,
-                        length: array_decl.len,
-                    },
-                    ast::VarDeclInner::Scalar(_) => base_dtype,
-                };
-                (dtype, None)
-            }
-
-            ast::VarDeclStmtInner::Def(def) => {
-                if let ir::Dtype::Struct { .. } = &base_dtype {
-                    return Err(ir::Error::StructInitialization);
-                }
-
-                match &def.inner {
-                    ast::VarDefInner::Array(array_def) => {
-                        let initializers = array_def
-                            .vals
-                            .iter()
-                            .map(|val| self.handle_right_val_first(val))
-                            .collect();
-
-                        let dtype = ir::Dtype::Pointer {
-                            inner: Box::new(base_dtype),
-                            is_const: false,
-                            length: array_def.len,
-                        };
-                        (dtype, Some(initializers))
-                    }
-
-                    ast::VarDefInner::Scalar(scalar) => {
-                        let value = self.handle_right_val_first(scalar.val.as_ref());
-                        (base_dtype, Some(vec![value]))
-                    }
-                }
-            }
-        };
-
-        let definition = ir::VarDef {
-            inner: Rc::new(ir::Operand::Global(Box::new(ir::GlobalVar {
-                dtype: extended_dtype,
-                name,
-            }))),
-            initializers,
-        };
-
-        self.global_variables.insert(id.clone(), definition);
-
-        Ok(())
-    }
-
-    fn handle_right_val_first(&mut self, r: &ast::RightVal) -> i32 {
+    pub fn handle_right_val_static(r: &ast::RightVal) -> i32 {
         match &r.inner {
-            ast::RightValInner::ArithExpr(expr) => self.handle_arith_expr_first(&expr),
-            ast::RightValInner::BoolExpr(expr) => self.handle_bool_expr_first(&expr),
+            ast::RightValInner::ArithExpr(expr) => Self::handle_arith_expr_static(&expr),
+            ast::RightValInner::BoolExpr(expr) => Self::handle_bool_expr_static(&expr),
         }
     }
 
-    fn handle_arith_expr_first(&mut self, expr: &ast::ArithExpr) -> i32 {
+    pub fn handle_arith_expr_static(expr: &ast::ArithExpr) -> i32 {
         match &expr.inner {
-            ast::ArithExprInner::ArithBiOpExpr(expr) => self.handle_arith_biop_expr_first(&expr),
-            ast::ArithExprInner::ExprUnit(unit) => self.handle_expr_unit_first(&unit),
+            ast::ArithExprInner::ArithBiOpExpr(expr) => Self::handle_arith_biop_expr_static(&expr),
+            ast::ArithExprInner::ExprUnit(unit) => Self::handle_expr_unit_static(&unit),
         }
     }
 
-    fn handle_bool_expr_first(&mut self, expr: &ast::BoolExpr) -> i32 {
+    pub fn handle_bool_expr_static(expr: &ast::BoolExpr) -> i32 {
         match &expr.inner {
-            ast::BoolExprInner::BoolBiOpExpr(expr) => self.handle_bool_biop_expr_first(&expr),
-            ast::BoolExprInner::BoolUnit(unit) => self.handle_bool_unit_first(&unit),
+            ast::BoolExprInner::BoolBiOpExpr(expr) => Self::handle_bool_biop_expr_static(&expr),
+            ast::BoolExprInner::BoolUnit(unit) => Self::handle_bool_unit_static(&unit),
         }
     }
 
-    fn handle_arith_biop_expr_first(&mut self, expr: &ast::ArithBiOpExpr) -> i32 {
-        let left = self.handle_arith_expr_first(&expr.left);
-        let right = self.handle_arith_expr_first(&expr.right);
+    pub fn handle_arith_biop_expr_static(expr: &ast::ArithBiOpExpr) -> i32 {
+        let left = Self::handle_arith_expr_static(&expr.left);
+        let right = Self::handle_arith_expr_static(&expr.right);
         match &expr.op {
             ast::ArithBiOp::Add => left + right,
             ast::ArithBiOp::Sub => left - right,
@@ -141,18 +205,18 @@ impl ir::Generator {
         }
     }
 
-    fn handle_expr_unit_first(&mut self, expr: &ast::ExprUnit) -> i32 {
+    pub fn handle_expr_unit_static(expr: &ast::ExprUnit) -> i32 {
         match &expr.inner {
             ast::ExprUnitInner::Num(num) => *num,
-            ast::ExprUnitInner::ArithExpr(expr) => self.handle_arith_expr_first(&expr),
-            ast::ExprUnitInner::ArithUExpr(expr) => self.handle_arith_uexpr_first(&expr),
+            ast::ExprUnitInner::ArithExpr(expr) => Self::handle_arith_expr_static(&expr),
+            ast::ExprUnitInner::ArithUExpr(expr) => Self::handle_arith_uexpr_static(&expr),
             _ => panic!("[Error] Not supported expr unit."),
         }
     }
 
-    fn handle_bool_biop_expr_first(&mut self, expr: &ast::BoolBiOpExpr) -> i32 {
-        let left = self.handle_bool_expr_first(&expr.left) != 0;
-        let right = self.handle_bool_expr_first(&expr.right) != 0;
+    pub fn handle_bool_biop_expr_static(expr: &ast::BoolBiOpExpr) -> i32 {
+        let left = Self::handle_bool_expr_static(&expr.left) != 0;
+        let right = Self::handle_bool_expr_static(&expr.right) != 0;
         if expr.op == ast::BoolBiOp::And {
             (left && right) as i32
         } else {
@@ -160,20 +224,60 @@ impl ir::Generator {
         }
     }
 
-    fn handle_bool_unit_first(&mut self, unit: &ast::BoolUnit) -> i32 {
+    pub fn handle_bool_unit_static(unit: &ast::BoolUnit) -> i32 {
         match &unit.inner {
-            ast::BoolUnitInner::ComExpr(expr) => self.handle_com_op_expr(&expr),
-            ast::BoolUnitInner::BoolExpr(expr) => self.handle_bool_expr_first(&expr),
-            ast::BoolUnitInner::BoolUOpExpr(expr) => self.handle_bool_uop_expr(&expr),
+            ast::BoolUnitInner::ComExpr(expr) => Self::handle_com_op_expr_static(&expr),
+            ast::BoolUnitInner::BoolExpr(expr) => Self::handle_bool_expr_static(&expr),
+            ast::BoolUnitInner::BoolUOpExpr(expr) => Self::handle_bool_uop_expr_static(&expr),
         }
     }
 
-    fn handle_arith_uexpr_first(&mut self, u: &ast::ArithUExpr) -> i32 {
+    pub fn handle_arith_uexpr_static(u: &ast::ArithUExpr) -> i32 {
         if u.op == ast::ArithUOp::Neg {
-            -self.handle_expr_unit_first(&u.expr)
+            -Self::handle_expr_unit_static(&u.expr)
         } else {
             0
         }
+    }
+
+    pub fn handle_com_op_expr_static(expr: &ast::ComExpr) -> i32 {
+        let left = Self::handle_expr_unit_static(&expr.left);
+        let right = Self::handle_expr_unit_static(&expr.right);
+        match expr.op {
+            ast::ComOp::Lt => (left < right) as i32,
+            ast::ComOp::Eq => (left == right) as i32,
+            ast::ComOp::Ge => (left >= right) as i32,
+            ast::ComOp::Gt => (left > right) as i32,
+            ast::ComOp::Le => (left <= right) as i32,
+            ast::ComOp::Ne => (left != right) as i32,
+        }
+    }
+
+    pub fn handle_bool_uop_expr_static(expr: &ast::BoolUOpExpr) -> i32 {
+        if expr.op == ast::BoolUOp::Not {
+            (Self::handle_bool_unit_static(&expr.cond) == 0) as i32
+        } else {
+            0
+        }
+    }
+
+    fn handle_global_var_decl_stmt(&mut self, stmt: &ast::VarDeclStmt) -> Result<(), ir::Error> {
+        let identifier = stmt.identifier();
+        let dtype = ir::Dtype::try_from(stmt)?;
+        let initializers = if let ast::VarDeclStmtInner::Def(d) = &stmt.inner {
+            Some(d.initializers())
+        } else {
+            None
+        };
+
+        let definition = ir::VarDef {
+            inner: Rc::new(ir::Operand::make_global(dtype, identifier.clone())),
+            initializers,
+        };
+
+        self.global_variables.insert(identifier, definition);
+
+        Ok(())
     }
 
     fn handle_com_op_expr(&mut self, expr: &ast::ComExpr) -> i32 {
@@ -188,7 +292,7 @@ impl ir::Generator {
         match &unit.inner {
             ast::ExprUnitInner::Num(num) => Rc::new(ir::Operand::Interger(*num)),
             ast::ExprUnitInner::Id(id) => {
-                if let Some(def) = self.local_vars.get(id) {
+                if let Some(def) = self.local_variables.get(id) {
                     Rc::clone(&def.inner)
                 } else if let Some(def) = self.global_variables.get(id) {
                     Rc::clone(&def.inner)
@@ -199,13 +303,13 @@ impl ir::Generator {
             ast::ExprUnitInner::ArithExpr(expr) => self.handle_arith_expr(expr),
             ast::ExprUnitInner::FnCall(fn_call) => {
                 let name = fn_call.name.clone();
-                let res = if let Some(_) = self.ret_types.get(&name) {
-                    match self.ret_types[&name].ret_type {
+                let res = if let Some(_) = self.return_dtypes.get(&name) {
+                    match self.return_dtypes[&name].return_dtype {
                         ir::RetType::Int => ir::Operand::Local(Box::new(ir::LocalVar::create_int(
                             self.get_next_vreg_index(),
                         ))),
                         ir::RetType::Struct => {
-                            let type_name = self.ret_types[&name].struct_name.clone();
+                            let type_name = self.return_dtypes[&name].struct_name.clone();
                             ir::Operand::Local(Box::new(ir::LocalVar::create_struct(
                                 self.get_next_vreg_index(),
                                 type_name,
@@ -273,14 +377,6 @@ impl ir::Generator {
 
                 dst
             }
-        }
-    }
-
-    fn handle_bool_uop_expr(&mut self, expr: &ast::BoolUOpExpr) -> i32 {
-        if expr.op == ast::BoolUOp::Not {
-            (self.handle_bool_unit_first(&expr.cond) == 0) as i32
-        } else {
-            0
         }
     }
 
@@ -375,8 +471,8 @@ impl ir::Generator {
         match &val.inner {
             ast::LeftValInner::Id(id) => {
                 let lval;
-                if self.local_vars.get(id).is_some() {
-                    lval = Rc::clone(&self.local_vars.get(id).unwrap().inner)
+                if self.local_variables.get(id).is_some() {
+                    lval = Rc::clone(&self.local_variables.get(id).unwrap().inner)
                 } else if self.global_variables.get(id).is_some() {
                     lval = Rc::clone(&self.global_variables.get(id).unwrap().inner)
                 } else {
@@ -521,8 +617,8 @@ impl ir::Generator {
             ast::IndexExprInner::Id(id) => {
                 let idx = ir::LocalVar::create_int(self.get_next_vreg_index());
                 let retval = Rc::new(ir::Operand::Local(Box::new(idx)));
-                if self.local_vars.get(id).is_some() {
-                    let src = self.local_vars.get(id).unwrap();
+                if self.local_variables.get(id).is_some() {
+                    let src = self.local_variables.get(id).unwrap();
                     self.emit_irs.push(ir::stmt::Stmt::as_load(
                         Rc::clone(&retval),
                         Rc::clone(&src.inner),
@@ -607,6 +703,72 @@ impl ir::Generator {
             ast::BoolUnitInner::BoolUOpExpr(expr) => {
                 let _ = self.handle_bool_unit(&expr.cond, false_label, true_label);
             }
+        }
+    }
+
+    fn handle_fn_decl(&mut self, stmt: &Box<ast::FnDeclStmt>) -> Result<(), ir::Error> {
+        let id = &stmt.fn_decl.id;
+
+        // Record the type of the return value of the function, void if return type specifier absents
+        self.return_dtypes.insert(
+            id.clone(),
+            match stmt.fn_decl.return_dtype.as_ref() {
+                Some(type_specifier) => type_specifier.into(),
+                None => ir::Dtype::Void,
+            },
+        );
+
+        let mut args: Vec<ir::VarDef> = Vec::new();
+
+        if let Some(params) = &stmt.fn_decl.param_decl {
+            for decl in params.decls.iter() {
+                let identifier = Some(decl.identifier());
+                let dtype = ir::Dtype::try_from(decl)?;
+                let index = self.get_next_vreg_index();
+
+                args.push(ir::VarDef {
+                    initializers: None,
+                    inner: Rc::new(ir::Operand::Local(Box::new(ir::LocalVar {
+                        dtype,
+                        identifier,
+                        index,
+                    }))),
+                });
+            }
+        }
+
+        self.definitions.insert(
+            id.clone(),
+            ir::GlobalDef::Func(ir::FnDecl {
+                name: id.clone(),
+                args: args,
+            }),
+        );
+
+        Ok(())
+    }
+
+    fn handle_fn_def(&mut self, stmt: &Box<ast::FnDef>) {
+        let id = stmt.fn_decl.id.clone();
+        if self.return_dtypes.get(&id).is_none() {
+            let ft = match stmt.fn_decl.return_dtype.as_ref() {
+                None => ir::FnType {
+                    return_dtype: ir::RetType::Void,
+                    struct_name: String::new(),
+                },
+                Some(t) => match &t.inner {
+                    ast::TypeSpecifierInner::BuiltIn(_) => ir::FnType {
+                        return_dtype: ir::RetType::Int,
+                        struct_name: String::new(),
+                    },
+                    ast::TypeSpecifierInner::Composite(type_name) => ir::FnType {
+                        return_dtype: ir::RetType::Struct,
+                        struct_name: type_name.as_ref().clone(),
+                    },
+                },
+            };
+
+            self.return_dtypes.insert(id, ft);
         }
     }
 

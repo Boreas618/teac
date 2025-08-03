@@ -1,22 +1,21 @@
 use std::rc::Rc;
-
 type Pos = usize;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum BuiltIn {
     Int,
 }
 
-#[derive(Debug)]
-pub enum DtypeInner {
+#[derive(Debug, Clone)]
+pub enum TypeSpecifierInner {
     BuiltIn(Box<BuiltIn>),
     Composite(Box<String>),
 }
 
-#[derive(Debug)]
-pub struct Dtype {
+#[derive(Debug, Clone)]
+pub struct TypeSepcifier {
     pub pos: Pos,
-    pub inner: DtypeInner,
+    pub inner: TypeSpecifierInner,
 }
 
 #[derive(Debug)]
@@ -260,7 +259,7 @@ pub enum VarDeclInner {
 pub struct VarDecl {
     pub pos: Pos,
     pub identifier: String,
-    pub dtype: Rc<Option<Dtype>>,
+    pub type_specifier: Rc<Option<TypeSepcifier>>,
     pub inner: VarDeclInner,
 }
 
@@ -274,7 +273,7 @@ pub enum VarDefInner {
 pub struct VarDef {
     pub pos: Pos,
     pub identifier: String,
-    pub dtype: Rc<Option<Dtype>>,
+    pub type_specifier: Rc<Option<TypeSepcifier>>,
     pub inner: VarDefInner,
 }
 
@@ -295,22 +294,6 @@ pub struct VarDefArray {
 pub enum VarDeclStmtInner {
     Decl(Box<VarDecl>),
     Def(Box<VarDef>),
-}
-
-impl VarDeclStmtInner {
-    pub fn identifier(&self) -> &String {
-        match self {
-            VarDeclStmtInner::Decl(decl) => &decl.identifier,
-            VarDeclStmtInner::Def(def) => &def.identifier,
-        }
-    }
-
-    pub fn dtype(&self) -> &Rc<Option<Dtype>> {
-        match self {
-            VarDeclStmtInner::Decl(decl) => &decl.dtype,
-            VarDeclStmtInner::Def(def) => &def.dtype,
-        }
-    }
 }
 
 #[derive(Debug)]
@@ -360,7 +343,7 @@ pub struct FnDecl {
     pub pos: Pos,
     pub id: String,
     pub param_decl: Option<Box<ParamDecl>>,
-    pub ret_type: Rc<Option<Dtype>>,
+    pub return_dtype: Rc<Option<TypeSepcifier>>,
 }
 
 #[derive(Debug)]
