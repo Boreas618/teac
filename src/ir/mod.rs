@@ -2,6 +2,7 @@ mod gen;
 mod stmt;
 
 use crate::ast::{self, BoolBiOp};
+use crate::ir::gen::Named;
 use indexmap::IndexMap;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicI32, Ordering};
@@ -48,8 +49,54 @@ pub struct StructDef {
 }
 
 pub struct FnDecl {
-    name: String,
+    identifier: String,
     args: Vec<VarDef>,
+    return_dtype: Dtype,
+}
+
+impl PartialEq<ast::FnDecl> for FnDecl {
+    fn eq(&self, rhs: &ast::FnDecl) -> bool {
+        let rhs_dtype = match rhs
+            .return_dtype
+            .as_ref()
+            .as_ref()
+            .and_then(|ty| Some(Dtype::from(ty)))
+        {
+            Some(dtype) => dtype,
+            None => Dtype::Void,
+        };
+
+        if self.return_dtype != rhs_dtype {
+            return false;
+        }
+
+        let mut rhs_args = Vec::new();
+        if let Some(params) = &rhs.param_decl {
+            for decl in params.decls.iter() {
+                let identifier = decl.identifier.clone();
+                let dtype = match Dtype::try_from(decl) {
+                    Ok(t) => t,
+                    Err(_) => return false,
+                };
+
+                rhs_args.push((identifier, dtype));
+            }
+        }
+
+        let num_args = self.args.len();
+        if rhs_args.len() != num_args {
+            return false;
+        }
+
+        for (lhs_arg, (rhs_id, rhs_dtype)) in self.args.iter().zip(rhs_args) {
+            let lhs = lhs_arg.inner.as_ref();
+            if lhs.identifier().unwrap_or(String::new()) != rhs_id || lhs.dtype() != &rhs_dtype {
+                return false;
+            }
+        }
+
+        true
+    }
 }
 
 pub struct VarDef {
@@ -60,6 +107,7 @@ pub struct VarDef {
 pub enum GlobalDef {
     Struct(StructDef),
     Func(FnDecl),
+    Variable(VarDef),
 }
 
 #[derive(Clone)]
@@ -96,6 +144,12 @@ impl Typed for GlobalVar {
     }
 }
 
+impl Named for GlobalVar {
+    fn identifier(&self) -> Option<String> {
+        Some(self.identifier.clone())
+    }
+}
+
 pub struct LocalVar {
     dtype: Dtype,
     index: i32,
@@ -105,6 +159,12 @@ pub struct LocalVar {
 impl Typed for LocalVar {
     fn dtype(&self) -> &Dtype {
         &self.dtype
+    }
+}
+
+impl Named for LocalVar {
+    fn identifier(&self) -> Option<String> {
+        self.identifier.clone()
     }
 }
 
@@ -149,14 +209,34 @@ impl LocalVar {
 }
 
 pub enum Operand {
-    Local(Box<dyn Typed>),
-    Global(Box<dyn Typed>),
+    Local(Box<LocalVar>),
+    Global(Box<GlobalVar>),
     Interger(i32),
 }
 
 impl Operand {
     pub fn make_global(dtype: Dtype, identifier: String) -> Self {
         Self::Global(Box::new(GlobalVar { dtype, identifier }))
+    }
+}
+
+impl Typed for Operand {
+    fn dtype(&self) -> &Dtype {
+        match self {
+            Operand::Local(o) => o.dtype(),
+            Operand::Global(o) => o.dtype(),
+            Operand::Interger(_) => &Dtype::I32,
+        }
+    }
+}
+
+impl Named for Operand {
+    fn identifier(&self) -> Option<String> {
+        match self {
+            Operand::Local(o) => o.identifier(),
+            Operand::Global(o) => o.identifier(),
+            Operand::Interger(_) => None,
+        }
     }
 }
 
@@ -180,15 +260,22 @@ pub struct FnProp {
 pub enum Error {
     #[error("initialization of structs not supported")]
     StructInitialization,
+
+    #[error("redefined symbol {symbol}")]
+    RedefinedSymbol { symbol: String },
+
+    #[error("symbol missing")]
+    SymbolMissing,
+
+    #[error("Mismatched declaration and definition of {symbol}")]
+    DeclDefMismatch { symbol: String },
 }
 
 pub struct Program {}
 
 pub struct Generator {
     definitions: IndexMap<String, GlobalDef>,
-    global_variables: IndexMap<String, VarDef>,
     local_variables: IndexMap<String, VarDef>,
-    return_dtypes: IndexMap<String, Dtype>,
     label_index: AtomicI32,
     vreg_index: AtomicI32,
     emit_irs: Vec<stmt::Stmt>,
@@ -199,9 +286,7 @@ impl Generator {
     fn new() -> Self {
         Self {
             definitions: IndexMap::new(),
-            global_variables: IndexMap::new(),
             local_variables: IndexMap::new(),
-            return_dtypes: IndexMap::new(),
             label_index: AtomicI32::new(0),
             vreg_index: AtomicI32::new(100),
             emit_irs: Vec::new(),

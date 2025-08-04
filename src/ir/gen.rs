@@ -2,7 +2,6 @@ use crate::ast::{self};
 use crate::common::Translate;
 use crate::ir::{self, Dtype};
 use std::rc::Rc;
-use std::usize;
 
 pub trait BaseDtype {
     fn type_specifier(&self) -> &Option<ast::TypeSepcifier>;
@@ -18,7 +17,7 @@ pub trait BaseDtype {
 }
 
 pub trait Named {
-    fn identifier(&self) -> String;
+    fn identifier(&self) -> Option<String>;
 }
 
 impl BaseDtype for ast::VarDecl {
@@ -28,8 +27,8 @@ impl BaseDtype for ast::VarDecl {
 }
 
 impl Named for ast::VarDecl {
-    fn identifier(&self) -> String {
-        self.identifier.clone()
+    fn identifier(&self) -> Option<String> {
+        Some(self.identifier.clone())
     }
 }
 
@@ -40,16 +39,16 @@ impl BaseDtype for ast::VarDef {
 }
 
 impl Named for ast::VarDef {
-    fn identifier(&self) -> String {
-        self.identifier.clone()
+    fn identifier(&self) -> Option<String> {
+        Some(self.identifier.clone())
     }
 }
 
 impl Named for ast::VarDeclStmt {
-    fn identifier(&self) -> String {
+    fn identifier(&self) -> Option<String> {
         match &self.inner {
-            ast::VarDeclStmtInner::Decl(d) => d.identifier.clone(),
-            ast::VarDeclStmtInner::Def(d) => d.identifier.clone(),
+            ast::VarDeclStmtInner::Decl(d) => Some(d.identifier.clone()),
+            ast::VarDeclStmtInner::Def(d) => Some(d.identifier.clone()),
         }
     }
 }
@@ -148,15 +147,14 @@ impl Translate<ast::Program> for ir::Generator {
                 VarDeclStmt(stmt) => {
                     self.handle_global_var_decl_stmt(stmt)?;
                 }
-                StructDef(_) => {
-                    // self.handle_struct_def(struct_def);
-                    todo!();
-                }
                 FnDeclStmt(fn_decl) => {
                     self.handle_fn_decl(fn_decl);
                 }
                 FnDef(fn_def) => {
                     self.handle_fn_def(fn_def);
+                }
+                StructDef(_) => {
+                    todo!();
                 }
             }
         }
@@ -172,7 +170,6 @@ impl ir::Generator {
     /// these static evaluation functions publicly. This won't be probelmatic,
     /// as they do not produce side effects on the internal state of the IR
     /// generator.
-
     pub fn handle_right_val_static(r: &ast::RightVal) -> i32 {
         match &r.inner {
             ast::RightValInner::ArithExpr(expr) => Self::handle_arith_expr_static(&expr),
@@ -262,7 +259,11 @@ impl ir::Generator {
     }
 
     fn handle_global_var_decl_stmt(&mut self, stmt: &ast::VarDeclStmt) -> Result<(), ir::Error> {
-        let identifier = stmt.identifier();
+        let identifier = match stmt.identifier() {
+            Some(id) => id,
+            None => return Err(ir::Error::SymbolMissing),
+        };
+
         let dtype = ir::Dtype::try_from(stmt)?;
         let initializers = if let ast::VarDeclStmtInner::Def(d) = &stmt.inner {
             Some(d.initializers())
@@ -275,7 +276,8 @@ impl ir::Generator {
             initializers,
         };
 
-        self.global_variables.insert(identifier, definition);
+        self.definitions
+            .insert(identifier, ir::GlobalDef::Variable(definition));
 
         Ok(())
     }
@@ -473,8 +475,8 @@ impl ir::Generator {
                 let lval;
                 if self.local_variables.get(id).is_some() {
                     lval = Rc::clone(&self.local_variables.get(id).unwrap().inner)
-                } else if self.global_variables.get(id).is_some() {
-                    lval = Rc::clone(&self.global_variables.get(id).unwrap().inner)
+                } else if self.definitions.get(id).is_some() {
+                    lval = Rc::clone(&self.definitions.get(id).unwrap().inner)
                 } else {
                     panic!("[Error] {} not found.", &id);
                 }
@@ -706,23 +708,13 @@ impl ir::Generator {
         }
     }
 
-    fn handle_fn_decl(&mut self, stmt: &Box<ast::FnDeclStmt>) -> Result<(), ir::Error> {
-        let id = &stmt.fn_decl.id;
-
-        // Record the type of the return value of the function, void if return type specifier absents
-        self.return_dtypes.insert(
-            id.clone(),
-            match stmt.fn_decl.return_dtype.as_ref() {
-                Some(type_specifier) => type_specifier.into(),
-                None => ir::Dtype::Void,
-            },
-        );
+    fn handle_fn_decl(&mut self, decl: &ast::FnDecl) -> Result<(), ir::Error> {
+        let identifier = decl.identifier.clone();
 
         let mut args: Vec<ir::VarDef> = Vec::new();
-
-        if let Some(params) = &stmt.fn_decl.param_decl {
+        if let Some(params) = &decl.param_decl {
             for decl in params.decls.iter() {
-                let identifier = Some(decl.identifier());
+                let identifier = decl.identifier();
                 let dtype = ir::Dtype::try_from(decl)?;
                 let index = self.get_next_vreg_index();
 
@@ -738,38 +730,42 @@ impl ir::Generator {
         }
 
         self.definitions.insert(
-            id.clone(),
+            identifier.clone(),
             ir::GlobalDef::Func(ir::FnDecl {
-                name: id.clone(),
+                identifier,
                 args: args,
+                return_dtype: match decl.return_dtype.as_ref() {
+                    Some(type_specifier) => type_specifier.into(),
+                    None => ir::Dtype::Void,
+                },
             }),
         );
 
         Ok(())
     }
 
-    fn handle_fn_def(&mut self, stmt: &Box<ast::FnDef>) {
-        let id = stmt.fn_decl.id.clone();
-        if self.return_dtypes.get(&id).is_none() {
-            let ft = match stmt.fn_decl.return_dtype.as_ref() {
-                None => ir::FnType {
-                    return_dtype: ir::RetType::Void,
-                    struct_name: String::new(),
-                },
-                Some(t) => match &t.inner {
-                    ast::TypeSpecifierInner::BuiltIn(_) => ir::FnType {
-                        return_dtype: ir::RetType::Int,
-                        struct_name: String::new(),
-                    },
-                    ast::TypeSpecifierInner::Composite(type_name) => ir::FnType {
-                        return_dtype: ir::RetType::Struct,
-                        struct_name: type_name.as_ref().clone(),
-                    },
-                },
-            };
+    fn handle_fn_def(&mut self, stmt: &ast::FnDef) -> Result<(), ir::Error> {
+        let identifier = stmt.fn_decl.identifier.clone();
+        match self.definitions.get(&identifier) {
+            None => self.handle_fn_decl(&stmt.fn_decl)?,
 
-            self.return_dtypes.insert(id, ft);
+            Some(decl) => match decl {
+                ir::GlobalDef::Struct(_) | ir::GlobalDef::Variable(_) => {
+                    return Err(ir::Error::RedefinedSymbol {
+                        symbol: identifier.clone(),
+                    })
+                }
+                ir::GlobalDef::Func(f) => {
+                    if f != stmt.fn_decl.as_ref() {
+                        return Err(ir::Error::DeclDefMismatch {
+                            symbol: identifier.clone(),
+                        });
+                    }
+                }
+            },
         }
+
+        Ok(())
     }
 
     fn ptr_deref(&mut self, op: Rc<ir::Operand>) -> Rc<ir::Operand> {

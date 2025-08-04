@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::{ops::Deref, rc::Rc};
 type Pos = usize;
 
 #[derive(Debug, Clone)]
@@ -341,7 +341,7 @@ pub struct StructDef {
 #[derive(Debug)]
 pub struct FnDecl {
     pub pos: Pos,
-    pub id: String,
+    pub identifier: String,
     pub param_decl: Option<Box<ParamDecl>>,
     pub return_dtype: Rc<Option<TypeSepcifier>>,
 }
@@ -429,6 +429,14 @@ pub struct CodeBlockStmtList {
 pub struct FnDeclStmt {
     pub pos: Pos,
     pub fn_decl: Box<FnDecl>,
+}
+
+impl Deref for FnDeclStmt {
+    type Target = FnDecl;
+
+    fn deref(&self) -> &Self::Target {
+        &self.fn_decl
+    }
 }
 
 #[derive(Debug)]
