@@ -5,7 +5,7 @@ A Rust-based re-implementation of the [Teapl compiler](https://github.com/hxuhac
 ## Quick Start
 
 ```
-cargo run -- --input /Users/yisun/Projects/compiler_pj/tests/progs/dfs.tea
+cargo run -- --input tests/progs/dfs.tea
 ```
 
 ## Milestones
