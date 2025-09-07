@@ -137,7 +137,7 @@ impl Display for Stmt {
         match &self.inner {
             StmtInner::Alloca(s) => write!(f, "\t{}", s),
             StmtInner::BiOp(s) => write!(f, "\t{}", s),
-            StmtInner::CJump(s) => write!(f, "{\t}", s),
+            StmtInner::CJump(s) => write!(f, "\t{}", s),
             StmtInner::Call(s) => write!(f, "\t{}", s),
             StmtInner::Cmp(s) => write!(f, "\t{}", s),
             StmtInner::Gep(s) => write!(f, "\t{}", s),
@@ -275,7 +275,7 @@ impl Display for CallStmt {
 
 impl Display for LoadStmt {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{} = load {}, {}, align 4", self.dst, "ptr", self.ptr)
+        write!(f, "{} = load i32, ptr {}, align 4", self.dst, self.ptr)
     }
 }
 
@@ -308,7 +308,7 @@ impl Display for CmpStmt {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "{} = icmp {} {}, {}",
+            "{} = icmp {} i32 {}, {}",
             self.dst,
             icmp_predicate(&self.kind),
             self.left,
@@ -321,7 +321,7 @@ impl Display for CJumpStmt {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "br {}, {}, {}",
+            "br i1 {}, label %{}, label %{}",
             self.dst, &self.true_label, &self.false_label
         )
     }
@@ -335,27 +335,51 @@ impl Display for JumpStmt {
 
 impl Display for LabelStmt {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self.label {
-            ir::BlockLabel::BasicBlock(_) => write!(f, "{}:", self.label),
-            ir::BlockLabel::Function(_) => write!(f, "define {}:", self.label),
-        }
+        write!(f, "{}:", self.label)
     }
 }
 
 impl Display for GepStmt {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{} = getelementptr {}, {}, {}",
-            self.new_ptr, /* <pointee-ty>, */ "ptr", self.base_ptr, self.index
-        )
+        let t = if let Some(local) = self
+            .base_ptr
+            .as_ref()
+            .as_any()
+            .downcast_ref::<ir::LocalVariable>()
+        {
+            Ok(&local.dtype)
+        } else if let Some(global) = self
+            .base_ptr
+            .as_ref()
+            .as_any()
+            .downcast_ref::<ir::GlobalVariable>()
+        {
+            Ok(&global.dtype)
+        } else {
+            Err(std::fmt::Error)
+        }?;
+
+        if let ir::Dtype::Pointer { length, inner } = t {
+            write!(
+                f,
+                "{} = getelementptr [{} x {}], ptr {}, i32 {}, i32 {}",
+                self.new_ptr,
+                length,
+                dtype(inner.as_ref()),
+                self.base_ptr,
+                0,
+                self.index
+            )
+        } else {
+            Err(std::fmt::Error)
+        }
     }
 }
 
 impl Display for ReturnStmt {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         if let Some(v) = &self.val {
-            write!(f, "ret {}", v)
+            write!(f, "ret i32 {}", v)
         } else {
             write!(f, "ret void")
         }

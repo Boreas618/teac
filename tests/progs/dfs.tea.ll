@@ -1,4 +1,14 @@
-define i32 @quickread():
+declare i32 @getch();
+declare void @_sysy_starttime(i32 %r0);
+declare void @_sysy_stoptime(i32 %r0);
+declare void @putint(i32 %r0);
+declare void @putch(i32 %r0);
+define i32 @quickread() {
+quickread:
+	%r123 = alloca i32, align 4
+	%r118 = alloca i32, align 4
+	%r109 = alloca i32, align 4
+	%r104 = alloca i32, align 4
 	%r100 = call i32 @getch()
 	%r101 = alloca i32, align 4
 	store i32 %r100, ptr %r101, align 4
@@ -7,203 +17,260 @@ define i32 @quickread():
 	%r103 = alloca i32, align 4
 	store i32 0, ptr %r103, align 4
 	br label %bb1
-	%r104 = alloca i32, align 4
-	%r108 = alloca i32, align 4
-	%r112 = alloca i32, align 4
-	%r115 = alloca i32, align 4
-	%r119 = alloca i32, align 4
-	%r127 = alloca i32, align 4
 bb1:
-	%r105 = load ptr, %r101, align 4
+	%r105 = load i32, ptr %r101, align 4
+	%r106 = icmp slt i32 %r105, 48
+	br i1 %r106, label %bb5, label %bb6
 bb5:
 	store i32 1, ptr %r104, align 4
 	br label %bb7
 bb6:
 	store i32 0, ptr %r104, align 4
 	br label %bb7
+bb7:
+	%r108 = load i32, ptr %r104, align 4
+	%r107 = icmp ne i32 %r108, 0
+	br i1 %r107, label %bb2, label %bb4
 bb4:
-	%r109 = load ptr, %r101, align 4
+	%r110 = load i32, ptr %r101, align 4
+	%r111 = icmp sgt i32 %r110, 57
+	br i1 %r111, label %bb8, label %bb9
 bb8:
-	store i32 1, ptr %r108, align 4
+	store i32 1, ptr %r109, align 4
 	br label %bb10
 bb9:
-	store i32 0, ptr %r108, align 4
+	store i32 0, ptr %r109, align 4
 	br label %bb10
+bb10:
+	%r113 = load i32, ptr %r109, align 4
+	%r112 = icmp ne i32 %r113, 0
+	br i1 %r112, label %bb2, label %bb3
 bb2:
-	%r113 = load ptr, %r101, align 4
+	%r115 = load i32, ptr %r101, align 4
+	%r116 = icmp eq i32 %r115, 45
+	br i1 %r116, label %bb11, label %bb12
 bb11:
 	store i32 1, ptr %r103, align 4
 	br label %bb13
 bb12:
-	store i32 1, ptr %r103, align 4
 	br label %bb13
 bb13:
-	%r114 = call i32 @getch()
-	store i32 %r114, ptr %r101, align 4
+	%r117 = call i32 @getch()
+	store i32 %r117, ptr %r101, align 4
 	br label %bb1
 bb3:
 	br label %bb14
 bb14:
-	%r116 = load ptr, %r101, align 4
+	%r119 = load i32, ptr %r101, align 4
+	%r120 = icmp sge i32 %r119, 48
+	br i1 %r120, label %bb18, label %bb19
 bb18:
-	store i32 1, ptr %r115, align 4
+	store i32 1, ptr %r118, align 4
 	br label %bb20
 bb19:
-	store i32 0, ptr %r115, align 4
+	store i32 0, ptr %r118, align 4
 	br label %bb20
+bb20:
+	%r122 = load i32, ptr %r118, align 4
+	%r121 = icmp ne i32 %r122, 0
+	br i1 %r121, label %bb17, label %bb16
 bb17:
-	%r120 = load ptr, %r101, align 4
+	%r124 = load i32, ptr %r101, align 4
+	%r125 = icmp sle i32 %r124, 57
+	br i1 %r125, label %bb21, label %bb22
 bb21:
-	store i32 1, ptr %r119, align 4
+	store i32 1, ptr %r123, align 4
 	br label %bb23
 bb22:
-	store i32 0, ptr %r119, align 4
+	store i32 0, ptr %r123, align 4
 	br label %bb23
+bb23:
+	%r127 = load i32, ptr %r123, align 4
+	%r126 = icmp ne i32 %r127, 0
+	br i1 %r126, label %bb15, label %bb16
 bb15:
-	%r123 = mul %r102, 10
-	%r124 = add %r123, %r101
-	%r125 = sub %r124, 48
-	store i32 %r125, ptr %r102, align 4
-	%r126 = call i32 @getch()
-	store i32 %r126, ptr %r101, align 4
+	%r128 = load i32, ptr %r102, align 4
+	%r129 = mul %r128, 10
+	%r130 = load i32, ptr %r101, align 4
+	%r131 = add %r129, %r130
+	%r132 = sub %r131, 48
+	store i32 %r132, ptr %r102, align 4
+	%r133 = call i32 @getch()
+	store i32 %r133, ptr %r101, align 4
 	br label %bb14
 bb16:
-	%r128 = load ptr, %r103, align 4
+	%r135 = load i32, ptr %r103, align 4
+	%r136 = icmp ne i32 %r135, 0
+	br i1 %r136, label %bb24, label %bb25
 bb24:
-	%r129 = sub 0, %r102
-	ret %r129
+	%r137 = load i32, ptr %r102, align 4
+	%r138 = sub 0, %r137
+	ret i32 %r138
 bb25:
-	%r130 = sub 0, %r102
-	ret %r130
+	%r139 = load i32, ptr %r102, align 4
+	ret i32 %r139
 bb26:
-	ret 0
+	ret i32 0
+}
 
-define void @addedge(i32, i32,):
-	%r101 = load ptr, %cnt, align 4
-	%r100 = getelementptr ptr, %to, %r101
+define void @addedge(i32 %r0, i32 %r1) {
+addedge:
+	%r101 = load i32, ptr @cnt, align 4
+	%r100 = getelementptr [5005 x i32], ptr @to, i32 0, i32 %r101
 	store i32 %r1, ptr %r100, align 4
-	%r103 = load ptr, %cnt, align 4
-	%r102 = getelementptr ptr, %next, %r103
-	%r105 = load ptr, %r0, align 4
-	%r104 = getelementptr ptr, %head, %r105
-	%r106 = load ptr, %r104, align 4
-	store i32 %r104, ptr %r102, align 4
-	%r108 = load ptr, %r0, align 4
-	%r107 = getelementptr ptr, %head, %r108
-	store i32 %cnt, ptr %r107, align 4
-	%r109 = add %cnt, 1
-	store i32 %r109, ptr %cnt, align 4
-	%r111 = load ptr, %cnt, align 4
-	%r110 = getelementptr ptr, %to, %r111
+	%r103 = load i32, ptr @cnt, align 4
+	%r102 = getelementptr [5005 x i32], ptr @next, i32 0, i32 %r103
+	%r105 = load i32, ptr %r0, align 4
+	%r104 = getelementptr [1005 x i32], ptr @head, i32 0, i32 %r105
+	%r106 = load i32, ptr %r104, align 4
+	store i32 %r106, ptr %r102, align 4
+	%r108 = load i32, ptr %r0, align 4
+	%r107 = getelementptr [1005 x i32], ptr @head, i32 0, i32 %r108
+	store i32 @cnt, ptr %r107, align 4
+	%r109 = add @cnt, 1
+	store i32 %r109, ptr @cnt, align 4
+	%r111 = load i32, ptr @cnt, align 4
+	%r110 = getelementptr [5005 x i32], ptr @to, i32 0, i32 %r111
 	store i32 %r0, ptr %r110, align 4
-	%r113 = load ptr, %cnt, align 4
-	%r112 = getelementptr ptr, %next, %r113
-	%r115 = load ptr, %r1, align 4
-	%r114 = getelementptr ptr, %head, %r115
-	%r116 = load ptr, %r114, align 4
-	store i32 %r114, ptr %r112, align 4
-	%r118 = load ptr, %r1, align 4
-	%r117 = getelementptr ptr, %head, %r118
-	store i32 %cnt, ptr %r117, align 4
-	%r119 = add %cnt, 1
-	store i32 %r119, ptr %cnt, align 4
+	%r113 = load i32, ptr @cnt, align 4
+	%r112 = getelementptr [5005 x i32], ptr @next, i32 0, i32 %r113
+	%r115 = load i32, ptr %r1, align 4
+	%r114 = getelementptr [1005 x i32], ptr @head, i32 0, i32 %r115
+	%r116 = load i32, ptr %r114, align 4
+	store i32 %r116, ptr %r112, align 4
+	%r118 = load i32, ptr %r1, align 4
+	%r117 = getelementptr [1005 x i32], ptr @head, i32 0, i32 %r118
+	store i32 @cnt, ptr %r117, align 4
+	%r119 = add @cnt, 1
+	store i32 %r119, ptr @cnt, align 4
 	ret void
+}
 
-define void @init():
+define void @init() {
+init:
 	%r100 = alloca i32, align 4
 	store i32 0, ptr %r100, align 4
 	br label %bb1
 bb1:
-	%r101 = load ptr, %r100, align 4
+	%r101 = load i32, ptr %r100, align 4
+	%r102 = icmp slt i32 %r101, 1005
+	br i1 %r102, label %bb2, label %bb3
 bb2:
-	%r103 = load ptr, %r100, align 4
-	%r102 = getelementptr ptr, %head, %r103
-	store i32 -1, ptr %r102, align 4
-	%r104 = add %r100, 1
-	store i32 %r104, ptr %r100, align 4
+	%r104 = load i32, ptr %r100, align 4
+	%r103 = getelementptr [1005 x i32], ptr @head, i32 0, i32 %r104
+	store i32 -1, ptr %r103, align 4
+	%r105 = load i32, ptr %r100, align 4
+	%r106 = add %r105, 1
+	store i32 %r106, ptr %r100, align 4
 	br label %bb1
 bb3:
 	ret void
+}
 
-define void @clear():
+define void @clear() {
+clear:
 	%r100 = alloca i32, align 4
 	store i32 1, ptr %r100, align 4
 	br label %bb1
 bb1:
-	%r101 = load ptr, %r100, align 4
+	%r101 = load i32, ptr %r100, align 4
+	%r102 = icmp sle i32 %r101, @n
+	br i1 %r102, label %bb2, label %bb3
 bb2:
-	%r103 = load ptr, %r100, align 4
-	%r102 = getelementptr ptr, %vis, %r103
-	store i32 0, ptr %r102, align 4
-	%r104 = add %r100, 1
-	store i32 %r104, ptr %r100, align 4
+	%r104 = load i32, ptr %r100, align 4
+	%r103 = getelementptr [1005 x i32], ptr @vis, i32 0, i32 %r104
+	store i32 0, ptr %r103, align 4
+	%r105 = load i32, ptr %r100, align 4
+	%r106 = add %r105, 1
+	store i32 %r106, ptr %r100, align 4
 	br label %bb1
 bb3:
 	ret void
+}
 
-define i32 @same(i32, i32,):
-	%r101 = load ptr, %r0, align 4
-	%r100 = getelementptr ptr, %vis, %r101
-	store i32 1, ptr %r100, align 4
-	%r102 = alloca i32, align 4
-	%r106 = alloca i32, align 4
-	%r111 = alloca i32, align 4
+define i32 @same(i32 %r0, i32 %r1) {
+same:
+	%r122 = alloca i32, align 4
 	%r113 = alloca i32, align 4
-	%r119 = alloca i32, align 4
+	%r115 = alloca i32, align 4
+	%r107 = alloca i32, align 4
+	%r101 = load i32, ptr %r0, align 4
+	%r100 = getelementptr [1005 x i32], ptr @vis, i32 0, i32 %r101
+	store i32 1, ptr %r100, align 4
+	%r103 = icmp eq i32 %r0, %r1
+	br i1 %r103, label %bb1, label %bb2
 bb1:
-	ret 1
+	ret i32 1
 bb2:
-	ret 1
+	br label %bb3
 bb3:
-	%r104 = load ptr, %r0, align 4
-	%r103 = getelementptr ptr, %head, %r104
-	%r105 = load ptr, %r103, align 4
-	store i32 %r103, ptr %r106, align 4
+	%r105 = load i32, ptr %r0, align 4
+	%r104 = getelementptr [1005 x i32], ptr @head, i32 0, i32 %r105
+	%r106 = load i32, ptr %r104, align 4
+	store i32 %r106, ptr %r107, align 4
 	br label %bb4
 bb4:
-	%r107 = load ptr, %r106, align 4
+	%r108 = load i32, ptr %r107, align 4
+	%r109 = icmp ne i32 %r108, -1
+	br i1 %r109, label %bb5, label %bb6
 bb5:
-	%r109 = load ptr, %r106, align 4
-	%r108 = getelementptr ptr, %to, %r109
-	%r110 = load ptr, %r108, align 4
-	store i32 %r108, ptr %r111, align 4
-	%r115 = load ptr, %r111, align 4
-	%r114 = getelementptr ptr, %vis, %r115
-	%r116 = load ptr, %r114, align 4
+	%r111 = load i32, ptr %r107, align 4
+	%r110 = getelementptr [5005 x i32], ptr @to, i32 0, i32 %r111
+	%r112 = load i32, ptr %r110, align 4
+	store i32 %r112, ptr %r113, align 4
+	%r117 = load i32, ptr %r113, align 4
+	%r116 = getelementptr [1005 x i32], ptr @vis, i32 0, i32 %r117
+	%r118 = load i32, ptr %r116, align 4
+	%r119 = icmp eq i32 %r118, 0
+	br i1 %r119, label %bb11, label %bb12
 bb11:
-	store i32 1, ptr %r113, align 4
+	store i32 1, ptr %r115, align 4
 	br label %bb13
 bb12:
-	store i32 0, ptr %r113, align 4
+	store i32 0, ptr %r115, align 4
 	br label %bb13
+bb13:
+	%r121 = load i32, ptr %r115, align 4
+	%r120 = icmp ne i32 %r121, 0
+	br i1 %r120, label %bb10, label %bb8
 bb10:
-	%r121 = load ptr, %r111, align 4
-	%r120 = call i32 @same(%r111, %r1)
+	%r124 = load i32, ptr %r113, align 4
+	%r123 = call i32 @same(%r124, %r1)
+	%r125 = icmp ne i32 %r123, 0
+	br i1 %r125, label %bb14, label %bb15
 bb14:
-	store i32 1, ptr %r119, align 4
+	store i32 1, ptr %r122, align 4
 	br label %bb16
 bb15:
-	store i32 0, ptr %r119, align 4
+	store i32 0, ptr %r122, align 4
 	br label %bb16
+bb16:
+	%r127 = load i32, ptr %r122, align 4
+	%r126 = icmp ne i32 %r127, 0
+	br i1 %r126, label %bb7, label %bb8
 bb7:
-	ret 1
+	ret i32 1
 bb8:
-	ret 1
+	br label %bb9
 bb9:
-	%r125 = load ptr, %r106, align 4
-	%r124 = getelementptr ptr, %next, %r125
-	%r126 = load ptr, %r124, align 4
-	store i32 %r124, ptr %r106, align 4
+	%r129 = load i32, ptr %r107, align 4
+	%r128 = getelementptr [5005 x i32], ptr @next, i32 0, i32 %r129
+	%r130 = load i32, ptr %r128, align 4
+	store i32 %r130, ptr %r107, align 4
 	br label %bb4
 bb6:
-	ret 0
+	ret i32 0
+}
 
-define i32 @main():
+define i32 @main() {
+main:
+	%r112 = alloca i32, align 4
+	%r107 = alloca i32, align 4
 	call @_sysy_starttime(74)
 	%r100 = call i32 @quickread()
-	store i32 %r100, ptr %n, align 4
+	store i32 %r100, ptr @n, align 4
 	%r101 = call i32 @quickread()
-	store i32 %r101, ptr %m, align 4
+	store i32 %r101, ptr @m, align 4
 	call @init()
 	%r102 = alloca i32, align 4
 	store i32 0, ptr %r102, align 4
@@ -212,65 +279,76 @@ define i32 @main():
 	%r104 = alloca i32, align 4
 	store i32 0, ptr %r104, align 4
 	br label %bb1
-	%r106 = alloca i32, align 4
-	%r110 = alloca i32, align 4
-	%r115 = alloca i32, align 4
 bb1:
+	%r105 = icmp ne i32 @m, 0
+	br i1 %r105, label %bb2, label %bb3
 bb2:
-	%r105 = call i32 @getch()
-	store i32 %r105, ptr %r102, align 4
+	%r106 = call i32 @getch()
+	store i32 %r106, ptr %r102, align 4
 	br label %bb4
 bb4:
-	%r107 = load ptr, %r102, align 4
+	%r108 = load i32, ptr %r102, align 4
+	%r109 = icmp ne i32 %r108, 81
+	br i1 %r109, label %bb8, label %bb9
 bb8:
-	store i32 1, ptr %r106, align 4
+	store i32 1, ptr %r107, align 4
 	br label %bb10
 bb9:
-	store i32 0, ptr %r106, align 4
+	store i32 0, ptr %r107, align 4
 	br label %bb10
+bb10:
+	%r111 = load i32, ptr %r107, align 4
+	%r110 = icmp ne i32 %r111, 0
+	br i1 %r110, label %bb7, label %bb6
 bb7:
-	%r111 = load ptr, %r102, align 4
+	%r113 = load i32, ptr %r102, align 4
+	%r114 = icmp ne i32 %r113, 85
+	br i1 %r114, label %bb11, label %bb12
 bb11:
-	store i32 1, ptr %r110, align 4
+	store i32 1, ptr %r112, align 4
 	br label %bb13
 bb12:
-	store i32 0, ptr %r110, align 4
+	store i32 0, ptr %r112, align 4
 	br label %bb13
+bb13:
+	%r116 = load i32, ptr %r112, align 4
+	%r115 = icmp ne i32 %r116, 0
+	br i1 %r115, label %bb5, label %bb6
 bb5:
-	%r114 = call i32 @getch()
-	store i32 %r114, ptr %r102, align 4
+	%r117 = call i32 @getch()
+	store i32 %r117, ptr %r102, align 4
 	br label %bb4
 bb6:
-	%r116 = load ptr, %r102, align 4
+	%r119 = load i32, ptr %r102, align 4
+	%r120 = icmp eq i32 %r119, 81
+	br i1 %r120, label %bb14, label %bb15
 bb14:
-	%r117 = call i32 @quickread()
-	store i32 %r117, ptr %r103, align 4
-	%r118 = call i32 @quickread()
-	store i32 %r118, ptr %r104, align 4
+	%r121 = call i32 @quickread()
+	store i32 %r121, ptr %r103, align 4
+	%r122 = call i32 @quickread()
+	store i32 %r122, ptr %r104, align 4
 	call @clear()
-	%r120 = load ptr, %r103, align 4
-	%r121 = load ptr, %r104, align 4
-	%r119 = call i32 @same(%r103, %r104)
-	call @putint(%r119)
+	%r124 = load i32, ptr %r103, align 4
+	%r125 = load i32, ptr %r104, align 4
+	%r123 = call i32 @same(%r124, %r125)
+	call @putint(%r123)
 	call @putch(10)
 	br label %bb16
 bb15:
-	%r122 = call i32 @quickread()
-	store i32 %r122, ptr %r103, align 4
-	%r123 = call i32 @quickread()
-	store i32 %r123, ptr %r104, align 4
-	call @clear()
-	%r125 = load ptr, %r103, align 4
-	%r126 = load ptr, %r104, align 4
-	%r124 = call i32 @same(%r103, %r104)
-	call @putint(%r124)
-	call @putch(10)
+	%r126 = call i32 @quickread()
+	store i32 %r126, ptr %r103, align 4
+	%r127 = call i32 @quickread()
+	store i32 %r127, ptr %r104, align 4
+	%r128 = load i32, ptr %r103, align 4
+	%r129 = load i32, ptr %r104, align 4
+	call @addedge(%r128, %r129)
 	br label %bb16
 bb16:
-	%r127 = sub %m, 1
-	store i32 %r127, ptr %m, align 4
+	%r130 = sub @m, 1
+	store i32 %r130, ptr @m, align 4
 	br label %bb1
 bb3:
 	call @_sysy_stoptime(96)
-	ret 0
+	ret i32 0
+}
 

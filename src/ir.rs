@@ -1,13 +1,14 @@
 mod gen;
 mod stmt;
 
-use crate::ast::{self, ExprUnit};
+use crate::ast::{self};
+use crate::ir;
 use crate::ir::gen::Named;
 use indexmap::IndexMap;
 use std::any::Any;
 use std::fmt::{Display, Formatter};
 use std::fs::File;
-use std::io::{BufWriter, LineWriter, Write};
+use std::io::{BufWriter, Write};
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -141,7 +142,7 @@ impl Named for GlobalVariable {
 
 impl Display for GlobalVariable {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
-        write!(f, "%{}", self.identifier)
+        write!(f, "@{}", self.identifier)
     }
 }
 
@@ -332,6 +333,9 @@ pub enum Error {
 
     #[error("Unsupported return type")]
     ReturnTypeUnsupported,
+
+    #[error("Invalid Bool Expression")]
+    InvalidBoolExpr,
 }
 
 /// Equivalent to llvm::LLVMContext
@@ -366,15 +370,43 @@ impl ModuleGenerator {
 
     pub fn output(&self, writer: &mut BufWriter<File>) -> std::io::Result<()> {
         for (_, function) in &self.module.function_list {
-            if function.blocks.as_ref().is_none() {
-                continue;
+            let mut args = String::new();
+            for arg in &function.dtype.arguments {
+                let var = &arg
+                    .inner
+                    .as_ref()
+                    .as_any()
+                    .downcast_ref::<ir::LocalVariable>()
+                    .unwrap();
+                args += &format!("{} %r{}, ", ir::stmt::dtype(&var.dtype), var.index).to_string();
             }
-            for block in function.blocks.as_ref().unwrap() {
-                for stmt in block {
-                    writeln!(writer, "{}", stmt)?;
+            if args.ends_with(", ") {
+                args = args[0..args.len() - 2].to_string();
+            }
+            if function.blocks.as_ref().is_some() {
+                writeln!(
+                    writer,
+                    "define {} @{}({}) {{",
+                    ir::stmt::dtype(&function.dtype.return_dtype),
+                    function.identifier,
+                    args
+                )?;
+                for block in function.blocks.as_ref().unwrap() {
+                    for stmt in block {
+                        writeln!(writer, "{}", stmt)?;
+                    }
                 }
+                writeln!(writer, "}}")?;
+                writeln!(writer, "")?;
+            } else {
+                writeln!(
+                    writer,
+                    "declare {} @{}({});",
+                    ir::stmt::dtype(&function.dtype.return_dtype),
+                    function.identifier,
+                    args
+                )?;
             }
-            writeln!(writer, "")?;
         }
         Ok(())
     }

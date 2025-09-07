@@ -200,7 +200,7 @@ impl ir::ModuleGenerator {
                 .iter()
                 .cloned()
                 .partition(|x| matches!(x.inner, ir::stmt::StmtInner::Alloca(_)));
-            blocks[0].extend(allocas);
+            blocks[0].splice(1..1, allocas);
             blocks[block_index] = remaining;
         }
 
@@ -440,13 +440,36 @@ impl ir::ModuleGenerator {
 }
 
 impl<'ir> ir::FunctionGenerator<'ir> {
-    fn handle_com_op_expr(&mut self, expr: &ast::ComExpr) -> Result<i32, ir::Error> {
+    fn handle_com_op_expr(
+        &mut self,
+        expr: &ast::ComExpr,
+        true_label: ir::BlockLabel,
+        false_label: ir::BlockLabel,
+    ) -> Result<(), ir::Error> {
         let left = self.handle_expr_unit(&expr.left)?;
+        let left = self.ptr_deref(left);
         let right = self.handle_expr_unit(&expr.right)?;
-        let _ = self.ptr_deref(left).as_ref();
-        let _ = self.ptr_deref(right).as_ref();
+        let right = self.ptr_deref(right);
 
-        Ok(0)
+        let op = match expr.op {
+            ast::ComOp::Lt => ir::RelOpKind::Lt,
+            ast::ComOp::Eq => ir::RelOpKind::Eq,
+            ast::ComOp::Ge => ir::RelOpKind::Ge,
+            ast::ComOp::Gt => ir::RelOpKind::Gt,
+            ast::ComOp::Le => ir::RelOpKind::Le,
+            ast::ComOp::Ne => ir::RelOpKind::Ne,
+        };
+
+        let index = self.increment_virt_reg_index();
+        let dst: Rc<dyn ir::Operand> = Rc::new(ir::LocalVariable::create_int(index));
+
+        self.irs
+            .push(ir::stmt::Stmt::as_cmp(op, left, right, Rc::clone(&dst)));
+
+        self.irs
+            .push(ir::stmt::Stmt::as_cjump(dst, true_label, false_label));
+
+        Ok(())
     }
 
     fn handle_expr_unit(&mut self, unit: &ast::ExprUnit) -> Result<Rc<dyn ir::Operand>, ir::Error> {
@@ -518,7 +541,10 @@ impl<'ir> ir::FunctionGenerator<'ir> {
     ) -> Result<Rc<dyn ir::Operand>, ir::Error> {
         match &expr.inner {
             ast::ArithExprInner::ArithBiOpExpr(expr) => self.handle_arith_biop_expr(&expr),
-            ast::ArithExprInner::ExprUnit(unit) => self.handle_expr_unit(&unit),
+            ast::ArithExprInner::ExprUnit(unit) => {
+                let res = self.handle_expr_unit(&unit)?;
+                Ok(self.ptr_deref(res))
+            }
         }
     }
 
@@ -536,7 +562,7 @@ impl<'ir> ir::FunctionGenerator<'ir> {
                 let alloca_dst: Rc<dyn ir::Operand> = Rc::new(bool_evaluated);
                 self.irs
                     .push(ir::stmt::Stmt::as_alloca(Rc::clone(&alloca_dst)));
-                self.handle_bool_expr(expr, Some(true_label.clone()), Some(false_label.clone()));
+                self.handle_bool_expr(expr, Some(true_label.clone()), Some(false_label.clone()))?;
 
                 self.produce_bool_val(
                     true_label.clone(),
@@ -737,37 +763,45 @@ impl<'ir> ir::FunctionGenerator<'ir> {
         expr: &ast::BoolExpr,
         true_label: Option<ir::BlockLabel>,
         false_label: Option<ir::BlockLabel>,
-    ) -> Option<Rc<dyn ir::Operand>> {
+    ) -> Result<Option<Rc<dyn ir::Operand>>, ir::Error> {
         if true_label.is_none() && false_label.is_none() {
             let true_label = ir::BlockLabel::BasicBlock(self.increment_basic_block_index());
             let false_label = ir::BlockLabel::BasicBlock(self.increment_basic_block_index());
             let after_label = ir::BlockLabel::BasicBlock(self.increment_basic_block_index());
 
-            let bool_evaluated =
-                ir::LocalVariable::create_int_ptr(self.increment_virt_reg_index(), 0);
+            let bool_evaluated: Rc<dyn ir::Operand> = Rc::new(ir::LocalVariable::create_int_ptr(
+                self.increment_virt_reg_index(),
+                0,
+            ));
 
-            let alloca_dst: Rc<dyn Operand> = Rc::new(bool_evaluated);
             self.irs
-                .push(ir::stmt::Stmt::as_alloca(Rc::clone(&alloca_dst)));
+                .push(ir::stmt::Stmt::as_alloca(Rc::clone(&bool_evaluated)));
 
             match &expr.inner {
                 ast::BoolExprInner::BoolBiOpExpr(expr) => self.handle_bool_biop_expr(
                     expr,
                     Some(true_label.clone()),
                     Some(false_label.clone()),
-                ),
-                ast::BoolExprInner::BoolUnit(unit) => {
-                    self.handle_bool_unit(unit, Some(true_label.clone()), Some(false_label.clone()))
-                }
+                )?,
+                ast::BoolExprInner::BoolUnit(unit) => self.handle_bool_unit(
+                    unit,
+                    Some(true_label.clone()),
+                    Some(false_label.clone()),
+                )?,
             }
 
-            self.produce_bool_val(true_label, false_label, after_label, Rc::clone(&alloca_dst));
+            self.produce_bool_val(
+                true_label,
+                false_label,
+                after_label,
+                Rc::clone(&bool_evaluated),
+            );
 
             let truncated = ir::LocalVariable::create_int(self.increment_virt_reg_index());
             let bool_val = ir::LocalVariable::create_int(self.increment_virt_reg_index());
 
             let dst: Rc<dyn ir::Operand> = Rc::new(bool_val);
-            let ptr = Rc::clone(&alloca_dst);
+            let ptr = Rc::clone(&bool_evaluated);
             let retval: Rc<dyn ir::Operand> = Rc::new(truncated);
 
             self.irs
@@ -780,21 +814,21 @@ impl<'ir> ir::FunctionGenerator<'ir> {
                 Rc::clone(&retval),
             ));
 
-            return Some(retval);
+            return Ok(Some(retval));
         } else if true_label.is_none() || false_label.is_none() {
-            panic!("[Error] one of the jump target is null.");
+            return Err(ir::Error::InvalidBoolExpr);
         }
 
         match &expr.inner {
             ast::BoolExprInner::BoolBiOpExpr(expr) => {
-                self.handle_bool_biop_expr(expr, true_label, false_label)
+                self.handle_bool_biop_expr(expr, true_label, false_label)?
             }
             ast::BoolExprInner::BoolUnit(unit) => {
-                self.handle_bool_unit(unit, true_label, false_label)
+                self.handle_bool_unit(unit, true_label, false_label)?
             }
         }
 
-        return None;
+        Ok(None)
     }
 
     fn produce_bool_val(
@@ -819,7 +853,9 @@ impl<'ir> ir::FunctionGenerator<'ir> {
             store_src_false,
             Rc::clone(&store_ptr),
         ));
-        self.irs.push(ir::stmt::Stmt::as_jump(after_label));
+        self.irs.push(ir::stmt::Stmt::as_jump(after_label.clone()));
+
+        self.irs.push(ir::stmt::Stmt::as_label(after_label.clone()));
     }
 
     fn handle_index_expr(
@@ -857,9 +893,9 @@ impl<'ir> ir::FunctionGenerator<'ir> {
         expr: &ast::BoolBiOpExpr,
         true_label: Option<ir::BlockLabel>,
         false_label: Option<ir::BlockLabel>,
-    ) {
+    ) -> Result<(), ir::Error> {
         let eval_right_label = ir::BlockLabel::BasicBlock(self.increment_basic_block_index());
-        let lhs = self.handle_bool_expr(&expr.left, None, None);
+        let lhs = self.handle_bool_expr(&expr.left, None, None)?;
 
         let false_label_unwrapped = false_label.unwrap().clone();
         let true_label_unwrapped = true_label.unwrap().clone();
@@ -873,12 +909,14 @@ impl<'ir> ir::FunctionGenerator<'ir> {
                 ));
                 self.irs.push(ir::stmt::Stmt::as_label(eval_right_label));
 
-                let rhs = self.handle_bool_expr(&expr.right, None, None);
+                let rhs = self.handle_bool_expr(&expr.right, None, None)?;
                 self.irs.push(ir::stmt::Stmt::as_cjump(
                     rhs.unwrap(),
                     true_label_unwrapped,
                     false_label_unwrapped,
-                ))
+                ));
+
+                Ok(())
             }
             ast::BoolBiOp::Or => {
                 self.irs.push(ir::stmt::Stmt::as_cjump(
@@ -888,12 +926,14 @@ impl<'ir> ir::FunctionGenerator<'ir> {
                 ));
                 self.irs.push(ir::stmt::Stmt::as_label(eval_right_label));
 
-                let rhs = self.handle_bool_expr(&expr.right, None, None);
+                let rhs = self.handle_bool_expr(&expr.right, None, None)?;
                 self.irs.push(ir::stmt::Stmt::as_cjump(
                     rhs.unwrap(),
                     true_label_unwrapped,
                     false_label_unwrapped,
-                ))
+                ));
+
+                Ok(())
             }
         }
     }
@@ -903,16 +943,17 @@ impl<'ir> ir::FunctionGenerator<'ir> {
         unit: &ast::BoolUnit,
         true_label: Option<ir::BlockLabel>,
         false_label: Option<ir::BlockLabel>,
-    ) {
+    ) -> Result<(), ir::Error> {
         match &unit.inner {
             ast::BoolUnitInner::ComExpr(expr) => {
-                let _ = self.handle_com_op_expr(expr);
+                self.handle_com_op_expr(expr, true_label.unwrap(), false_label.unwrap())
             }
             ast::BoolUnitInner::BoolExpr(expr) => {
-                let _ = self.handle_bool_expr(expr, true_label, false_label);
+                let _ = self.handle_bool_expr(expr, true_label, false_label)?;
+                Ok(())
             }
             ast::BoolUnitInner::BoolUOpExpr(expr) => {
-                let _ = self.handle_bool_unit(&expr.cond, false_label, true_label);
+                self.handle_bool_unit(&expr.cond, false_label, true_label)
             }
         }
     }
@@ -925,6 +966,7 @@ impl<'ir> ir::FunctionGenerator<'ir> {
                     let dst: Rc<dyn ir::Operand> = Rc::new(val);
                     let stmt = ir::stmt::Stmt::as_load(Rc::clone(&dst), op.clone());
                     self.irs.push(stmt);
+                    return dst;
                 }
             }
         } else if let Some(inner) = op.as_any().downcast_ref::<ir::GlobalVariable>() {
@@ -934,6 +976,7 @@ impl<'ir> ir::FunctionGenerator<'ir> {
                     let dst: Rc<dyn ir::Operand> = Rc::new(val);
                     let stmt = ir::stmt::Stmt::as_load(Rc::clone(&dst), op.clone());
                     self.irs.push(stmt);
+                    return dst;
                 }
             }
         }
@@ -952,12 +995,6 @@ impl<'ir> ir::FunctionGenerator<'ir> {
             .get(identifier)
             .unwrap();
 
-        let mut function_label = format!(
-            "{} @{}(",
-            ir::stmt::dtype(&function_type.return_dtype),
-            identifier.clone()
-        );
-
         for var in function_type.arguments.iter() {
             let local_var = var
                 .inner
@@ -966,9 +1003,6 @@ impl<'ir> ir::FunctionGenerator<'ir> {
                 .downcast_ref::<ir::LocalVariable>()
                 .unwrap();
             let identifier = local_var.identifier.as_ref().unwrap().clone();
-
-            function_label += ir::stmt::dtype(&local_var.dtype);
-            function_label += ", ";
 
             self.local_variables.insert(
                 identifier,
@@ -981,14 +1015,8 @@ impl<'ir> ir::FunctionGenerator<'ir> {
             );
         }
 
-        if function_label.ends_with(", ") {
-            function_label.replace_range(function_label.len() - 1.., "");
-        }
-        function_label += ")";
-        
-
         self.irs.push(ir::stmt::Stmt::as_label(BlockLabel::Function(
-            function_label,
+            identifier.clone(),
         )));
 
         for stmt in from.stmts.iter() {
@@ -1047,7 +1075,7 @@ impl<'ir> ir::FunctionGenerator<'ir> {
                 Ok(())
             }
             ast::CodeBlockStmtInner::Break(_) => {
-                let label = bre_label.ok_or_else(|| return ir::Error::InvalidContinueInst)?;
+                let label = bre_label.ok_or_else(|| return ir::Error::InvalidBreakInst)?;
                 self.irs.push(ir::stmt::Stmt::as_jump(label));
                 Ok(())
             }
@@ -1219,7 +1247,7 @@ impl<'ir> ir::FunctionGenerator<'ir> {
             &stmt.bool_unit,
             Some(true_label.clone()),
             Some(false_label.clone()),
-        );
+        )?;
 
         self.irs
             .push(ir::stmt::Stmt::as_alloca(Rc::new(bool_evaluated)));
@@ -1233,8 +1261,10 @@ impl<'ir> ir::FunctionGenerator<'ir> {
 
         // False block
         self.irs.push(ir::stmt::Stmt::as_label(false_label));
-        for s in stmt.if_stmts.iter() {
-            self.handle_block(s, con_label.clone(), bre_label.clone())?;
+        if let Some(else_stmts) = &stmt.else_stmts {
+            for s in else_stmts.iter() {
+                self.handle_block(s, con_label.clone(), bre_label.clone())?;
+            }
         }
         self.irs.push(ir::stmt::Stmt::as_jump(after_label.clone()));
 
@@ -1269,7 +1299,7 @@ impl<'ir> ir::FunctionGenerator<'ir> {
             &stmt.bool_unit,
             Some(true_label.clone()),
             Some(false_label.clone()),
-        );
+        )?;
 
         // While body
         self.irs.push(ir::stmt::Stmt::as_label(true_label.clone()));
@@ -1290,7 +1320,7 @@ impl<'ir> ir::FunctionGenerator<'ir> {
             }
             Some(val) => {
                 let val = self.handle_right_val(val)?;
-                let val = self.ptr_deref(val);
+                // let val = self.ptr_deref(val);
                 self.irs.push(ir::stmt::Stmt::as_return(Some(val)));
             }
         }
