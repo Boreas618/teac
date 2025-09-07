@@ -1,6 +1,8 @@
-use crate::ast::{self};
-use crate::common::Translate;
-use crate::ir::{self, Dtype};
+use indexmap::IndexMap;
+
+use crate::ast::{self, AssignmentStmt};
+use crate::ir::stmt::Stmt;
+use crate::ir::{self, BlockLabel, Dtype, FunctionGenerator, Operand, StructMember, Typed};
 use std::rc::Rc;
 
 pub trait BaseDtype {
@@ -9,7 +11,7 @@ pub trait BaseDtype {
     fn base_dtype(&self) -> Dtype {
         match self.type_specifier().as_ref().as_ref().map(|t| &t.inner) {
             Some(ast::TypeSpecifierInner::Composite(name)) => Dtype::Struct {
-                name: name.to_string(),
+                type_name: name.to_string(),
             },
             Some(ast::TypeSpecifierInner::BuiltIn(_)) | None => Dtype::I32,
         }
@@ -53,28 +55,6 @@ impl Named for ast::VarDeclStmt {
     }
 }
 
-impl ast::VarDef {
-    fn initializers(&self) -> Vec<i32> {
-        match &self.inner {
-            ast::VarDefInner::Array(def) => {
-                let initializers = def
-                    .vals
-                    .iter()
-                    .map(|val| ir::Generator::handle_right_val_static(val))
-                    .collect();
-
-                initializers
-            }
-
-            // Global variable should be statically assigned
-            ast::VarDefInner::Scalar(scalar) => {
-                let value = ir::Generator::handle_right_val_static(&scalar.val);
-                vec![value]
-            }
-        }
-    }
-}
-
 impl From<ast::TypeSepcifier> for Dtype {
     fn from(a: ast::TypeSepcifier) -> Self {
         Self::from(&a)
@@ -86,7 +66,7 @@ impl From<&ast::TypeSepcifier> for Dtype {
         match &a.inner {
             ast::TypeSpecifierInner::BuiltIn(_) => Self::I32,
             ast::TypeSpecifierInner::Composite(name) => Self::Struct {
-                name: name.to_string(),
+                type_name: name.to_string(),
             },
         }
     }
@@ -136,40 +116,240 @@ impl TryFrom<&ast::VarDeclStmt> for Dtype {
     }
 }
 
-impl Translate<ast::Program> for ir::Generator {
-    type Target = ir::Program;
-    type Error = ir::Error;
-
-    fn translate(&mut self, prog: &ast::Program) -> Result<Self::Target, Self::Error> {
-        for elem in prog.elements.iter() {
+/// Walks all top-level program elements and builds IR metadata:
+/// - Function signatures (return type and parameter types)
+/// - Global variables
+/// - Struct definitions (and layouts)
+impl ir::ModuleGenerator {
+    pub fn gen(&mut self, from: &ast::Program) -> Result<(), ir::Error> {
+        for elem in from.elements.iter() {
             use ast::ProgramElementInner::*;
             match &elem.inner {
-                VarDeclStmt(stmt) => {
-                    self.handle_global_var_decl_stmt(stmt)?;
-                }
-                FnDeclStmt(fn_decl) => {
-                    self.handle_fn_decl(fn_decl);
-                }
-                FnDef(fn_def) => {
-                    self.handle_fn_def(fn_def);
-                }
-                StructDef(_) => {
-                    todo!();
+                VarDeclStmt(stmt) => self.handle_global_var_decl_stmt(stmt)?,
+                FnDeclStmt(fn_decl) => self.handle_fn_decl(fn_decl)?,
+                FnDef(fn_def) => self.handle_fn_def(fn_def)?,
+                StructDef(struct_def) => self.handle_struct_def(struct_def)?,
+            }
+        }
+
+        for elem in from.elements.iter() {
+            use ast::ProgramElementInner::*;
+            if let FnDef(fn_def) = &elem.inner {
+                let mut function_generator = FunctionGenerator {
+                    irs: Vec::new(),
+                    local_variables: IndexMap::new(),
+                    module_generator: self,
+                    virt_reg_index: 100,
+                    basic_block_index: 1,
+                };
+
+                function_generator.gen(fn_def)?;
+
+                // Harvest the emit irs from function_generator to module
+                let blocks = Self::harvest_function_irs(function_generator.irs);
+
+                let fun = self
+                    .module
+                    .function_list
+                    .get_mut(&fn_def.fn_decl.identifier);
+
+                if let Some(f) = fun {
+                    f.blocks = Some(blocks);
+                } else {
+                    return Err(ir::Error::FunctionNotDefined {
+                        symbol: fn_def.fn_decl.identifier.clone(),
+                    });
                 }
             }
         }
-        Ok(ir::Program {})
+
+        Ok(())
+    }
+
+    fn harvest_function_irs(irs: Vec<ir::stmt::Stmt>) -> Vec<Vec<Stmt>> {
+        let mut blocks = Vec::new();
+        let mut insts = Vec::new();
+
+        let mut flag = false;
+        for stmt in irs {
+            if let ir::stmt::StmtInner::Label(_) = &stmt.inner {
+                if !insts.is_empty() {
+                    blocks.push(insts);
+                    insts = Vec::new();
+                }
+                flag = false;
+            }
+            if flag {
+                continue;
+            }
+            if matches!(&stmt.inner, ir::stmt::StmtInner::Return(_))
+                || matches!(&stmt.inner, ir::stmt::StmtInner::CJump(_))
+                || matches!(&stmt.inner, ir::stmt::StmtInner::Jump(_))
+            {
+                flag = true;
+            }
+            insts.push(stmt);
+        }
+        if !insts.is_empty() {
+            blocks.push(insts);
+        }
+
+        for block_index in 1..blocks.len() {
+            let block = blocks.get(block_index).unwrap();
+            let (allocas, remaining): (Vec<Stmt>, Vec<Stmt>) = block
+                .iter()
+                .cloned()
+                .partition(|x| matches!(x.inner, ir::stmt::StmtInner::Alloca(_)));
+            blocks[0].extend(allocas);
+            blocks[block_index] = remaining;
+        }
+
+        return blocks;
+    }
+
+    fn handle_global_var_decl_stmt(&mut self, stmt: &ast::VarDeclStmt) -> Result<(), ir::Error> {
+        let identifier = match stmt.identifier() {
+            Some(id) => id,
+            None => return Err(ir::Error::SymbolMissing),
+        };
+
+        let dtype = ir::Dtype::try_from(stmt)?;
+        let initializers = if let ast::VarDeclStmtInner::Def(d) = &stmt.inner {
+            Some(match &d.inner {
+                ast::VarDefInner::Array(def) => {
+                    let initializers = def
+                        .vals
+                        .iter()
+                        .map(|val| Self::handle_right_val_static(val))
+                        .collect();
+
+                    initializers
+                }
+
+                // Global variable should be statically assigned
+                ast::VarDefInner::Scalar(scalar) => {
+                    let value = Self::handle_right_val_static(&scalar.val);
+                    vec![value]
+                }
+            })
+        } else {
+            None
+        };
+
+        self.module.global_list.insert(
+            identifier.clone(),
+            ir::GlobalVariable {
+                dtype,
+                identifier,
+                initializers,
+            },
+        );
+
+        Ok(())
+    }
+
+    fn handle_fn_decl(&mut self, decl: &ast::FnDecl) -> Result<(), ir::Error> {
+        let identifier = decl.identifier.clone();
+
+        let mut arguments: Vec<ir::VarDef> = Vec::new();
+        if let Some(params) = &decl.param_decl {
+            for (index, decl) in params.decls.iter().enumerate() {
+                let identifier = decl.identifier();
+                let dtype = ir::Dtype::try_from(decl)?;
+
+                arguments.push(ir::VarDef {
+                    initializers: None,
+                    inner: Rc::new(ir::LocalVariable {
+                        dtype,
+                        identifier,
+                        index,
+                    }),
+                });
+            }
+        }
+
+        let function_type = ir::FunctionType {
+            return_dtype: match decl.return_dtype.as_ref() {
+                Some(type_specifier) => type_specifier.into(),
+                None => ir::Dtype::Void,
+            },
+            arguments,
+        };
+
+        self.module.function_list.insert(
+            identifier.clone(),
+            ir::Function {
+                dtype: function_type.clone(),
+                identifier: identifier.clone(),
+                blocks: None,
+            },
+        );
+
+        self.registry
+            .function_types
+            .insert(identifier.clone(), function_type);
+
+        Ok(())
+    }
+
+    fn handle_fn_def(&mut self, stmt: &ast::FnDef) -> Result<(), ir::Error> {
+        let identifier = stmt.fn_decl.identifier.clone();
+
+        match self.registry.function_types.get(&identifier) {
+            None => self.handle_fn_decl(&stmt.fn_decl)?,
+            Some(ty) => {
+                if ty != stmt.fn_decl.as_ref() {
+                    return Err(ir::Error::DeclDefMismatch {
+                        symbol: identifier.clone(),
+                    });
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    fn handle_struct_def(&mut self, struct_def: &ast::StructDef) -> Result<(), ir::Error> {
+        let identifier = struct_def.identifier.clone();
+        let mut offset = 0;
+        let mut elements = Vec::new();
+
+        for decl in struct_def.decls.iter() {
+            elements.push((
+                decl.identifier.clone(),
+                StructMember {
+                    offset,
+                    identifier: decl.identifier.clone(),
+                    dtype: match decl.type_specifier.as_ref() {
+                        Some(type_specifier) => type_specifier.into(),
+                        None => ir::Dtype::Void,
+                    },
+                },
+            ));
+
+            offset += 1;
+        }
+
+        self.registry.struct_types.insert(
+            identifier.clone(),
+            ir::StructType {
+                identifier,
+                elements,
+            },
+        );
+
+        Ok(())
     }
 }
 
-impl ir::Generator {
-    /// Static methods used during IR generation for static evaluation.
-    ///
-    /// Some parts of the program, such as global variable initializations,
-    /// must be evaluated statically rather than at runtime. Also, we expose
-    /// these static evaluation functions publicly. This won't be probelmatic,
-    /// as they do not produce side effects on the internal state of the IR
-    /// generator.
+/// Static methods used during IR generation for static evaluation.
+///
+/// Some parts of the program, such as global variable initializations,
+/// must be evaluated statically rather than at runtime. Also, we expose
+/// these static evaluation functions publicly. This won't be probelmatic,
+/// as they do not produce side effects on the internal state of the IR
+/// Module.
+impl ir::ModuleGenerator {
     pub fn handle_right_val_static(r: &ast::RightVal) -> i32 {
         match &r.inner {
             ast::RightValInner::ArithExpr(expr) => Self::handle_arith_expr_static(&expr),
@@ -257,84 +437,74 @@ impl ir::Generator {
             0
         }
     }
+}
 
-    fn handle_global_var_decl_stmt(&mut self, stmt: &ast::VarDeclStmt) -> Result<(), ir::Error> {
-        let identifier = match stmt.identifier() {
-            Some(id) => id,
-            None => return Err(ir::Error::SymbolMissing),
-        };
-
-        let dtype = ir::Dtype::try_from(stmt)?;
-        let initializers = if let ast::VarDeclStmtInner::Def(d) = &stmt.inner {
-            Some(d.initializers())
-        } else {
-            None
-        };
-
-        let definition = ir::VarDef {
-            inner: Rc::new(ir::Operand::make_global(dtype, identifier.clone())),
-            initializers,
-        };
-
-        self.definitions
-            .insert(identifier, ir::GlobalDef::Variable(definition));
-
-        Ok(())
-    }
-
-    fn handle_com_op_expr(&mut self, expr: &ast::ComExpr) -> i32 {
-        let left = self.handle_expr_unit(&expr.left);
-        let right = self.handle_expr_unit(&expr.right);
+impl<'ir> ir::FunctionGenerator<'ir> {
+    fn handle_com_op_expr(&mut self, expr: &ast::ComExpr) -> Result<i32, ir::Error> {
+        let left = self.handle_expr_unit(&expr.left)?;
+        let right = self.handle_expr_unit(&expr.right)?;
         let _ = self.ptr_deref(left).as_ref();
         let _ = self.ptr_deref(right).as_ref();
-        return 0;
+
+        Ok(0)
     }
 
-    fn handle_expr_unit(&mut self, unit: &ast::ExprUnit) -> Rc<ir::Operand> {
+    fn handle_expr_unit(&mut self, unit: &ast::ExprUnit) -> Result<Rc<dyn ir::Operand>, ir::Error> {
         match &unit.inner {
-            ast::ExprUnitInner::Num(num) => Rc::new(ir::Operand::Interger(*num)),
+            ast::ExprUnitInner::Num(num) => Ok(Rc::new(ir::Integer::from(*num))),
             ast::ExprUnitInner::Id(id) => {
                 if let Some(def) = self.local_variables.get(id) {
-                    Rc::clone(&def.inner)
-                } else if let Some(def) = self.global_variables.get(id) {
-                    Rc::clone(&def.inner)
+                    Ok(Rc::new(def.clone()))
+                } else if let Some(def) = self.module_generator.module.global_list.get(id) {
+                    Ok(Rc::new(def.clone()))
                 } else {
-                    panic!("[Error] {} undefined.", id);
+                    Err(ir::Error::VariableNotDefined { symbol: id.clone() })
                 }
             }
             ast::ExprUnitInner::ArithExpr(expr) => self.handle_arith_expr(expr),
             ast::ExprUnitInner::FnCall(fn_call) => {
                 let name = fn_call.name.clone();
-                let res = if let Some(_) = self.return_dtypes.get(&name) {
-                    match self.return_dtypes[&name].return_dtype {
-                        ir::RetType::Int => ir::Operand::Local(Box::new(ir::LocalVar::create_int(
-                            self.get_next_vreg_index(),
-                        ))),
-                        ir::RetType::Struct => {
-                            let type_name = self.return_dtypes[&name].struct_name.clone();
-                            ir::Operand::Local(Box::new(ir::LocalVar::create_struct(
-                                self.get_next_vreg_index(),
-                                type_name,
-                            )))
-                        }
-                        ir::RetType::Void => {
-                            panic!("[Error] invalid expr unit");
-                        }
+                let return_dtype = &self
+                    .module_generator
+                    .registry
+                    .function_types
+                    .get(&name)
+                    .ok_or_else(|| ir::Error::InvalidExprUnit {
+                        expr_unit: unit.clone(),
+                    })?
+                    .return_dtype;
+
+                let res = match &return_dtype {
+                    ir::Dtype::I32 => {
+                        ir::LocalVariable::create_int(self.increment_virt_reg_index())
                     }
-                } else {
-                    panic!("[Error] {} undefined.", name);
+                    ir::Dtype::Struct { type_name } => ir::LocalVariable::create_struct(
+                        type_name.clone(),
+                        self.increment_virt_reg_index(),
+                    ),
+                    _ => {
+                        return Err(ir::Error::InvalidExprUnit {
+                            expr_unit: unit.clone(),
+                        });
+                    }
                 };
+
                 let res_op = Rc::new(res);
 
-                let mut args: Vec<Rc<ir::Operand>> = Vec::new();
-                for arg in fn_call.vals.as_ref().unwrap().iter() {
-                    let rval = self.handle_right_val(&arg);
-                    args.push(self.ptr_deref(rval));
+                let mut args: Vec<Rc<dyn ir::Operand>> = Vec::new();
+                if let Some(vals) = fn_call.vals.as_ref() {
+                    for arg in vals.iter() {
+                        let rval = self.handle_right_val(&arg)?;
+                        args.push(self.ptr_deref(rval));
+                    }
                 }
-                self.emit_irs
-                    .push(ir::stmt::Stmt::as_call(name, Rc::clone(&res_op), args));
+                self.irs.push(ir::stmt::Stmt::as_call(
+                    name,
+                    Some(Rc::clone(&res_op)),
+                    args,
+                ));
 
-                res_op
+                Ok(res_op)
             }
             ast::ExprUnitInner::ArrayExpr(expr) => self.handle_array_expr(&expr),
             ast::ExprUnitInner::MemberExpr(expr) => self.handle_member_expr(&expr),
@@ -342,25 +512,29 @@ impl ir::Generator {
         }
     }
 
-    fn handle_arith_expr(&mut self, expr: &ast::ArithExpr) -> Rc<ir::Operand> {
+    fn handle_arith_expr(
+        &mut self,
+        expr: &ast::ArithExpr,
+    ) -> Result<Rc<dyn ir::Operand>, ir::Error> {
         match &expr.inner {
             ast::ArithExprInner::ArithBiOpExpr(expr) => self.handle_arith_biop_expr(&expr),
             ast::ArithExprInner::ExprUnit(unit) => self.handle_expr_unit(&unit),
         }
     }
 
-    fn handle_right_val(&mut self, val: &ast::RightVal) -> Rc<ir::Operand> {
+    fn handle_right_val(&mut self, val: &ast::RightVal) -> Result<Rc<dyn ir::Operand>, ir::Error> {
         match &val.inner {
             ast::RightValInner::ArithExpr(expr) => self.handle_arith_expr(expr),
             ast::RightValInner::BoolExpr(expr) => {
-                let true_label = ir::BlockLabel::from_index(self.get_next_label_index());
-                let false_label = ir::BlockLabel::from_index(self.get_next_label_index());
-                let after_label = ir::BlockLabel::from_index(self.get_next_label_index());
+                let true_label = ir::BlockLabel::BasicBlock(self.increment_basic_block_index());
+                let false_label = ir::BlockLabel::BasicBlock(self.increment_basic_block_index());
+                let after_label = ir::BlockLabel::BasicBlock(self.increment_basic_block_index());
 
-                let bool_evaluated = ir::LocalVar::create_int_ptr(self.get_next_vreg_index(), 0);
+                let bool_evaluated =
+                    ir::LocalVariable::create_int_ptr(self.increment_virt_reg_index(), 0);
 
-                let alloca_dst = Rc::new(ir::Operand::Local(Box::new(bool_evaluated)));
-                self.emit_irs
+                let alloca_dst: Rc<dyn ir::Operand> = Rc::new(bool_evaluated);
+                self.irs
                     .push(ir::stmt::Stmt::as_alloca(Rc::clone(&alloca_dst)));
                 self.handle_bool_expr(expr, Some(true_label.clone()), Some(false_label.clone()));
 
@@ -371,155 +545,191 @@ impl ir::Generator {
                     Rc::clone(&alloca_dst),
                 );
 
-                let bool_val = ir::LocalVar::create_int(self.get_next_vreg_index());
-                let dst = Rc::new(ir::Operand::Local(Box::new(bool_val)));
+                let bool_val = ir::LocalVariable::create_int(self.increment_virt_reg_index());
+                let dst: Rc<dyn ir::Operand> = Rc::new(bool_val);
                 let ptr = Rc::clone(&alloca_dst);
-                self.emit_irs
-                    .push(ir::stmt::Stmt::as_load(Rc::clone(&dst), ptr));
+                self.irs.push(ir::stmt::Stmt::as_load(Rc::clone(&dst), ptr));
 
-                dst
+                Ok(dst)
             }
         }
     }
 
-    fn handle_array_expr(&mut self, expr: &ast::ArrayExpr) -> Rc<ir::Operand> {
-        let arr = self.handle_left_val(&expr.arr);
-        let target = match arr.as_ref() {
-            ir::Operand::Interger(_) => panic!("[Error] Invalid array expression"),
-            ir::Operand::Local(inner) | ir::Operand::Global(inner) => {
-                if let ir::Dtype::Pointer { .. } = inner.dtype() {
-                    Rc::new(ir::Operand::Local(Box::new(ir::LocalVar::create_int_ptr(
-                        self.get_next_vreg_index(),
-                        0,
-                    ))))
-                } else {
-                    let id = match inner.dtype() {
-                        ir::Dtype::Struct { name, .. } => name,
-                        _ => panic!("[Error]"),
-                    };
+    fn handle_array_expr(
+        &mut self,
+        expr: &ast::ArrayExpr,
+    ) -> Result<Rc<dyn ir::Operand>, ir::Error> {
+        let arr = self.handle_left_val(&expr.arr)?;
 
-                    Rc::new(ir::Operand::Local(Box::new(
-                        ir::LocalVar::create_struct_ptr(self.get_next_vreg_index(), 0, id.clone()),
-                    )))
+        fn handle_pointer_or_struct_var<T: Operand>(
+            var: &T,
+            index: usize,
+        ) -> Result<Rc<dyn ir::Operand>, ir::Error> {
+            match var.dtype() {
+                ir::Dtype::Pointer { .. } => {
+                    Ok(Rc::new(ir::LocalVariable::create_int_ptr(index, 0)))
                 }
-            }
-        };
-
-        let index = self.handle_index_expr(expr.idx.as_ref());
-        self.emit_irs
-            .push(ir::stmt::Stmt::as_gep(Rc::clone(&target), arr, index));
-
-        target
-    }
-
-    fn handle_member_expr(&mut self, expr: &ast::MemberExpr) -> Rc<ir::Operand> {
-        let s = self.handle_left_val(&expr.struct_id);
-        let type_name = match s.as_ref() {
-            ir::Operand::Interger(_) => panic!("[Error]: Invalid Left value."),
-            ir::Operand::Local(inner) | ir::Operand::Global(inner) => {
-                if let ir::Dtype::Struct { name, .. } = inner.dtype() {
-                    name
-                } else {
-                    panic!("[Error] TODO")
-                }
+                ir::Dtype::Struct {
+                    type_name: name, ..
+                } => Ok(Rc::new(ir::LocalVariable::create_struct_ptr(
+                    name.clone(),
+                    index,
+                    0,
+                ))),
+                _ => Err(ir::Error::InvalidArrayExpression),
             }
         }
-        .clone();
 
-        let member = self
-            .struct_props
-            .get(&type_name)
-            .unwrap()
-            .member_props
-            .get(&expr.member_id)
-            .unwrap();
+        let target: Rc<dyn ir::Operand> =
+            if let Some(_) = arr.as_ref().as_any().downcast_ref::<ir::Integer>() {
+                Err(ir::Error::InvalidArrayExpression)
+            } else if let Some(l) = arr.as_ref().as_any().downcast_ref::<ir::LocalVariable>() {
+                let index = self.increment_virt_reg_index();
+                handle_pointer_or_struct_var(l, index)
+            } else if let Some(g) = arr.as_ref().as_any().downcast_ref::<ir::GlobalVariable>() {
+                let index = self.increment_virt_reg_index();
+                handle_pointer_or_struct_var(g, index)
+            } else {
+                Err(ir::Error::InvalidOperand)
+            }?;
 
-        let target = match member.def.inner.as_ref() {
-            ir::Operand::Interger(_) => panic!("Invalid member"),
-            ir::Operand::Local(inner) | ir::Operand::Global(inner) => match inner.dtype() {
-                ir::Dtype::I32 { .. } => Rc::new(ir::Operand::Local(Box::new(
-                    ir::LocalVar::create_int_ptr(self.get_next_vreg_index(), 0),
-                ))),
-                ir::Dtype::Pointer { inner, length, .. } => match inner.as_ref() {
-                    ir::Dtype::I32 { .. } => Rc::new(ir::Operand::Local(Box::new(
-                        ir::LocalVar::create_int_ptr(self.get_next_vreg_index(), *length),
-                    ))),
-                    ir::Dtype::Struct { name, .. } => Rc::new(ir::Operand::Local(Box::new(
-                        ir::LocalVar::create_struct_ptr(
-                            self.get_next_vreg_index(),
-                            *length,
-                            name.clone(),
-                        ),
-                    ))),
-                    _ => todo!("not supported"),
-                },
-                ir::Dtype::Struct { name, .. } => Rc::new(ir::Operand::Local(Box::new(
-                    ir::LocalVar::create_struct_ptr(self.get_next_vreg_index(), 0, name.clone()),
-                ))),
-                _ => todo!("not supported"),
-            },
-        };
+        let index = self.handle_index_expr(expr.idx.as_ref())?;
 
-        self.emit_irs.push(ir::stmt::Stmt::as_gep(
-            Rc::clone(&target),
-            s,
-            Rc::new(ir::Operand::Interger(member.offset)),
+        self.irs.push(ir::stmt::Stmt::as_gep(
+            Rc::clone(&target.clone()),
+            arr,
+            index,
         ));
 
-        target
+        Ok(target)
     }
 
-    fn handle_left_val(&mut self, val: &ast::LeftVal) -> Rc<ir::Operand> {
+    fn handle_member_expr(
+        &mut self,
+        expr: &ast::MemberExpr,
+    ) -> Result<Rc<dyn ir::Operand>, ir::Error> {
+        let s = self.handle_left_val(&expr.struct_id)?;
+        let type_name = if let Some(_) = s.as_ref().as_any().downcast_ref::<ir::Integer>() {
+            Err(ir::Error::InvalidStructMemberExpression)
+        } else if let Some(l) = s.as_ref().as_any().downcast_ref::<ir::LocalVariable>() {
+            if let ir::Dtype::Struct { type_name: name } = l.dtype() {
+                Ok(name)
+            } else {
+                Err(ir::Error::InvalidStructMemberExpression)
+            }
+        } else if let Some(l) = s.as_ref().as_any().downcast_ref::<ir::GlobalVariable>() {
+            if let ir::Dtype::Struct { type_name: name } = l.dtype() {
+                Ok(name)
+            } else {
+                Err(ir::Error::InvalidStructMemberExpression)
+            }
+        } else {
+            Err(ir::Error::InvalidStructMemberExpression)
+        }
+        .unwrap();
+
+        let target_index = self.increment_virt_reg_index();
+
+        let member = &self
+            .module_generator
+            .registry
+            .struct_types
+            .get(type_name)
+            .unwrap()
+            .elements
+            .iter()
+            .find(|elem| elem.0 == expr.member_id)
+            .unwrap()
+            .1;
+
+        let target: Rc<dyn ir::Operand> =
+            match &member.dtype {
+                ir::Dtype::I32 => Rc::new(ir::LocalVariable::create_int_ptr(target_index, 0)),
+                ir::Dtype::Pointer { inner, length } => {
+                    if let ir::Dtype::I32 = inner.as_ref() {
+                        Rc::new(ir::LocalVariable::create_int_ptr(target_index, *length))
+                    } else if let ir::Dtype::Struct { type_name: name } = inner.as_ref() {
+                        Rc::new(ir::LocalVariable::create_struct_ptr(
+                            name.clone(),
+                            target_index,
+                            *length,
+                        ))
+                    } else {
+                        return Err(ir::Error::InvalidStructMemberExpression);
+                    }
+                }
+                ir::Dtype::Struct { type_name: name } => Rc::new(
+                    ir::LocalVariable::create_struct_ptr(name.clone(), target_index, 0),
+                ),
+                ir::Dtype::Void | ir::Dtype::Undecided => {
+                    return Err(ir::Error::InvalidStructMemberExpression)
+                }
+            };
+
+        self.irs.push(ir::stmt::Stmt::as_gep(
+            Rc::clone(&target),
+            s,
+            Rc::new(ir::Integer::from(member.offset)),
+        ));
+
+        Ok(target)
+    }
+
+    fn handle_left_val(&mut self, val: &ast::LeftVal) -> Result<Rc<dyn ir::Operand>, ir::Error> {
         match &val.inner {
             ast::LeftValInner::Id(id) => {
-                let lval;
-                if self.local_variables.get(id).is_some() {
-                    lval = Rc::clone(&self.local_variables.get(id).unwrap().inner)
-                } else if self.definitions.get(id).is_some() {
-                    lval = Rc::clone(&self.definitions.get(id).unwrap().inner)
+                if let Some(local) = self.local_variables.get(id) {
+                    Ok(Rc::new(local.clone()))
+                } else if let Some(global) = self.module_generator.module.global_list.get(id) {
+                    Ok(Rc::new(global.clone()))
                 } else {
-                    panic!("[Error] {} not found.", &id);
+                    Err(ir::Error::VariableNotDefined { symbol: id.clone() })
                 }
-                lval
             }
             ast::LeftValInner::ArrayExpr(expr) => self.handle_array_expr(expr),
             ast::LeftValInner::MemberExpr(expr) => self.handle_member_expr(expr),
         }
     }
 
-    fn handle_arith_uexpr(&mut self, expr: &ast::ArithUExpr) -> Rc<ir::Operand> {
-        let expr = self.handle_expr_unit(expr.expr.as_ref());
+    fn handle_arith_uexpr(
+        &mut self,
+        expr: &ast::ArithUExpr,
+    ) -> Result<Rc<dyn ir::Operand>, ir::Error> {
+        let expr = self.handle_expr_unit(expr.expr.as_ref())?;
         let val = self.ptr_deref(expr);
-        let res = ir::LocalVar::create_int(self.get_next_vreg_index());
-        let res_op = Rc::new(ir::Operand::Local(Box::new(res)));
-        self.emit_irs.push(ir::stmt::Stmt::as_biop(
-            ir::BiOpKind::Minus,
-            Rc::new(ir::Operand::Interger(0)),
+        let res = ir::LocalVariable::create_int(self.increment_virt_reg_index());
+        let res_op: Rc<dyn ir::Operand> = Rc::new(res);
+        self.irs.push(ir::stmt::Stmt::as_biop(
+            ir::BiOpKind::Sub,
+            Rc::new(ir::Integer::from(0)),
             val,
             Rc::clone(&res_op),
         ));
 
-        res_op
+        Ok(res_op)
     }
 
-    fn handle_arith_biop_expr(&mut self, expr: &ast::ArithBiOpExpr) -> Rc<ir::Operand> {
-        let left = self.handle_arith_expr(&expr.left);
-        let right = self.handle_arith_expr(&expr.right);
-        let dst = Rc::new(ir::Operand::Local(Box::new(ir::LocalVar::create_int(
-            self.get_next_vreg_index(),
-        ))));
+    fn handle_arith_biop_expr(
+        &mut self,
+        expr: &ast::ArithBiOpExpr,
+    ) -> Result<Rc<dyn ir::Operand>, ir::Error> {
+        let left = self.handle_arith_expr(&expr.left)?;
+        let right = self.handle_arith_expr(&expr.right)?;
+        let dst: Rc<dyn ir::Operand> = Rc::new(ir::LocalVariable::create_int(
+            self.increment_virt_reg_index(),
+        ));
 
         let kind = match expr.op {
-            ast::ArithBiOp::Add => ir::BiOpKind::Plus,
-            ast::ArithBiOp::Sub => ir::BiOpKind::Minus,
+            ast::ArithBiOp::Add => ir::BiOpKind::Add,
+            ast::ArithBiOp::Sub => ir::BiOpKind::Sub,
             ast::ArithBiOp::Mul => ir::BiOpKind::Mul,
             ast::ArithBiOp::Div => ir::BiOpKind::Div,
         };
 
         let biop_stmt = ir::stmt::Stmt::as_biop(kind, left, right, Rc::clone(&dst));
-        self.emit_irs.push(biop_stmt);
+        self.irs.push(biop_stmt);
 
-        dst
+        Ok(dst)
     }
 
     fn handle_bool_expr(
@@ -527,16 +737,17 @@ impl ir::Generator {
         expr: &ast::BoolExpr,
         true_label: Option<ir::BlockLabel>,
         false_label: Option<ir::BlockLabel>,
-    ) -> Option<Rc<ir::Operand>> {
+    ) -> Option<Rc<dyn ir::Operand>> {
         if true_label.is_none() && false_label.is_none() {
-            let true_label = ir::BlockLabel::from_index(self.get_next_label_index());
-            let false_label = ir::BlockLabel::from_index(self.get_next_label_index());
-            let after_label = ir::BlockLabel::from_index(self.get_next_label_index());
+            let true_label = ir::BlockLabel::BasicBlock(self.increment_basic_block_index());
+            let false_label = ir::BlockLabel::BasicBlock(self.increment_basic_block_index());
+            let after_label = ir::BlockLabel::BasicBlock(self.increment_basic_block_index());
 
-            let bool_evaluated = ir::LocalVar::create_int_ptr(self.get_next_vreg_index(), 0);
+            let bool_evaluated =
+                ir::LocalVariable::create_int_ptr(self.increment_virt_reg_index(), 0);
 
-            let alloca_dst = Rc::new(ir::Operand::Local(Box::new(bool_evaluated)));
-            self.emit_irs
+            let alloca_dst: Rc<dyn Operand> = Rc::new(bool_evaluated);
+            self.irs
                 .push(ir::stmt::Stmt::as_alloca(Rc::clone(&alloca_dst)));
 
             match &expr.inner {
@@ -552,20 +763,20 @@ impl ir::Generator {
 
             self.produce_bool_val(true_label, false_label, after_label, Rc::clone(&alloca_dst));
 
-            let truncated = ir::LocalVar::create_int(self.get_next_vreg_index());
-            let bool_val = ir::LocalVar::create_int(self.get_next_vreg_index());
+            let truncated = ir::LocalVariable::create_int(self.increment_virt_reg_index());
+            let bool_val = ir::LocalVariable::create_int(self.increment_virt_reg_index());
 
-            let dst = Rc::new(ir::Operand::Local(Box::new(bool_val)));
+            let dst: Rc<dyn ir::Operand> = Rc::new(bool_val);
             let ptr = Rc::clone(&alloca_dst);
-            let retval = Rc::new(ir::Operand::Local(Box::new(truncated)));
+            let retval: Rc<dyn ir::Operand> = Rc::new(truncated);
 
-            self.emit_irs
+            self.irs
                 .push(ir::stmt::Stmt::as_load(Rc::clone(&dst), Rc::clone(&ptr)));
 
-            self.emit_irs.push(ir::stmt::Stmt::as_cmp(
+            self.irs.push(ir::stmt::Stmt::as_cmp(
                 ir::RelOpKind::Ne,
                 Rc::clone(&dst),
-                Rc::new(ir::Operand::Interger(0)),
+                Rc::new(ir::Integer::from(0)),
                 Rc::clone(&retval),
             ));
 
@@ -591,53 +802,53 @@ impl ir::Generator {
         true_label: ir::BlockLabel,
         false_label: ir::BlockLabel,
         after_label: ir::BlockLabel,
-        bool_evaluated: Rc<ir::Operand>,
+        bool_evaluated: Rc<dyn ir::Operand>,
     ) {
-        let store_src_true = Rc::new(ir::Operand::Interger(1));
-        let store_src_false = Rc::new(ir::Operand::Interger(0));
+        let store_src_true = Rc::new(ir::Integer::from(1));
+        let store_src_false = Rc::new(ir::Integer::from(0));
         let store_ptr = Rc::clone(&bool_evaluated);
 
-        self.emit_irs.push(ir::stmt::Stmt::as_label(true_label));
-        self.emit_irs.push(ir::stmt::Stmt::as_store(
+        self.irs.push(ir::stmt::Stmt::as_label(true_label));
+        self.irs.push(ir::stmt::Stmt::as_store(
             store_src_true,
             Rc::clone(&store_ptr),
         ));
-        self.emit_irs
-            .push(ir::stmt::Stmt::as_jump(after_label.clone()));
-
-        self.emit_irs.push(ir::stmt::Stmt::as_label(false_label));
-        self.emit_irs.push(ir::stmt::Stmt::as_store(
+        self.irs.push(ir::stmt::Stmt::as_jump(after_label.clone()));
+        self.irs.push(ir::stmt::Stmt::as_label(false_label));
+        self.irs.push(ir::stmt::Stmt::as_store(
             store_src_false,
             Rc::clone(&store_ptr),
         ));
-
-        self.emit_irs.push(ir::stmt::Stmt::as_jump(after_label));
+        self.irs.push(ir::stmt::Stmt::as_jump(after_label));
     }
 
-    fn handle_index_expr(&mut self, expr: &ast::IndexExpr) -> Rc<ir::Operand> {
+    fn handle_index_expr(
+        &mut self,
+        expr: &ast::IndexExpr,
+    ) -> Result<Rc<dyn ir::Operand>, ir::Error> {
         match &expr.inner {
             ast::IndexExprInner::Id(id) => {
-                let idx = ir::LocalVar::create_int(self.get_next_vreg_index());
-                let retval = Rc::new(ir::Operand::Local(Box::new(idx)));
+                let idx = ir::LocalVariable::create_int(self.increment_virt_reg_index());
+                let retval: Rc<dyn ir::Operand> = Rc::new(idx);
                 if self.local_variables.get(id).is_some() {
                     let src = self.local_variables.get(id).unwrap();
-                    self.emit_irs.push(ir::stmt::Stmt::as_load(
+                    self.irs.push(ir::stmt::Stmt::as_load(
                         Rc::clone(&retval),
-                        Rc::clone(&src.inner),
+                        Rc::new(src.clone()),
                     ));
-                } else if self.global_variables.get(id).is_some() {
-                    let src = self.global_variables.get(id).unwrap();
-                    self.emit_irs.push(ir::stmt::Stmt::as_load(
+                } else if self.module_generator.module.global_list.get(id).is_some() {
+                    let src = self.module_generator.module.global_list.get(id).unwrap();
+                    self.irs.push(ir::stmt::Stmt::as_load(
                         Rc::clone(&retval),
-                        Rc::clone(&src.inner),
+                        Rc::new(src.clone()),
                     ));
                 } else {
-                    panic!("[Errpr] {} undefined.", id);
+                    Err(ir::Error::VariableNotDefined { symbol: id.clone() })?
                 }
 
-                retval
+                Ok(retval)
             }
-            ast::IndexExprInner::Num(num) => Rc::new(ir::Operand::Interger(*num as i32)),
+            ast::IndexExprInner::Num(num) => Ok(Rc::new(ir::Integer::from(*num as i32))),
         }
     }
 
@@ -647,40 +858,38 @@ impl ir::Generator {
         true_label: Option<ir::BlockLabel>,
         false_label: Option<ir::BlockLabel>,
     ) {
-        let eval_right_label = ir::BlockLabel::from_index(self.get_next_label_index());
+        let eval_right_label = ir::BlockLabel::BasicBlock(self.increment_basic_block_index());
         let lhs = self.handle_bool_expr(&expr.left, None, None);
 
         let false_label_unwrapped = false_label.unwrap().clone();
         let true_label_unwrapped = true_label.unwrap().clone();
 
         match &expr.op {
-            ir::BoolBiOp::And => {
-                self.emit_irs.push(ir::stmt::Stmt::as_cjump(
+            ast::BoolBiOp::And => {
+                self.irs.push(ir::stmt::Stmt::as_cjump(
                     lhs.unwrap(),
                     eval_right_label.clone(),
                     false_label_unwrapped.clone(),
                 ));
-                self.emit_irs
-                    .push(ir::stmt::Stmt::as_label(eval_right_label));
+                self.irs.push(ir::stmt::Stmt::as_label(eval_right_label));
 
                 let rhs = self.handle_bool_expr(&expr.right, None, None);
-                self.emit_irs.push(ir::stmt::Stmt::as_cjump(
+                self.irs.push(ir::stmt::Stmt::as_cjump(
                     rhs.unwrap(),
                     true_label_unwrapped,
                     false_label_unwrapped,
                 ))
             }
-            ir::BoolBiOp::Or => {
-                self.emit_irs.push(ir::stmt::Stmt::as_cjump(
+            ast::BoolBiOp::Or => {
+                self.irs.push(ir::stmt::Stmt::as_cjump(
                     lhs.unwrap(),
                     true_label_unwrapped.clone(),
                     eval_right_label.clone(),
                 ));
-                self.emit_irs
-                    .push(ir::stmt::Stmt::as_label(eval_right_label));
+                self.irs.push(ir::stmt::Stmt::as_label(eval_right_label));
 
                 let rhs = self.handle_bool_expr(&expr.right, None, None);
-                self.emit_irs.push(ir::stmt::Stmt::as_cjump(
+                self.irs.push(ir::stmt::Stmt::as_cjump(
                     rhs.unwrap(),
                     true_label_unwrapped,
                     false_label_unwrapped,
@@ -708,87 +917,383 @@ impl ir::Generator {
         }
     }
 
-    fn handle_fn_decl(&mut self, decl: &ast::FnDecl) -> Result<(), ir::Error> {
-        let identifier = decl.identifier.clone();
-
-        let mut args: Vec<ir::VarDef> = Vec::new();
-        if let Some(params) = &decl.param_decl {
-            for decl in params.decls.iter() {
-                let identifier = decl.identifier();
-                let dtype = ir::Dtype::try_from(decl)?;
-                let index = self.get_next_vreg_index();
-
-                args.push(ir::VarDef {
-                    initializers: None,
-                    inner: Rc::new(ir::Operand::Local(Box::new(ir::LocalVar {
-                        dtype,
-                        identifier,
-                        index,
-                    }))),
-                });
+    fn ptr_deref(&mut self, op: Rc<dyn ir::Operand>) -> Rc<dyn ir::Operand> {
+        if let Some(inner) = op.as_any().downcast_ref::<ir::LocalVariable>() {
+            if let ir::Dtype::Pointer { length, .. } = inner.dtype() {
+                if *length == 0 {
+                    let val = ir::LocalVariable::create_int(self.increment_virt_reg_index());
+                    let dst: Rc<dyn ir::Operand> = Rc::new(val);
+                    let stmt = ir::stmt::Stmt::as_load(Rc::clone(&dst), op.clone());
+                    self.irs.push(stmt);
+                }
+            }
+        } else if let Some(inner) = op.as_any().downcast_ref::<ir::GlobalVariable>() {
+            if let ir::Dtype::Pointer { length, .. } = inner.dtype() {
+                if *length == 0 {
+                    let val = ir::LocalVariable::create_int(self.increment_virt_reg_index());
+                    let dst: Rc<dyn ir::Operand> = Rc::new(val);
+                    let stmt = ir::stmt::Stmt::as_load(Rc::clone(&dst), op.clone());
+                    self.irs.push(stmt);
+                }
             }
         }
 
-        self.definitions.insert(
-            identifier.clone(),
-            ir::GlobalDef::Func(ir::FnDecl {
-                identifier,
-                args: args,
-                return_dtype: match decl.return_dtype.as_ref() {
-                    Some(type_specifier) => type_specifier.into(),
-                    None => ir::Dtype::Void,
-                },
-            }),
+        op
+    }
+}
+
+impl<'ir> ir::FunctionGenerator<'ir> {
+    fn gen(&mut self, from: &ast::FnDef) -> Result<(), ir::Error> {
+        let identifier = &from.fn_decl.identifier;
+        let function_type = self
+            .module_generator
+            .registry
+            .function_types
+            .get(identifier)
+            .unwrap();
+
+        let mut function_label = format!(
+            "{} @{}(",
+            ir::stmt::dtype(&function_type.return_dtype),
+            identifier.clone()
         );
 
-        Ok(())
-    }
+        for var in function_type.arguments.iter() {
+            let local_var = var
+                .inner
+                .as_ref()
+                .as_any()
+                .downcast_ref::<ir::LocalVariable>()
+                .unwrap();
+            let identifier = local_var.identifier.as_ref().unwrap().clone();
 
-    fn handle_fn_def(&mut self, stmt: &ast::FnDef) -> Result<(), ir::Error> {
-        let identifier = stmt.fn_decl.identifier.clone();
-        match self.definitions.get(&identifier) {
-            None => self.handle_fn_decl(&stmt.fn_decl)?,
+            function_label += ir::stmt::dtype(&local_var.dtype);
+            function_label += ", ";
 
-            Some(decl) => match decl {
-                ir::GlobalDef::Struct(_) | ir::GlobalDef::Variable(_) => {
-                    return Err(ir::Error::RedefinedSymbol {
-                        symbol: identifier.clone(),
-                    })
-                }
-                ir::GlobalDef::Func(f) => {
-                    if f != stmt.fn_decl.as_ref() {
-                        return Err(ir::Error::DeclDefMismatch {
-                            symbol: identifier.clone(),
-                        });
-                    }
-                }
-            },
+            self.local_variables.insert(
+                identifier,
+                var.inner
+                    .as_ref()
+                    .as_any()
+                    .downcast_ref::<ir::LocalVariable>()
+                    .unwrap()
+                    .clone(),
+            );
         }
 
-        Ok(())
-    }
+        if function_label.ends_with(", ") {
+            function_label.replace_range(function_label.len() - 1.., "");
+        }
+        function_label += ")";
+        
 
-    fn ptr_deref(&mut self, op: Rc<ir::Operand>) -> Rc<ir::Operand> {
-        match op.as_ref() {
-            ir::Operand::Interger(_) => op,
-            ir::Operand::Local(inner) | ir::Operand::Global(inner) => {
-                if let ir::Dtype::Pointer { length, .. } = inner.dtype() {
-                    if *length == 0 {
-                        let val = ir::LocalVar::create_int(self.get_next_vreg_index());
-                        let dst = Rc::new(ir::Operand::Local(Box::new(val)));
-                        let stmt = ir::stmt::Stmt::as_load(Rc::clone(&dst), op);
-                        self.emit_irs.push(stmt);
+        self.irs.push(ir::stmt::Stmt::as_label(BlockLabel::Function(
+            function_label,
+        )));
 
-                        return dst;
-                    } else {
-                        return op;
+        for stmt in from.stmts.iter() {
+            self.handle_block(stmt, None, None)?;
+        }
+
+        // If the function body doesn't end with an explicit `return`, append a default one.
+        // Only `i32` and `void` returns can be synthesized.
+        if let Some(stmt) = self.irs.last() {
+            if !matches!(stmt.inner, ir::stmt::StmtInner::Return(_)) {
+                let return_type = self
+                    .module_generator
+                    .registry
+                    .function_types
+                    .get(identifier)
+                    .map(|ft| &ft.return_dtype)
+                    .unwrap();
+
+                match return_type {
+                    ir::Dtype::I32 => {
+                        self.irs
+                            .push(ir::stmt::Stmt::as_return(Some(Rc::new(ir::Integer::from(
+                                0,
+                            )))));
                     }
-                } else if let ir::Dtype::I32 { .. } = inner.dtype() {
-                    op
-                } else {
-                    op
+                    ir::Dtype::Void => {
+                        self.irs.push(ir::stmt::Stmt::as_return(None));
+                    }
+                    _ => return Err(ir::Error::ReturnTypeUnsupported),
                 }
             }
         }
+
+        Ok(())
+    }
+
+    pub fn handle_block(
+        &mut self,
+        stmt: &ast::CodeBlockStmt,
+        con_label: Option<ir::BlockLabel>,
+        bre_label: Option<ir::BlockLabel>,
+    ) -> Result<(), ir::Error> {
+        match &stmt.inner {
+            ast::CodeBlockStmtInner::Assignment(s) => self.handle_assignment_stmt(s),
+            ast::CodeBlockStmtInner::VarDecl(s) => match &s.inner {
+                ast::VarDeclStmtInner::Decl(d) => self.handle_local_var_decl(d),
+                ast::VarDeclStmtInner::Def(d) => self.handle_local_var_def(d),
+            },
+            ast::CodeBlockStmtInner::Call(s) => self.handle_call_stmt(s),
+            ast::CodeBlockStmtInner::If(s) => self.handle_if_stmt(s, con_label, bre_label),
+            ast::CodeBlockStmtInner::While(s) => self.handle_while_stmt(s),
+            ast::CodeBlockStmtInner::Return(s) => self.handle_return_stmt(s),
+            ast::CodeBlockStmtInner::Continue(_) => {
+                let label = con_label.ok_or_else(|| return ir::Error::InvalidContinueInst)?;
+                self.irs.push(ir::stmt::Stmt::as_jump(label));
+                Ok(())
+            }
+            ast::CodeBlockStmtInner::Break(_) => {
+                let label = bre_label.ok_or_else(|| return ir::Error::InvalidContinueInst)?;
+                self.irs.push(ir::stmt::Stmt::as_jump(label));
+                Ok(())
+            }
+            ast::CodeBlockStmtInner::Null(_) => Ok(()),
+        }
+    }
+
+    pub fn handle_assignment_stmt(&mut self, stmt: &AssignmentStmt) -> Result<(), ir::Error> {
+        let mut left = self.handle_left_val(&stmt.left_val)?;
+        let right = self.handle_right_val(&stmt.right_val)?;
+        let right = self.ptr_deref(right);
+
+        if left.as_ref().dtype() == &ir::Dtype::Undecided {
+            let right_type = right.dtype();
+            let local_val = match right_type {
+                ir::Dtype::I32 => Ok(ir::LocalVariable::create_int_ptr(
+                    self.increment_virt_reg_index(),
+                    0,
+                )),
+                ir::Dtype::Struct { type_name } => Ok(ir::LocalVariable::create_struct_ptr(
+                    type_name.clone(),
+                    self.increment_virt_reg_index(),
+                    0,
+                )),
+                ir::Dtype::Pointer { inner, length } => match inner.as_ref() {
+                    ir::Dtype::I32 => Ok(ir::LocalVariable::create_int_ptr(
+                        self.increment_virt_reg_index(),
+                        *length,
+                    )),
+                    ir::Dtype::Struct { type_name } => Ok(ir::LocalVariable::create_struct_ptr(
+                        type_name.clone(),
+                        self.increment_virt_reg_index(),
+                        *length,
+                    )),
+                    _ => Err(ir::Error::LocalVarTypeUnsupported),
+                },
+                _ => Err(ir::Error::LocalVarTypeUnsupported),
+            }?;
+            left = Rc::new(local_val.clone());
+            self.irs.push(ir::stmt::Stmt::as_alloca(Rc::clone(&left)));
+            self.local_variables[&left.as_ref().identifier().unwrap()] = local_val;
+        }
+        self.irs.push(ir::stmt::Stmt::as_store(right, left));
+        Ok(())
+    }
+
+    pub fn handle_local_var_decl(&mut self, decl: &ast::VarDecl) -> Result<(), ir::Error> {
+        let identifier = &decl.identifier;
+        let dtype = match decl.type_specifier.as_ref() {
+            Some(type_spec) => Some(ir::Dtype::from(type_spec)),
+            None => None,
+        };
+
+        let variable = match &dtype {
+            None => Ok(ir::LocalVariable::create_undecided()),
+            Some(inner) => {
+                let v = match inner {
+                    ir::Dtype::Struct { type_name } => Ok(ir::LocalVariable::create_struct_ptr(
+                        type_name.clone(),
+                        self.increment_virt_reg_index(),
+                        0,
+                    )),
+                    ir::Dtype::I32 => Ok(ir::LocalVariable::create_int_ptr(
+                        self.increment_virt_reg_index(),
+                        0,
+                    )),
+                    _ => Err(ir::Error::LocalVarTypeUnsupported),
+                }?;
+                self.irs.push(ir::stmt::Stmt::as_alloca(Rc::new(v.clone())));
+                Ok(v)
+            }
+        }?;
+
+        self.local_variables[identifier] = variable;
+
+        Ok(())
+    }
+
+    pub fn handle_local_var_def(&mut self, def: &ast::VarDef) -> Result<(), ir::Error> {
+        let identifier = &def.identifier;
+        let right_val = if let ast::VarDefInner::Scalar(scalar) = &def.inner {
+            self.handle_right_val(&scalar.val)
+        } else {
+            Err(ir::Error::DefineLocalVarArrayUnsupported)
+        }?;
+        let right_val = self.ptr_deref(right_val);
+
+        let dtype = match def.type_specifier.as_ref() {
+            Some(type_spec) => Some(ir::Dtype::from(type_spec)),
+            None => None,
+        };
+
+        let variable = match &dtype {
+            None => Ok(ir::LocalVariable::create_undecided()),
+            Some(inner) => {
+                let v = match inner {
+                    ir::Dtype::I32 => Ok(ir::LocalVariable::create_int_ptr(
+                        self.increment_virt_reg_index(),
+                        0,
+                    )),
+                    _ => Err(ir::Error::DefineLocalVarArrayUnsupported),
+                }?;
+                self.irs.push(ir::stmt::Stmt::as_alloca(Rc::new(v.clone())));
+                self.irs
+                    .push(ir::stmt::Stmt::as_store(right_val, Rc::new(v.clone())));
+                Ok(v)
+            }
+        }?;
+
+        self.local_variables.insert(identifier.clone(), variable);
+
+        Ok(())
+    }
+
+    pub fn handle_call_stmt(&mut self, stmt: &ast::CallStmt) -> Result<(), ir::Error> {
+        let function_name = stmt.fn_call.name.clone();
+        let mut args = Vec::new();
+        if stmt.fn_call.vals.is_some() {
+            for arg in stmt.fn_call.vals.as_ref().unwrap().iter() {
+                let right_val = self.handle_right_val(arg)?;
+                args.push(self.ptr_deref(right_val));
+            }
+        }
+
+        match self
+            .module_generator
+            .registry
+            .function_types
+            .get(&function_name)
+        {
+            None => Err(ir::Error::FunctionNotDefined {
+                symbol: function_name,
+            }),
+            Some(function_type) => {
+                let ret = match &function_type.return_dtype {
+                    ir::Dtype::Void => Ok(None),
+                    ir::Dtype::I32 => Ok(Some(Rc::new(ir::LocalVariable::create_int(
+                        self.increment_virt_reg_index(),
+                    )))),
+                    ir::Dtype::Struct { type_name } => {
+                        Ok(Some(Rc::new(ir::LocalVariable::create_struct_ptr(
+                            type_name.clone(),
+                            self.increment_virt_reg_index(),
+                            0,
+                        ))))
+                    }
+                    _ => Err(ir::Error::FunctionCallUnsupported),
+                }?;
+                self.irs
+                    .push(ir::stmt::Stmt::as_call(function_name, ret, args));
+
+                Ok(())
+            }
+        }
+    }
+
+    pub fn handle_if_stmt(
+        &mut self,
+        stmt: &ast::IfStmt,
+        con_label: Option<ir::BlockLabel>,
+        bre_label: Option<ir::BlockLabel>,
+    ) -> Result<(), ir::Error> {
+        let true_label = ir::BlockLabel::BasicBlock(self.increment_basic_block_index());
+        let false_label = ir::BlockLabel::BasicBlock(self.increment_basic_block_index());
+        let after_label = ir::BlockLabel::BasicBlock(self.increment_basic_block_index());
+
+        let bool_evaluated = ir::LocalVariable::create_int_ptr(self.increment_virt_reg_index(), 0);
+        self.handle_bool_unit(
+            &stmt.bool_unit,
+            Some(true_label.clone()),
+            Some(false_label.clone()),
+        );
+
+        self.irs
+            .push(ir::stmt::Stmt::as_alloca(Rc::new(bool_evaluated)));
+
+        // True block
+        self.irs.push(ir::stmt::Stmt::as_label(true_label));
+        for s in stmt.if_stmts.iter() {
+            self.handle_block(s, con_label.clone(), bre_label.clone())?;
+        }
+        self.irs.push(ir::stmt::Stmt::as_jump(after_label.clone()));
+
+        // False block
+        self.irs.push(ir::stmt::Stmt::as_label(false_label));
+        for s in stmt.if_stmts.iter() {
+            self.handle_block(s, con_label.clone(), bre_label.clone())?;
+        }
+        self.irs.push(ir::stmt::Stmt::as_jump(after_label.clone()));
+
+        // After block
+        self.irs.push(ir::stmt::Stmt::as_label(after_label.clone()));
+
+        Ok(())
+    }
+
+    pub fn handle_while_stmt(&mut self, stmt: &ast::WhileStmt) -> Result<(), ir::Error> {
+        let test_label = ir::BlockLabel::BasicBlock(self.increment_basic_block_index());
+        let true_label = ir::BlockLabel::BasicBlock(self.increment_basic_block_index());
+        let false_label = ir::BlockLabel::BasicBlock(self.increment_basic_block_index());
+
+        // Every block should end with a `br` instruction. Therefore, we manually
+        // terminate the last block here.
+        //
+        // Note the subtle difference between the `if` and `while` statements. In
+        // the case of an `if`, the boolean condition is evaluated only once, so
+        // `HandleBoolUnit` can be included in the previous block. However, in a
+        // `while`, the condition is checked multiple times, which introduces a
+        // `test_label` right before `HandleBoolUnit`. Although `HandleBoolUnit`
+        // emits a `br` to terminate the block, the presence of the `test_label`
+        // before it causes the last block to end without `br`, which violates the
+        // rule of terminating a block with a `br`. To address this, we manually
+        // insert a jump here to ensure proper block termination.
+        self.irs.push(ir::stmt::Stmt::as_jump(test_label.clone()));
+
+        // Test block
+        self.irs.push(ir::stmt::Stmt::as_label(test_label.clone()));
+        self.handle_bool_unit(
+            &stmt.bool_unit,
+            Some(true_label.clone()),
+            Some(false_label.clone()),
+        );
+
+        // While body
+        self.irs.push(ir::stmt::Stmt::as_label(true_label.clone()));
+        for s in stmt.stmts.iter() {
+            self.handle_block(s, Some(test_label.clone()), Some(false_label.clone()))?;
+        }
+        self.irs.push(ir::stmt::Stmt::as_jump(test_label.clone()));
+
+        // After while
+        self.irs.push(ir::stmt::Stmt::as_label(false_label));
+        Ok(())
+    }
+
+    pub fn handle_return_stmt(&mut self, stmt: &ast::ReturnStmt) -> Result<(), ir::Error> {
+        match &stmt.val {
+            None => {
+                self.irs.push(ir::stmt::Stmt::as_return(None));
+            }
+            Some(val) => {
+                let val = self.handle_right_val(val)?;
+                let val = self.ptr_deref(val);
+                self.irs.push(ir::stmt::Stmt::as_return(Some(val)));
+            }
+        }
+        Ok(())
     }
 }

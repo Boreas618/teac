@@ -1,51 +1,133 @@
 mod ast;
 mod ir;
-mod common;
 
 lalrpop_mod!(pub teapl);
 
 use lalrpop_util::lalrpop_mod;
+use std::collections::HashSet;
 use std::fs::File;
-use std::io::Read;
+use std::io::{self, BufWriter, Read};
+use std::path::{Path, PathBuf};
 
 use clap::Parser;
+use regex::Regex;
 
 #[derive(Parser, Debug)]
 #[command(name = "teaplc")]
 #[command(about = "A compiler written in Rust for teapl")]
 struct Cli {
+    #[clap(short, long, value_name = "FILE")]
     input: String,
 
     #[clap(short, long, value_name = "FILE")]
     output: Option<String>,
 }
 
+/// Preprocess a source file: expand `#use name` with the contents of `name.h`.
+/// Includes are resolved relative to the file that contains the directive.
+/// Nested includes are supported. Cycles are detected and reported.
+fn preprocess_file(path: &Path, visited: &mut HashSet<PathBuf>) -> io::Result<String> {
+    // Use canonical path for cycle detection
+    let key = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+    if !visited.insert(key.clone()) {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            format!("include cycle detected at: {}", key.to_string_lossy()),
+        ));
+    }
+
+    let mut src = String::new();
+    File::open(path)?.read_to_string(&mut src)?;
+
+    // Matches full line: `#use name` (with optional whitespace, optional semicolon)
+    // Examples:
+    //   #use math
+    //   #use   std   ;
+    let re = Regex::new(r#"(?m)^\s*#use\s+([A-Za-z0-9_]+)\s*;?\s*$"#).unwrap();
+
+    let mut out = String::with_capacity(src.len());
+    let mut last = 0usize;
+
+    for caps in re.captures_iter(&src) {
+        let m = caps.get(0).unwrap();
+        let module = caps.get(1).unwrap().as_str();
+
+        // Push text before the directive
+        out.push_str(&src[last..m.start()]);
+
+        // Resolve `module.h` in the same directory
+        let base_dir = path.parent().unwrap_or(Path::new("."));
+        let header_path = base_dir.join(format!("{module}.teah"));
+
+        // Recursively preprocess the header
+        let header_expanded = preprocess_file(&header_path, visited).map_err(|e| {
+            io::Error::new(
+                e.kind(),
+                format!(
+                    "while expanding #use {} in {}: {}",
+                    module,
+                    path.to_string_lossy(),
+                    e
+                ),
+            )
+        })?;
+
+        out.push_str(&header_expanded);
+        last = m.end();
+    }
+
+    out.push_str(&src[last..]);
+    visited.remove(&key);
+
+    Ok(out)
+}
+
 fn main() {
     let cli = Cli::parse();
     let input_path = cli.input;
+    let output_path = match cli.output {
+        None => input_path.clone() + ".ll",
+        Some(path) => path,
+    };
 
-    let mut file = File::open(input_path).unwrap();
-    let mut prog = String::new();
-    file.read_to_string(&mut prog).unwrap();
-    let ast = teapl::ProgramParser::new().parse(&prog).unwrap();
-    println!("{:#?}", ast);
+    let mut visited = HashSet::new();
+    let prog = preprocess_file(Path::new(&input_path), &mut visited).unwrap_or_else(|e| {
+        eprintln!("Encountered Error while preprocessing: {e}");
+        std::process::exit(1);
+    });
 
-    ir::gen(ast);
+    let ast = teapl::ProgramParser::new()
+        .parse(&prog)
+        .unwrap_or_else(|e| {
+            eprintln!("Encountered Error while parsing: {e}");
+            std::process::exit(1);
+        });
+
+    let mut module_generator = ir::ModuleGenerator::new();
+    let mut writer = BufWriter::new(File::create(output_path).unwrap());
+    module_generator.gen(&ast).unwrap_or_else(|e| {
+        eprintln!("Encountered Error while generating IR from AST: {e}");
+        std::process::exit(1);
+    });
+    module_generator.output(&mut writer).unwrap_or_else(|e| {
+        eprintln!("Encountered Error outputing: {e}");
+        std::process::exit(1);
+    });
 }
 
 #[cfg(test)]
 mod tests {
-    use std::fs::File;
-    use std::io::Read;
+    use super::preprocess_file;
+    use std::collections::HashSet;
+    use std::path::Path;
     lalrpop_mod!(pub teapl);
     use lalrpop_util::lalrpop_mod;
 
     #[test]
     fn test_dfs() {
-        let path = "tests/progs/dfs.tea";
-        let mut file = File::open(path).unwrap();
-        let mut prog = String::new();
-        file.read_to_string(&mut prog).unwrap();
+        let path = Path::new("tests/progs/dfs.tea");
+        let mut visited = HashSet::new();
+        let prog = preprocess_file(path, &mut visited).expect("preprocess failed");
         assert!(teapl::ProgramParser::new().parse(&prog).is_ok());
     }
 }

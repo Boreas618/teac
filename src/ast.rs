@@ -1,3 +1,4 @@
+use std::fmt::{Display, Formatter};
 use std::{ops::Deref, rc::Rc};
 type Pos = usize;
 
@@ -18,7 +19,7 @@ pub struct TypeSepcifier {
     pub inner: TypeSpecifierInner,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RightValList {
     pub head: Box<RightVal>,
     pub next: Option<Box<RightValList>>,
@@ -47,40 +48,40 @@ impl<'a> Iterator for RightValListIterator<'a> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FnCall {
     pub pos: Pos,
     pub name: String,
     pub vals: Option<Box<RightValList>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum IndexExprInner {
     Num(usize),
     Id(String),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct IndexExpr {
     pub pos: Pos,
     pub inner: IndexExprInner,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ArrayExpr {
     pub pos: Pos,
     pub arr: Box<LeftVal>,
     pub idx: Box<IndexExpr>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MemberExpr {
     pub pos: Pos,
     pub struct_id: Box<LeftVal>,
     pub member_id: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ExprUnitInner {
     Num(i32),
     Id(String),
@@ -91,18 +92,24 @@ pub enum ExprUnitInner {
     ArithUExpr(Box<ArithUExpr>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ExprUnit {
     pub pos: Pos,
     pub inner: ExprUnitInner,
 }
 
-#[derive(Debug, PartialEq)]
+impl Display for ExprUnit {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+        write!(f, "{:?}", self)
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
 pub enum ArithUOp {
     Neg,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ArithBiOp {
     Add,
     Sub,
@@ -110,18 +117,18 @@ pub enum ArithBiOp {
     Div,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum BoolUOp {
     Not,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum BoolBiOp {
     And,
     Or,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ComOp {
     Lt,
     Le,
@@ -131,7 +138,7 @@ pub enum ComOp {
     Ne,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ArithBiOpExpr {
     pub pos: Pos,
     pub op: ArithBiOp,
@@ -139,26 +146,26 @@ pub struct ArithBiOpExpr {
     pub right: Box<ArithExpr>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ArithUExpr {
     pub pos: Pos,
     pub op: ArithUOp,
     pub expr: Box<ExprUnit>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ArithExprInner {
     ArithBiOpExpr(Box<ArithBiOpExpr>),
     ExprUnit(Box<ExprUnit>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ArithExpr {
     pub pos: Pos,
     pub inner: ArithExprInner,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BoolBiOpExpr {
     pub pos: Pos,
     pub op: BoolBiOp,
@@ -166,26 +173,26 @@ pub struct BoolBiOpExpr {
     pub right: Box<BoolExpr>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BoolUOpExpr {
     pub pos: Pos,
     pub op: BoolUOp,
     pub cond: Box<BoolUnit>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum BoolExprInner {
     BoolBiOpExpr(Box<BoolBiOpExpr>),
     BoolUnit(Box<BoolUnit>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BoolExpr {
     pub pos: Pos,
     pub inner: BoolExprInner,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ComExpr {
     pub pos: Pos,
     pub op: ComOp,
@@ -193,69 +200,69 @@ pub struct ComExpr {
     pub right: Box<ExprUnit>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum BoolUnitInner {
     ComExpr(Box<ComExpr>),
     BoolExpr(Box<BoolExpr>),
     BoolUOpExpr(Box<BoolUOpExpr>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BoolUnit {
     pub pos: Pos,
     pub inner: BoolUnitInner,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum RightValInner {
     ArithExpr(Box<ArithExpr>),
     BoolExpr(Box<BoolExpr>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RightVal {
     pub pos: Pos,
     pub inner: RightValInner,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum LeftValInner {
     Id(String),
     ArrayExpr(Box<ArrayExpr>),
     MemberExpr(Box<MemberExpr>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct LeftVal {
     pub pos: Pos,
     pub inner: LeftValInner,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct AssignmentStmt {
     pub pos: Pos,
     pub left_val: Box<LeftVal>,
     pub right_val: Box<RightVal>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct VarDeclScalar {
     pub pos: Pos,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct VarDeclArray {
     pub pos: Pos,
     pub len: usize,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum VarDeclInner {
     Scalar(Box<VarDeclScalar>),
     Array(Box<VarDeclArray>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct VarDecl {
     pub pos: Pos,
     pub identifier: String,
@@ -263,13 +270,13 @@ pub struct VarDecl {
     pub inner: VarDeclInner,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum VarDefInner {
     Scalar(Box<VarDefScalar>),
     Array(Box<VarDefArray>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct VarDef {
     pub pos: Pos,
     pub identifier: String,
@@ -277,32 +284,32 @@ pub struct VarDef {
     pub inner: VarDefInner,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct VarDefScalar {
     pub pos: Pos,
     pub val: Box<RightVal>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct VarDefArray {
     pub pos: Pos,
     pub len: usize,
     pub vals: Box<RightValList>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum VarDeclStmtInner {
     Decl(Box<VarDecl>),
     Def(Box<VarDef>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct VarDeclStmt {
     pub pos: Pos,
     pub inner: VarDeclStmtInner,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct VarDeclList {
     pub head: Box<VarDecl>,
     pub next: Option<Box<VarDeclList>>,
@@ -331,14 +338,14 @@ impl VarDeclList {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct StructDef {
     pub pos: Pos,
-    pub id: String,
+    pub identifier: String,
     pub decls: Box<VarDeclList>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FnDecl {
     pub pos: Pos,
     pub identifier: String,
@@ -346,19 +353,19 @@ pub struct FnDecl {
     pub return_dtype: Rc<Option<TypeSepcifier>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ParamDecl {
     pub decls: Box<VarDeclList>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FnDef {
     pub pos: Pos,
     pub fn_decl: Box<FnDecl>,
     pub stmts: Box<CodeBlockStmtList>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct IfStmt {
     pub pos: Pos,
     pub bool_unit: Box<BoolUnit>,
@@ -366,41 +373,41 @@ pub struct IfStmt {
     pub else_stmts: Option<Box<CodeBlockStmtList>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct WhileStmt {
     pub pos: Pos,
     pub bool_unit: Box<BoolUnit>,
     pub stmts: Box<CodeBlockStmtList>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CallStmt {
     pub pos: Pos,
     pub fn_call: Box<FnCall>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ReturnStmt {
     pub pos: Pos,
     pub val: Option<Box<RightVal>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ContinueStmt {
     pub pos: Pos,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BreakStmt {
     pub pos: Pos,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct NullStmt {
     pub pos: Pos,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum CodeBlockStmtInner {
     VarDecl(Box<VarDeclStmt>),
     Assignment(Box<AssignmentStmt>),
@@ -413,19 +420,42 @@ pub enum CodeBlockStmtInner {
     Null(Box<NullStmt>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CodeBlockStmt {
     pub pos: Pos,
     pub inner: CodeBlockStmtInner,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CodeBlockStmtList {
     pub head: Box<CodeBlockStmt>,
     pub next: Option<Box<CodeBlockStmtList>>,
 }
 
-#[derive(Debug)]
+impl CodeBlockStmtList {
+    pub fn iter(&self) -> CodeBlockStmtListIterator {
+        CodeBlockStmtListIterator {
+            current: Some(self),
+        }
+    }
+}
+
+pub struct CodeBlockStmtListIterator<'a> {
+    current: Option<&'a CodeBlockStmtList>,
+}
+
+impl<'a> Iterator for CodeBlockStmtListIterator<'a> {
+    type Item = &'a CodeBlockStmt;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.current.take().map(|node| {
+            self.current = node.next.as_ref().map(|next_node| &**next_node);
+            &*node.head
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct FnDeclStmt {
     pub pos: Pos,
     pub fn_decl: Box<FnDecl>,
@@ -439,12 +469,12 @@ impl Deref for FnDeclStmt {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Program {
     pub elements: Box<ProgramElementList>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ProgramElementList {
     pub element: Box<ProgramElement>,
     pub next: Option<Box<ProgramElementList>>,
@@ -473,7 +503,7 @@ impl<'a> Iterator for ProgramElementListIterator<'a> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ProgramElementInner {
     VarDeclStmt(Box<VarDeclStmt>),
     StructDef(Box<StructDef>),
@@ -481,7 +511,7 @@ pub enum ProgramElementInner {
     FnDef(Box<FnDef>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ProgramElement {
     pub inner: ProgramElementInner,
 }

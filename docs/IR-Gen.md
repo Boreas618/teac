@@ -2,7 +2,7 @@
 
 > 本系列博客旨在记录复旦大学 COMP130014 《编译》课程中，关于 [Teapl 语言](https://github.com/hxuhack/course_compiler/tree/main/teapl) 编译器的相关设计思考与实现。该编译器名为 Teaplc-rs，使用 Rust 编写，参考了 LLVM 等成熟开源编译器的实现方式，并作为本课程实验部分的框架代码。
 
-本文将首先梳理 Clang 编译器从 AST（Abstract Syntax Tree）生成 LLVM IR（Intermediate Representation）的整体流程，随后对比分析 Teaplc-rs 在该阶段的实现与 Clang 的异同，并探讨 Teaplc-rs 在从 AST 到 LLVM IR 转换过程中的设计理念与技术细节。
+本文将首先梳理 Clang 编译器从 AST（Abstract Syntax Tree）生成 LLVM IR（Intermediate Representation）的整体流程，随后对比分析 Teaplc-rs 在该阶段的实现与 Clang 的异同，并探讨 Teaplc-rs 在从 AST 到 LLVM IR 转换过程中的设计思想与实现细节。
 
 ## Clang 从 AST 生成 LLVM IR 的流程
 

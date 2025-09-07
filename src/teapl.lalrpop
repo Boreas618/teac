@@ -44,7 +44,7 @@ StructDef: Box<ast::StructDef> = {
     <begin: @L> Struct <id: Identifier> LCurlyBrace <vdl: VarDeclList> RCurlyBrace =>  Box::new(
         ast::StructDef {
             pos: begin,
-            id: id.to_string(),
+            identifier: id.to_string(),
             decls: vdl,
         }
     )
@@ -335,8 +335,8 @@ VarDecl: Box<ast::VarDecl> = {
     <begin: @L> <id: Identifier> Colon <t: Type> => Box::new(
         ast::VarDecl {
             pos: begin,
-            id: id.to_string(),
-            real_type: t,
+            identifier: id.to_string(),
+            type_specifier: t,
             inner: ast::VarDeclInner::Scalar(
                 Box::new(
                     ast::VarDeclScalar {
@@ -349,13 +349,13 @@ VarDecl: Box<ast::VarDecl> = {
     <begin: @L> <id: Identifier> LSquareBracket <num: Num> RSquareBracket Colon <t: Type> => Box::new(
         ast::VarDecl {
             pos: begin,
-            id: id.to_string(),
-            real_type: t,
+            identifier: id.to_string(),
+            type_specifier: t,
             inner: ast::VarDeclInner::Array(
                 Box::new(
                     ast::VarDeclArray {
                         pos: begin,
-                        len: num as isize,
+                        len: num as usize,
                     }
                 )
             )
@@ -364,8 +364,8 @@ VarDecl: Box<ast::VarDecl> = {
     <begin: @L> <id: Identifier> => Box::new(
         ast::VarDecl {
             pos: begin,
-            id: id.to_string(),
-            real_type: Rc::new(None),
+            identifier: id.to_string(),
+            type_specifier: Rc::new(None),
             inner: ast::VarDeclInner::Scalar(
                 Box::new(
                     ast::VarDeclScalar {
@@ -378,13 +378,13 @@ VarDecl: Box<ast::VarDecl> = {
     <begin: @L> <id: Identifier> LSquareBracket <num: Num> RSquareBracket => Box::new(
         ast::VarDecl {
             pos: begin,
-            id: id.to_string(),
-            real_type: Rc::new(None),
+            identifier: id.to_string(),
+            type_specifier: Rc::new(None),
             inner: ast::VarDeclInner::Array(
                 Box::new(
                     ast::VarDeclArray {
                         pos: begin,
-                        len: num as isize,
+                        len: num as usize,
                     }
                 )
             )
@@ -396,8 +396,8 @@ VarDef: Box<ast::VarDef> = {
     <begin: @L> <id: Identifier> Colon <t: Type> Assignment <right_val: RightVal> => Box::new(
         ast::VarDef {
             pos: begin,
-            id: id.to_string(),
-            real_type: t,
+            identifier: id.to_string(),
+            type_specifier: t,
             inner: ast::VarDefInner::Scalar(
                 Box::new(
                     ast::VarDefScalar {
@@ -411,13 +411,13 @@ VarDef: Box<ast::VarDef> = {
     <begin: @L> <id: Identifier> LSquareBracket <num: Num> RSquareBracket Colon <t: Type> Assignment LCurlyBrace <rval_list: RightValList> RCurlyBrace => Box::new(
         ast::VarDef {
             pos: begin,
-            id: id.to_string(),
-            real_type: t,
+            identifier: id.to_string(),
+            type_specifier: t,
             inner: ast::VarDefInner::Array(
                 Box::new(
                     ast::VarDefArray {
                         pos: begin,
-                        len: num as isize,
+                        len: num as usize,
                         vals: rval_list,
                     }
                 )
@@ -427,8 +427,8 @@ VarDef: Box<ast::VarDef> = {
     <begin: @L> <id: Identifier> Assignment <right_val: RightVal> => Box::new(
         ast::VarDef {
             pos: begin,
-            id: id.to_string(),
-            real_type: Rc::new(None),
+            identifier: id.to_string(),
+            type_specifier: Rc::new(None),
             inner: ast::VarDefInner::Scalar(
                 Box::new(
                     ast::VarDefScalar {
@@ -442,13 +442,13 @@ VarDef: Box<ast::VarDef> = {
     <begin: @L> <id: Identifier> LSquareBracket <num: Num> RSquareBracket Assignment LCurlyBrace <rval_list: RightValList> RCurlyBrace => Box::new(
         ast::VarDef {
             pos: begin,
-            id: id.to_string(),
-            real_type: Rc::new(None),
+            identifier: id.to_string(),
+            type_specifier: Rc::new(None),
             inner: ast::VarDefInner::Array(
                 Box::new(
                     ast::VarDefArray {
                         pos: begin,
-                        len: num as isize,
+                        len: num as usize,
                         vals: rval_list,
                     }
                 )
@@ -485,7 +485,7 @@ FnDecl: Box<ast::FnDecl> = {
     <begin: @L> Fn <id: Identifier> LParentheses <param_decl: ParamDecl?> RParentheses => Box::new(
         ast::FnDecl {
             pos: begin,
-            id: id.to_string(),
+            identifier: id.to_string(),
             param_decl: param_decl,
             return_dtype: Rc::new(None),
         }
@@ -493,7 +493,7 @@ FnDecl: Box<ast::FnDecl> = {
     <begin: @L> Fn <id: Identifier> LParentheses <param_decl: ParamDecl?> RParentheses RArrow <t: Type> => Box::new(
         ast::FnDecl {
             pos: begin,
-            id: id.to_string(),
+            identifier: id.to_string(),
             param_decl: param_decl,
             return_dtype: t,
         }
@@ -881,20 +881,20 @@ BoolUnit: Box<ast::BoolUnit> = {
     )
 };
 
-Type: Rc<Option<ast::Type>> = {
+Type: Rc<Option<ast::TypeSepcifier>> = {
     <begin: @L> Int => Rc::new(
         Some(
-            ast::Type {
+            ast::TypeSepcifier {
                 pos: begin,
-                inner: ast::TypeInner::BuiltIn(Box::new(ast::BuiltIn::Int))
+                inner: ast::TypeSpecifierInner::BuiltIn(Box::new(ast::BuiltIn::Int))
             }
         )
     ),
     <begin: @L> <id: Identifier> => Rc::new(
         Some(
-            ast::Type {
+            ast::TypeSepcifier {
                 pos: begin,
-                inner: ast::TypeInner::Composite(Box::new(id.to_string()))
+                inner: ast::TypeSpecifierInner::Composite(Box::new(id.to_string()))
             }
         )
     )
