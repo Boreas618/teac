@@ -219,36 +219,43 @@ pub struct ReturnStmt {
     val: Option<Rc<dyn Operand>>,
 }
 
-fn biop_mnemonic(k: &ir::BiOpKind) -> &'static str {
-    use ir::BiOpKind::*;
-    match k {
-        Add => "add",
-        Sub => "sub",
-        Mul => "mul",
-        Div => "udiv",
+impl Display for ir::BiOpKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use ir::BiOpKind::*;
+        match self {
+            Add => write!(f, "add"),
+            Sub => write!(f, "sub"),
+            Mul => write!(f, "mul"),
+            Div => write!(f, "udiv"),
+        }
     }
 }
 
-fn icmp_predicate(k: &ir::RelOpKind) -> &'static str {
-    use ir::RelOpKind::*;
-    match k {
-        Eq => "eq",
-        Ne => "ne",
-        Gt => "sgt",
-        Ge => "sge",
-        Lt => "slt",
-        Le => "sle",
+impl Display for ir::RelOpKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use ir::RelOpKind::*;
+        match self {
+            Eq => write!(f, "eq"),
+            Ne => write!(f, "ne"),
+            Gt => write!(f, "sgt"),
+            Ge => write!(f, "sge"),
+            Lt => write!(f, "slt"),
+            Le => write!(f, "sle"),
+        }
     }
 }
 
-pub fn dtype(k: &ir::Dtype) -> &'static str {
-    use ir::Dtype::*;
-    match k {
-        I32 => "i32",
-        Void => "void",
-        Struct { .. } => "struct",
-        Pointer { .. } => "void",
-        Undecided => "?",
+impl Display for ir::Dtype {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ir::Dtype::I32 => write!(f, "i32"),
+            ir::Dtype::Void => write!(f, "void"),
+            ir::Dtype::Struct { .. } => write!(f, "struct"),
+            ir::Dtype::Pointer { inner, length } => {
+                write!(f, "[{} x {}]", length, inner.as_ref())
+            }
+            ir::Dtype::Undecided => write!(f, "?"),
+        }
     }
 }
 
@@ -262,11 +269,14 @@ impl Display for CallStmt {
             .join(", ");
 
         if let Some(res) = &self.res {
-            match res.as_ref().dtype {
-                ir::Dtype::I32 => write!(f, "{} = call i32 @{}({})", res, self.func_name, args),
-                ir::Dtype::Void => write!(f, "{} = call void @{}({})", res, self.func_name, args),
-                _ => Err(std::fmt::Error),
-            }
+            write!(
+                f,
+                "{} = call {} @{}({})",
+                res,
+                &res.as_ref().dtype,
+                self.func_name,
+                args
+            )
         } else {
             write!(f, "call @{}({})", self.func_name, args)
         }
@@ -275,19 +285,40 @@ impl Display for CallStmt {
 
 impl Display for LoadStmt {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{} = load i32, ptr {}, align 4", self.dst, self.ptr)
+        write!(
+            f,
+            "{} = load {}, ptr {}, align 4",
+            self.dst,
+            self.dst.dtype(),
+            self.ptr
+        )
     }
 }
 
 impl Display for StoreStmt {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "store i32 {}, ptr {}, align 4", self.src, self.ptr)
+        write!(
+            f,
+            "store {} {}, ptr {}, align 4",
+            self.src.dtype(),
+            self.src,
+            self.ptr
+        )
     }
 }
 
 impl Display for AllocaStmt {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{} = alloca i32, align 4", self.dst)
+        match self.dst.dtype() {
+            ir::Dtype::Pointer { inner, length } => {
+                if *length == 0 {
+                    write!(f, "{} = alloca {}, align 4", self.dst, inner)
+                } else {
+                    write!(f, "{} = alloca {}, align 4", self.dst, self.dst.dtype())
+                }
+            }
+            _ => write!(f, "{} = alloca {}, align 4", self.dst, self.dst.dtype()),
+        }
     }
 }
 
@@ -295,9 +326,10 @@ impl Display for BiOpStmt {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "{} = {} {}, {}",
+            "{} = {} {} {}, {}",
             self.dst,
-            biop_mnemonic(&self.kind),
+            self.kind,
+            self.dst.dtype(),
             self.left,
             self.right
         )
@@ -308,9 +340,10 @@ impl Display for CmpStmt {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "{} = icmp {} i32 {}, {}",
+            "{} = icmp {} {} {}, {}",
             self.dst,
-            icmp_predicate(&self.kind),
+            self.kind,
+            self.left.dtype(),
             self.left,
             self.right
         )
@@ -341,47 +374,28 @@ impl Display for LabelStmt {
 
 impl Display for GepStmt {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let t = if let Some(local) = self
-            .base_ptr
-            .as_ref()
-            .as_any()
-            .downcast_ref::<ir::LocalVariable>()
-        {
-            Ok(&local.dtype)
-        } else if let Some(global) = self
-            .base_ptr
-            .as_ref()
-            .as_any()
-            .downcast_ref::<ir::GlobalVariable>()
-        {
-            Ok(&global.dtype)
-        } else {
-            Err(std::fmt::Error)
-        }?;
-
-        if let ir::Dtype::Pointer { length, inner } = t {
-            write!(
-                f,
-                "{} = getelementptr [{} x {}], ptr {}, i32 {}, i32 {}",
-                self.new_ptr,
-                length,
-                dtype(inner.as_ref()),
-                self.base_ptr,
-                0,
-                self.index
-            )
-        } else {
-            Err(std::fmt::Error)
+        // Only valid if the base is a pointer
+        if !matches!(self.base_ptr.dtype(), ir::Dtype::Pointer { .. }) {
+            return Err(fmt::Error);
         }
+
+        write!(
+            f,
+            "{} = getelementptr {}, ptr {}, i32 {}, i32 {}",
+            self.new_ptr,
+            self.base_ptr.dtype(),
+            self.base_ptr,
+            0,
+            self.index,
+        )
     }
 }
 
 impl Display for ReturnStmt {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        if let Some(v) = &self.val {
-            write!(f, "ret i32 {}", v)
-        } else {
-            write!(f, "ret void")
+        match &self.val {
+            Some(v) => write!(f, "ret {} {}", v.dtype(), v),
+            None => write!(f, "ret void"),
         }
     }
 }

@@ -7,8 +7,7 @@ use crate::ir::gen::Named;
 use indexmap::IndexMap;
 use std::any::Any;
 use std::fmt::{Display, Formatter};
-use std::fs::File;
-use std::io::{BufWriter, Write};
+use std::io::Write;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -368,46 +367,73 @@ impl ModuleGenerator {
         Self { module, registry }
     }
 
-    pub fn output(&self, writer: &mut BufWriter<File>) -> std::io::Result<()> {
-        for (_, function) in &self.module.function_list {
-            let mut args = String::new();
-            for arg in &function.dtype.arguments {
-                let var = &arg
-                    .inner
-                    .as_ref()
-                    .as_any()
-                    .downcast_ref::<ir::LocalVariable>()
-                    .unwrap();
-                args += &format!("{} %r{}, ", ir::stmt::dtype(&var.dtype), var.index).to_string();
-            }
-            if args.ends_with(", ") {
-                args = args[0..args.len() - 2].to_string();
-            }
-            if function.blocks.as_ref().is_some() {
+    pub fn output<W: Write>(&self, writer: &mut W) -> std::io::Result<()> {
+        // Globals
+        for global in self.module.global_list.values() {
+            let init_str = match (&global.initializers, &global.dtype) {
+                (None, ir::Dtype::I32) => "0".to_string(),
+                (None, _) => "zeroinitializer".to_string(),
+                (Some(inits), _) => {
+                    assert!(
+                        inits.len() == 1,
+                        "global '{}' expected exactly 1 initializer, got {}",
+                        global.identifier,
+                        inits.len()
+                    );
+                    format!("{}", inits[0])
+                }
+            };
+
+            writeln!(
+                writer,
+                "@{} = global {} {}",
+                global.identifier, global.dtype, init_str
+            )?;
+            writeln!(writer)?; // blank line
+        }
+
+        // Functions
+        for func in self.module.function_list.values() {
+            // Build argument list once, without trailing comma handling.
+            let args = func
+                .dtype
+                .arguments
+                .iter()
+                .map(|arg| {
+                    let var = arg
+                        .inner
+                        .as_ref()
+                        .as_any()
+                        .downcast_ref::<ir::LocalVariable>()
+                        .expect("function arguments must be ir::LocalVariable");
+                    format!("{} %r{}", var.dtype, var.index)
+                })
+                .collect::<Vec<_>>()
+                .join(", ");
+
+            if let Some(blocks) = &func.blocks {
                 writeln!(
                     writer,
                     "define {} @{}({}) {{",
-                    ir::stmt::dtype(&function.dtype.return_dtype),
-                    function.identifier,
-                    args
+                    func.dtype.return_dtype, func.identifier, args
                 )?;
-                for block in function.blocks.as_ref().unwrap() {
+                for block in blocks {
                     for stmt in block {
                         writeln!(writer, "{}", stmt)?;
                     }
                 }
                 writeln!(writer, "}}")?;
-                writeln!(writer, "")?;
+                writeln!(writer)?; // blank line
             } else {
                 writeln!(
                     writer,
                     "declare {} @{}({});",
-                    ir::stmt::dtype(&function.dtype.return_dtype),
-                    function.identifier,
-                    args
+                    func.dtype.return_dtype, func.identifier, args
                 )?;
+                writeln!(writer)?; // blank line
             }
         }
+
         Ok(())
     }
 }

@@ -1,8 +1,27 @@
+@n = global i32 0
+
+@m = global i32 0
+
+@to = global [5005 x i32] zeroinitializer
+
+@next = global [5005 x i32] zeroinitializer
+
+@head = global [1005 x i32] zeroinitializer
+
+@cnt = global i32 0
+
+@vis = global [1005 x i32] zeroinitializer
+
 declare i32 @getch();
+
 declare void @_sysy_starttime(i32 %r0);
+
 declare void @_sysy_stoptime(i32 %r0);
+
 declare void @putint(i32 %r0);
+
 declare void @putch(i32 %r0);
+
 define i32 @quickread() {
 quickread:
 	%r123 = alloca i32, align 4
@@ -90,10 +109,10 @@ bb23:
 	br i1 %r126, label %bb15, label %bb16
 bb15:
 	%r128 = load i32, ptr %r102, align 4
-	%r129 = mul %r128, 10
+	%r129 = mul i32 %r128, 10
 	%r130 = load i32, ptr %r101, align 4
-	%r131 = add %r129, %r130
-	%r132 = sub %r131, 48
+	%r131 = add i32 %r129, %r130
+	%r132 = sub i32 %r131, 48
 	store i32 %r132, ptr %r102, align 4
 	%r133 = call i32 @getch()
 	store i32 %r133, ptr %r101, align 4
@@ -104,7 +123,7 @@ bb16:
 	br i1 %r136, label %bb24, label %bb25
 bb24:
 	%r137 = load i32, ptr %r102, align 4
-	%r138 = sub 0, %r137
+	%r138 = sub i32 0, %r137
 	ret i32 %r138
 bb25:
 	%r139 = load i32, ptr %r102, align 4
@@ -127,7 +146,7 @@ addedge:
 	%r108 = load i32, ptr %r0, align 4
 	%r107 = getelementptr [1005 x i32], ptr @head, i32 0, i32 %r108
 	store i32 @cnt, ptr %r107, align 4
-	%r109 = add @cnt, 1
+	%r109 = add i32 @cnt, 1
 	store i32 %r109, ptr @cnt, align 4
 	%r111 = load i32, ptr @cnt, align 4
 	%r110 = getelementptr [5005 x i32], ptr @to, i32 0, i32 %r111
@@ -141,7 +160,7 @@ addedge:
 	%r118 = load i32, ptr %r1, align 4
 	%r117 = getelementptr [1005 x i32], ptr @head, i32 0, i32 %r118
 	store i32 @cnt, ptr %r117, align 4
-	%r119 = add @cnt, 1
+	%r119 = add i32 @cnt, 1
 	store i32 %r119, ptr @cnt, align 4
 	ret void
 }
@@ -160,7 +179,7 @@ bb2:
 	%r103 = getelementptr [1005 x i32], ptr @head, i32 0, i32 %r104
 	store i32 -1, ptr %r103, align 4
 	%r105 = load i32, ptr %r100, align 4
-	%r106 = add %r105, 1
+	%r106 = add i32 %r105, 1
 	store i32 %r106, ptr %r100, align 4
 	br label %bb1
 bb3:
@@ -181,7 +200,7 @@ bb2:
 	%r103 = getelementptr [1005 x i32], ptr @vis, i32 0, i32 %r104
 	store i32 0, ptr %r103, align 4
 	%r105 = load i32, ptr %r100, align 4
-	%r106 = add %r105, 1
+	%r106 = add i32 %r105, 1
 	store i32 %r106, ptr %r100, align 4
 	br label %bb1
 bb3:
@@ -344,7 +363,7 @@ bb15:
 	call @addedge(%r128, %r129)
 	br label %bb16
 bb16:
-	%r130 = sub @m, 1
+	%r130 = sub i32 @m, 1
 	store i32 %r130, ptr @m, align 4
 	br label %bb1
 bb3:
