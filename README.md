@@ -7,7 +7,7 @@ A Rust-based reimplementation of the [Teapl compiler](https://github.com/hxuhack
 To build and run the compiler on a sample program:
 
 ```bash
-cargo run -- --input tests/progs/dfs.tea
+cargo run -- tests/progs/dfs.tea
 ```
 
 This will generate the LLVM IR file `dfs.tea.ll` under `tests/progs/`.
