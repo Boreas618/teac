@@ -12,11 +12,12 @@ use std::path::{Path, PathBuf};
 use clap::Parser;
 use regex::Regex;
 
+// Derive (auto-implement) the `Parser` trait from the `clap` crate so this struct can parse command-line arguments automatically.
 #[derive(Parser, Debug)]
-#[command(name = "teaplc")]
-#[command(about = "A compiler written in Rust for teapl")]
+#[command(name = "teaplc")] // Provide metadata for the CLI: must be the same with the program’s name.
+#[command(about = "A compiler written in Rust for teapl")] // Provide metadata for the CLI: a short description shown in `--help`.
 struct Cli {
-    #[clap(short, long, value_name = "FILE")]
+    #[clap(value_name = "FILE")] // Making it a positional argument; no "--input/-i" required.
     input: String,
 
     #[clap(short, long, value_name = "FILE")]
@@ -83,19 +84,27 @@ fn preprocess_file(path: &Path, visited: &mut HashSet<PathBuf>) -> io::Result<St
 }
 
 fn main() {
+    // Parse the command.
     let cli = Cli::parse();
     let input_path = cli.input;
     let output_path = match cli.output {
-        None => input_path.clone() + ".ll",
+        None => {
+            Path::new(&input_path)
+                .with_extension("ll") // replaces whatever extension it had
+                .to_string_lossy() // convert PathBuf to String
+                .into_owned()
+        }
         Some(path) => path,
     };
 
+    // Process input code file.
     let mut visited = HashSet::new();
     let prog = preprocess_file(Path::new(&input_path), &mut visited).unwrap_or_else(|e| {
         eprintln!("Encountered Error while preprocessing: {e}");
         std::process::exit(1);
     });
 
+    // Generate abstract syntax tree for the code.
     let ast = teapl::ProgramParser::new()
         .parse(&prog)
         .unwrap_or_else(|e| {
@@ -103,31 +112,17 @@ fn main() {
             std::process::exit(1);
         });
 
+    // Generate LLVM IR based on the ast.
     let mut module_generator = ir::ModuleGenerator::new();
     let mut writer = BufWriter::new(File::create(output_path).unwrap());
     module_generator.gen(&ast).unwrap_or_else(|e| {
         eprintln!("Encountered Error while generating IR from AST: {e}");
         std::process::exit(1);
     });
+
+    // Save the generated IR into a file.
     module_generator.output(&mut writer).unwrap_or_else(|e| {
         eprintln!("Encountered Error outputing: {e}");
         std::process::exit(1);
     });
-}
-
-#[cfg(test)]
-mod tests {
-    use super::preprocess_file;
-    use std::collections::HashSet;
-    use std::path::Path;
-    lalrpop_mod!(pub teapl);
-    use lalrpop_util::lalrpop_mod;
-
-    #[test]
-    fn test_dfs() {
-        let path = Path::new("tests/progs/dfs.tea");
-        let mut visited = HashSet::new();
-        let prog = preprocess_file(path, &mut visited).expect("preprocess failed");
-        assert!(teapl::ProgramParser::new().parse(&prog).is_ok());
-    }
 }

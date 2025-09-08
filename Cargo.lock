@@ -550,7 +550,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "teaplc"
+name = "teac"
 version = "0.1.0"
 dependencies = [
  "clap",
