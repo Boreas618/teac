@@ -3,22 +3,36 @@ mod ir;
 
 lalrpop_mod!(pub teapl);
 
+use clap::{Parser, ValueEnum};
 use lalrpop_util::lalrpop_mod;
-use std::collections::HashSet;
-use std::fs::File;
-use std::io::{self, BufWriter, Read};
-use std::path::{Path, PathBuf};
-
-use clap::Parser;
 use regex::Regex;
+use std::{
+    collections::HashSet,
+    fs::File,
+    io::{self, BufWriter, Read},
+    path::{Path, PathBuf},
+};
+
+/// Dump mode: AST / IR / Assembly
+#[derive(Copy, Clone, Debug, ValueEnum)]
+enum DumpMode {
+    AST,
+    IR,
+    S,
+}
 
 // Derive (auto-implement) the `Parser` trait from the `clap` crate so this struct can parse command-line arguments automatically.
 #[derive(Parser, Debug)]
-#[command(name = "teaplc")] // Provide metadata for the CLI: must be the same with the program’s name.
+#[command(name = "teac")] // Provide metadata for the CLI: must be the same with the program’s name.
 #[command(about = "A compiler written in Rust for teapl")] // Provide metadata for the CLI: a short description shown in `--help`.
 struct Cli {
-    #[clap(value_name = "FILE")] // Making it a positional argument; no "--input/-i" required.
+    /// Input file (source code file with a .tea extension)
+    #[clap(value_name = "FILE")]
     input: String,
+
+    /// Dump mode (-D AST|IR|S)
+    #[arg(short = 'D', value_enum, ignore_case=true)]
+    dump: Option<DumpMode>,
 
     #[clap(short, long, value_name = "FILE")]
     output: Option<String>,
@@ -96,6 +110,21 @@ fn main() {
         }
         Some(path) => path,
     };
+
+    match cli.dump {
+        Some(DumpMode::AST) => {
+            println!("Will dump AST");
+        }
+        Some(DumpMode::IR) => {
+            println!("Will dump LLVM IR");
+        }
+        Some(DumpMode::S) => {
+            println!("Will dump Assembly");
+        }
+        None => {
+            println!("No dump mode specified, proceed normally.");
+        }
+    }
 
     // Process input code file.
     let mut visited = HashSet::new();

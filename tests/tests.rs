@@ -40,14 +40,16 @@ fn test_dfs() {
 
     // Read the generated output file
     let output_path = Path::new(dir).join(output_file);
-    let output_content = fs::read_to_string(output_path)
-        .expect("Failed to read generated output file");
+    let output_content =
+        fs::read_to_string(output_path).expect("Failed to read generated output file");
 
     // Read the oracle file
     let oracle_path = Path::new(dir).join(oracle_file);
-    let oracle_content = fs::read_to_string(oracle_path)
-        .expect("Failed to read oracle file");
+    let oracle_content = fs::read_to_string(oracle_path).expect("Failed to read oracle file");
 
     // Compare contents
-    assert_eq!(output_content, oracle_content, "Generated output does not match oracle");
+    assert_eq!(
+        output_content, oracle_content,
+        "Generated output does not match oracle"
+    );
 }
