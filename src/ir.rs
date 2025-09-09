@@ -41,7 +41,7 @@ pub enum RelOpKind {
 #[derive(Clone)]
 struct FunctionType {
     return_dtype: Dtype,
-    arguments: Vec<VarDef>,
+    arguments: IndexMap<String, Dtype>,
 }
 
 impl PartialEq<ast::FnDecl> for FunctionType {
@@ -78,9 +78,8 @@ impl PartialEq<ast::FnDecl> for FunctionType {
             return false;
         }
 
-        for (lhs_arg, (rhs_id, rhs_dtype)) in self.arguments.iter().zip(rhs_args) {
-            let lhs = lhs_arg.inner.as_ref();
-            if lhs.identifier().unwrap_or(String::new()) != rhs_id || lhs.dtype() != &rhs_dtype {
+        for ((lhs_id, lhs_dtype), (rhs_id, rhs_dtype)) in self.arguments.iter().zip(rhs_args) {
+            if *lhs_id != rhs_id || *lhs_dtype != rhs_dtype {
                 return false;
             }
         }
@@ -92,6 +91,7 @@ impl PartialEq<ast::FnDecl> for FunctionType {
 struct Function {
     dtype: FunctionType,
     identifier: String,
+    local_variables: Option<IndexMap<String, LocalVariable>>,
     blocks: Option<Vec<Vec<stmt::Stmt>>>,
 }
 
@@ -394,24 +394,24 @@ impl ModuleGenerator {
 
         // Functions
         for func in self.module.function_list.values() {
-            // Build argument list once, without trailing comma handling.
-            let args = func
-                .dtype
-                .arguments
-                .iter()
-                .map(|arg| {
-                    let var = arg
-                        .inner
-                        .as_ref()
-                        .as_any()
-                        .downcast_ref::<ir::LocalVariable>()
-                        .expect("function arguments must be ir::LocalVariable");
-                    format!("{} %r{}", var.dtype, var.index)
-                })
-                .collect::<Vec<_>>()
-                .join(", ");
-
             if let Some(blocks) = &func.blocks {
+                let args = func
+                    .dtype
+                    .arguments
+                    .iter()
+                    .map(|(id, dtype)| {
+                        let index = func
+                            .local_variables
+                            .as_ref()
+                            .unwrap()
+                            .get(id)
+                            .unwrap()
+                            .index;
+                        format!("{} %r{}", dtype, index)
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", ");
+
                 writeln!(
                     writer,
                     "define {} @{}({}) {{",
@@ -425,6 +425,14 @@ impl ModuleGenerator {
                 writeln!(writer, "}}")?;
                 writeln!(writer)?; // blank line
             } else {
+                let args = func
+                    .dtype
+                    .arguments
+                    .iter()
+                    .map(|(_, dtype)| format!("{}", dtype))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+
                 writeln!(
                     writer,
                     "declare {} @{}({});",

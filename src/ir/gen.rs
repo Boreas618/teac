@@ -148,6 +148,8 @@ impl ir::ModuleGenerator {
                 // Harvest the emit irs from function_generator to module
                 let blocks = Self::harvest_function_irs(function_generator.irs);
 
+                let local_variables = function_generator.local_variables;
+
                 let fun = self
                     .module
                     .function_list
@@ -155,6 +157,7 @@ impl ir::ModuleGenerator {
 
                 if let Some(f) = fun {
                     f.blocks = Some(blocks);
+                    f.local_variables = Some(local_variables);
                 } else {
                     return Err(ir::Error::FunctionNotDefined {
                         symbol: fn_def.fn_decl.identifier.clone(),
@@ -251,20 +254,12 @@ impl ir::ModuleGenerator {
     fn handle_fn_decl(&mut self, decl: &ast::FnDecl) -> Result<(), ir::Error> {
         let identifier = decl.identifier.clone();
 
-        let mut arguments: Vec<ir::VarDef> = Vec::new();
+        let mut arguments = IndexMap::new();
         if let Some(params) = &decl.param_decl {
-            for (index, decl) in params.decls.iter().enumerate() {
-                let identifier = decl.identifier();
+            for decl in params.decls.iter() {
+                let identifier = &decl.identifier().unwrap();
                 let dtype = ir::Dtype::try_from(decl)?;
-
-                arguments.push(ir::VarDef {
-                    initializers: None,
-                    inner: Rc::new(ir::LocalVariable {
-                        dtype,
-                        identifier,
-                        index,
-                    }),
-                });
+                arguments.insert(identifier.clone(), dtype);
             }
         }
 
@@ -279,6 +274,7 @@ impl ir::ModuleGenerator {
         self.module.function_list.insert(
             identifier.clone(),
             ir::Function {
+                local_variables: None,
                 dtype: function_type.clone(),
                 identifier: identifier.clone(),
                 blocks: None,
@@ -995,23 +991,15 @@ impl<'ir> ir::FunctionGenerator<'ir> {
             .get(identifier)
             .unwrap();
 
-        for var in function_type.arguments.iter() {
-            let local_var = var
-                .inner
-                .as_ref()
-                .as_any()
-                .downcast_ref::<ir::LocalVariable>()
-                .unwrap();
-            let identifier = local_var.identifier.as_ref().unwrap().clone();
-
+        for (identifier, dtype) in function_type.arguments.clone().iter() {
+            let index = self.increment_virt_reg_index();
             self.local_variables.insert(
-                identifier,
-                var.inner
-                    .as_ref()
-                    .as_any()
-                    .downcast_ref::<ir::LocalVariable>()
-                    .unwrap()
-                    .clone(),
+                identifier.clone(),
+                ir::LocalVariable {
+                    dtype: dtype.clone(),
+                    identifier: Some(identifier.clone()),
+                    index,
+                },
             );
         }
 
