@@ -955,25 +955,25 @@ impl<'ir> ir::FunctionGenerator<'ir> {
     }
 
     fn ptr_deref(&mut self, op: Rc<dyn ir::Operand>) -> Rc<dyn ir::Operand> {
-        if let Some(inner) = op.as_any().downcast_ref::<ir::LocalVariable>() {
-            if let ir::Dtype::Pointer { length, .. } = inner.dtype() {
+        if let ir::Dtype::Pointer { length, .. } = op.dtype() {
+            if op.as_any().downcast_ref::<ir::LocalVariable>().is_some()
+                || op.as_any().downcast_ref::<ir::GlobalVariable>().is_some()
+            {
                 if *length == 0 {
                     let val = ir::LocalVariable::create_int(self.increment_virt_reg_index());
                     let dst: Rc<dyn ir::Operand> = Rc::new(val);
-                    let stmt = ir::stmt::Stmt::as_load(Rc::clone(&dst), op.clone());
-                    self.irs.push(stmt);
+                    self.irs
+                        .push(ir::stmt::Stmt::as_load(Rc::clone(&dst), op.clone()));
                     return dst;
                 }
             }
-        } else if let Some(inner) = op.as_any().downcast_ref::<ir::GlobalVariable>() {
-            if let ir::Dtype::Pointer { length, .. } = inner.dtype() {
-                if *length == 0 {
-                    let val = ir::LocalVariable::create_int(self.increment_virt_reg_index());
-                    let dst: Rc<dyn ir::Operand> = Rc::new(val);
-                    let stmt = ir::stmt::Stmt::as_load(Rc::clone(&dst), op.clone());
-                    self.irs.push(stmt);
-                    return dst;
-                }
+        } else if let ir::Dtype::I32 = op.dtype() {
+            if op.as_any().downcast_ref::<ir::GlobalVariable>().is_some() {
+                let val = ir::LocalVariable::create_int(self.increment_virt_reg_index());
+                let dst: Rc<dyn ir::Operand> = Rc::new(val);
+                self.irs
+                    .push(ir::stmt::Stmt::as_load(Rc::clone(&dst), op.clone()));
+                return dst;
             }
         }
 
@@ -1006,6 +1006,33 @@ impl<'ir> ir::FunctionGenerator<'ir> {
         self.irs.push(ir::stmt::Stmt::as_label(BlockLabel::Function(
             identifier.clone(),
         )));
+
+        for (id, var) in self.local_variables.clone() {
+            match &var.dtype {
+                ir::Dtype::I32 => {
+                    let ptr: Rc<dyn ir::Operand> = Rc::new(ir::LocalVariable::create_int_ptr(
+                        self.increment_virt_reg_index(),
+                        0,
+                    ));
+                    self.irs.push(ir::stmt::Stmt::as_alloca(Rc::clone(&ptr)));
+                    self.irs.push(ir::stmt::Stmt::as_store(
+                        Rc::new(var.clone()),
+                        Rc::clone(&ptr),
+                    ));
+                    self.local_variables.insert(
+                        id,
+                        ptr.as_ref()
+                            .as_any()
+                            .downcast_ref::<ir::LocalVariable>()
+                            .unwrap()
+                            .clone(),
+                    );
+                }
+                _ => {
+                    return Err(ir::Error::ArgumentTypeUnsupported);
+                }
+            }
+        }
 
         for stmt in from.stmts.iter() {
             self.handle_block(stmt, None, None)?;
@@ -1072,7 +1099,8 @@ impl<'ir> ir::FunctionGenerator<'ir> {
     }
 
     pub fn handle_assignment_stmt(&mut self, stmt: &AssignmentStmt) -> Result<(), ir::Error> {
-        let mut left = self.handle_left_val(&stmt.left_val)?;
+        let left = self.handle_left_val(&stmt.left_val)?;
+        // let left = self.ptr_deref(left);
         let right = self.handle_right_val(&stmt.right_val)?;
         let right = self.ptr_deref(right);
 
@@ -1102,7 +1130,7 @@ impl<'ir> ir::FunctionGenerator<'ir> {
                 },
                 _ => Err(ir::Error::LocalVarTypeUnsupported),
             }?;
-            left = Rc::new(local_val.clone());
+            let left: Rc<dyn ir::Operand> = Rc::new(local_val.clone());
             self.irs.push(ir::stmt::Stmt::as_alloca(Rc::clone(&left)));
             self.local_variables[&left.as_ref().identifier().unwrap()] = local_val;
         }

@@ -335,6 +335,9 @@ pub enum Error {
 
     #[error("Invalid Bool Expression")]
     InvalidBoolExpr,
+
+    #[error("Unsupported argument type")]
+    ArgumentTypeUnsupported,
 }
 
 /// Equivalent to llvm::LLVMContext

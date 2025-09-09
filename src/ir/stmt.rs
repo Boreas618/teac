@@ -264,7 +264,7 @@ impl Display for CallStmt {
         let args = self
             .args
             .iter()
-            .map(|a| format!("{}", a))
+            .map(|a| format!("{} {}", a.dtype(), a))
             .collect::<Vec<_>>()
             .join(", ");
 
@@ -278,7 +278,7 @@ impl Display for CallStmt {
                 args
             )
         } else {
-            write!(f, "call @{}({})", self.func_name, args)
+            write!(f, "call void @{}({})", self.func_name, args)
         }
     }
 }
