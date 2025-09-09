@@ -136,6 +136,7 @@ impl ir::ModuleGenerator {
             use ast::ProgramElementInner::*;
             if let FnDef(fn_def) = &elem.inner {
                 let mut function_generator = FunctionGenerator {
+                    arguments: Vec::new(),
                     irs: Vec::new(),
                     local_variables: IndexMap::new(),
                     module_generator: self,
@@ -149,6 +150,7 @@ impl ir::ModuleGenerator {
                 let blocks = Self::harvest_function_irs(function_generator.irs);
 
                 let local_variables = function_generator.local_variables;
+                let arguments = function_generator.arguments;
 
                 let fun = self
                     .module
@@ -158,6 +160,7 @@ impl ir::ModuleGenerator {
                 if let Some(f) = fun {
                     f.blocks = Some(blocks);
                     f.local_variables = Some(local_variables);
+                    f.arguments = arguments;
                 } else {
                     return Err(ir::Error::FunctionNotDefined {
                         symbol: fn_def.fn_decl.identifier.clone(),
@@ -254,12 +257,16 @@ impl ir::ModuleGenerator {
     fn handle_fn_decl(&mut self, decl: &ast::FnDecl) -> Result<(), ir::Error> {
         let identifier = decl.identifier.clone();
 
-        let mut arguments = IndexMap::new();
+        let mut arguments = Vec::new();
         if let Some(params) = &decl.param_decl {
             for decl in params.decls.iter() {
                 let identifier = &decl.identifier().unwrap();
                 let dtype = ir::Dtype::try_from(decl)?;
-                arguments.insert(identifier.clone(), dtype);
+                arguments.push(ir::LocalVariable {
+                    dtype,
+                    identifier: Some(identifier.clone()),
+                    index: 0,
+                });
             }
         }
 
@@ -274,6 +281,7 @@ impl ir::ModuleGenerator {
         self.module.function_list.insert(
             identifier.clone(),
             ir::Function {
+                arguments: Vec::new(),
                 local_variables: None,
                 dtype: function_type.clone(),
                 identifier: identifier.clone(),
@@ -860,25 +868,27 @@ impl<'ir> ir::FunctionGenerator<'ir> {
     ) -> Result<Rc<dyn ir::Operand>, ir::Error> {
         match &expr.inner {
             ast::IndexExprInner::Id(id) => {
-                let idx = ir::LocalVariable::create_int(self.increment_virt_reg_index());
-                let retval: Rc<dyn ir::Operand> = Rc::new(idx);
+                let idx: Rc<dyn ir::Operand> = Rc::new(ir::LocalVariable::create_int(
+                    self.increment_virt_reg_index(),
+                ));
+
                 if self.local_variables.get(id).is_some() {
                     let src = self.local_variables.get(id).unwrap();
                     self.irs.push(ir::stmt::Stmt::as_load(
-                        Rc::clone(&retval),
+                        Rc::clone(&idx),
                         Rc::new(src.clone()),
                     ));
                 } else if self.module_generator.module.global_list.get(id).is_some() {
                     let src = self.module_generator.module.global_list.get(id).unwrap();
                     self.irs.push(ir::stmt::Stmt::as_load(
-                        Rc::clone(&retval),
+                        Rc::clone(&idx),
                         Rc::new(src.clone()),
                     ));
                 } else {
                     Err(ir::Error::VariableNotDefined { symbol: id.clone() })?
                 }
 
-                Ok(retval)
+                Ok(idx)
             }
             ast::IndexExprInner::Num(num) => Ok(Rc::new(ir::Integer::from(*num as i32))),
         }
@@ -991,17 +1001,13 @@ impl<'ir> ir::FunctionGenerator<'ir> {
             .get(identifier)
             .unwrap();
 
-        for (identifier, dtype) in function_type.arguments.clone().iter() {
-            let index = self.increment_virt_reg_index();
-            self.local_variables.insert(
-                identifier.clone(),
-                ir::LocalVariable {
-                    dtype: dtype.clone(),
-                    identifier: Some(identifier.clone()),
-                    index,
-                },
-            );
+        let mut arguments = function_type.arguments.clone();
+        for arg in arguments.iter_mut() {
+            arg.index = self.increment_virt_reg_index();
+            self.local_variables
+                .insert(arg.identifier.clone().unwrap(), arg.clone());
         }
+        self.arguments = arguments;
 
         self.irs.push(ir::stmt::Stmt::as_label(BlockLabel::Function(
             identifier.clone(),

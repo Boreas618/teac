@@ -41,7 +41,7 @@ pub enum RelOpKind {
 #[derive(Clone)]
 struct FunctionType {
     return_dtype: Dtype,
-    arguments: IndexMap<String, Dtype>,
+    arguments: Vec<LocalVariable>,
 }
 
 impl PartialEq<ast::FnDecl> for FunctionType {
@@ -78,8 +78,8 @@ impl PartialEq<ast::FnDecl> for FunctionType {
             return false;
         }
 
-        for ((lhs_id, lhs_dtype), (rhs_id, rhs_dtype)) in self.arguments.iter().zip(rhs_args) {
-            if *lhs_id != rhs_id || *lhs_dtype != rhs_dtype {
+        for (var, (rhs_id, rhs_dtype)) in self.arguments.iter().zip(rhs_args) {
+            if var.identifier.clone().unwrap() != rhs_id || var.dtype != rhs_dtype {
                 return false;
             }
         }
@@ -93,12 +93,7 @@ struct Function {
     identifier: String,
     local_variables: Option<IndexMap<String, LocalVariable>>,
     blocks: Option<Vec<Vec<stmt::Stmt>>>,
-}
-
-#[derive(Clone)]
-pub struct VarDef {
-    inner: Rc<dyn Operand>,
-    initializers: Option<Vec<i32>>,
+    arguments: Vec<LocalVariable>
 }
 
 #[derive(Clone)]
@@ -231,14 +226,14 @@ impl LocalVariable {
 }
 
 pub struct Integer {
-    dtype: Dtype,
+    _dtype: Dtype,
     value: i32,
 }
 
 impl From<i32> for Integer {
     fn from(value: i32) -> Self {
         Self {
-            dtype: Dtype::I32,
+            _dtype: Dtype::I32,
             value,
         }
     }
@@ -349,7 +344,7 @@ pub struct Registry {
 /// Equivalent to llvm::Module
 pub struct Module {
     pub global_list: IndexMap<String, GlobalVariable>,
-    pub function_list: IndexMap<String, Function>,
+    function_list: IndexMap<String, Function>,
 }
 
 pub struct ModuleGenerator {
@@ -399,19 +394,9 @@ impl ModuleGenerator {
         for func in self.module.function_list.values() {
             if let Some(blocks) = &func.blocks {
                 let args = func
-                    .dtype
                     .arguments
                     .iter()
-                    .map(|(id, dtype)| {
-                        let index = func
-                            .local_variables
-                            .as_ref()
-                            .unwrap()
-                            .get(id)
-                            .unwrap()
-                            .index;
-                        format!("{} %r{}", dtype, index)
-                    })
+                    .map(|var| format!("{} %r{}", var.dtype, var.index))
                     .collect::<Vec<_>>()
                     .join(", ");
 
@@ -429,10 +414,9 @@ impl ModuleGenerator {
                 writeln!(writer)?; // blank line
             } else {
                 let args = func
-                    .dtype
                     .arguments
                     .iter()
-                    .map(|(_, dtype)| format!("{}", dtype))
+                    .map(|var| format!("{}", var.dtype))
                     .collect::<Vec<_>>()
                     .join(", ");
 
@@ -453,6 +437,7 @@ pub struct FunctionGenerator<'ir> {
     pub module_generator: &'ir mut ModuleGenerator,
     pub local_variables: IndexMap<String, LocalVariable>,
     pub irs: Vec<stmt::Stmt>,
+    pub arguments: Vec<LocalVariable>,
     virt_reg_index: usize,
     basic_block_index: usize,
 }
