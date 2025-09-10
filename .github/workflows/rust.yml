@@ -24,6 +24,7 @@ jobs:
         sudo ./llvm.sh 20 all
         sudo update-alternatives --install /usr/bin/llvm-link llvm-link "$(command -v llvm-link-20)" 200
         sudo update-alternatives --set llvm-link "$(command -v llvm-link-20)"
+        sudo update-alternatives --install /usr/bin/lli lli "$(command -v lli-20)" 200
         sudo update-alternatives --set lli "$(command -v lli-20)"
 
     - name: Run tests
