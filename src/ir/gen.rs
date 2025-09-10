@@ -1166,7 +1166,7 @@ impl<'ir> ir::FunctionGenerator<'ir> {
             }
         }?;
 
-        self.local_variables[identifier] = variable;
+        self.local_variables.insert(identifier.clone(), variable);
 
         Ok(())
     }

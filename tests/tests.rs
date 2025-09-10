@@ -234,3 +234,21 @@ fn dfs() {
     ensure_std();
     test_single("dfs");
 }
+
+#[test]
+fn bfs() {
+    ensure_std();
+    test_single("bfs");
+}
+
+#[test]
+fn big_int_mul() {
+    ensure_std();
+    test_single("big_int_mul");
+}
+
+#[test]
+fn bin_search() {
+    ensure_std();
+    test_single("bin_search");
+}
