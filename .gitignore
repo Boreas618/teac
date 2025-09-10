@@ -4,3 +4,4 @@ compiler
 target
 tests/std/std.ll
 tests/*/build/
+.vscode
