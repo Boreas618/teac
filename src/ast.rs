@@ -26,7 +26,7 @@ pub struct RightValList {
 }
 
 impl RightValList {
-    pub fn iter(&self) -> RightValListIterator {
+    pub fn iter(&self) -> RightValListIterator<'_> {
         RightValListIterator {
             current: Some(self),
         }
@@ -331,7 +331,7 @@ impl<'a> Iterator for VarDeclListIterator<'a> {
 }
 
 impl VarDeclList {
-    pub fn iter(&self) -> VarDeclListIterator {
+    pub fn iter(&self) -> VarDeclListIterator<'_> {
         VarDeclListIterator {
             current: Some(self),
         }
@@ -433,7 +433,7 @@ pub struct CodeBlockStmtList {
 }
 
 impl CodeBlockStmtList {
-    pub fn iter(&self) -> CodeBlockStmtListIterator {
+    pub fn iter(&self) -> CodeBlockStmtListIterator<'_> {
         CodeBlockStmtListIterator {
             current: Some(self),
         }
@@ -481,7 +481,7 @@ pub struct ProgramElementList {
 }
 
 impl ProgramElementList {
-    pub fn iter(&self) -> ProgramElementListIterator {
+    pub fn iter(&self) -> ProgramElementListIterator<'_> {
         ProgramElementListIterator {
             current: Some(self),
         }

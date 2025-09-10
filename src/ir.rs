@@ -8,7 +8,6 @@ use indexmap::IndexMap;
 use std::any::Any;
 use std::fmt::{Display, Formatter};
 use std::io::Write;
-use std::rc::Rc;
 use thiserror::Error;
 
 #[derive(Clone, PartialEq, PartialOrd)]
@@ -93,7 +92,7 @@ struct Function {
     identifier: String,
     local_variables: Option<IndexMap<String, LocalVariable>>,
     blocks: Option<Vec<Vec<stmt::Stmt>>>,
-    arguments: Vec<LocalVariable>
+    arguments: Vec<LocalVariable>,
 }
 
 #[derive(Clone)]
@@ -269,12 +268,10 @@ pub trait Operand: Named + Typed + Display {
 
 pub struct StructMember {
     offset: i32,
-    identifier: String,
     dtype: Dtype,
 }
 
 pub struct StructType {
-    identifier: String,
     elements: Vec<(String, StructMember)>,
 }
 

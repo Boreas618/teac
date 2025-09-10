@@ -1,7 +1,54 @@
+use std::ffi::OsStr;
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
+use std::sync::Once;
+
+static INIT: Once = Once::new();
+
+fn ensure_std() {
+    INIT.call_once(|| {
+        let project_root = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let std_dir = project_root.join("tests").join("std");
+        let c_path = std_dir.join("std.c");
+        let ll_path = std_dir.join("std.ll");
+
+        // If std.ll already exists and is newer than std.c, skip rebuild.
+        let needs_build = match (fs::metadata(&c_path), fs::metadata(&ll_path)) {
+            (Ok(c_meta), Ok(ll_meta)) => {
+                match (c_meta.modified(), ll_meta.modified()) {
+                    (Ok(c_m), Ok(ll_m)) => c_m > ll_m, // std.c is newer → rebuild
+                    _ => true,
+                }
+            }
+            (Ok(_), Err(_)) => true, // no std.ll yet
+            _ => {
+                panic!("✗ Missing tests/std/std.c at {}", c_path.display());
+            }
+        };
+
+        if needs_build {
+            let clang = OsStr::new("clang");
+            let status = Command::new(clang)
+                .arg("-S")
+                .arg("-emit-llvm")
+                .arg("std.c")
+                .arg("-o")
+                .arg("std.ll")
+                .current_dir(&std_dir)
+                .status()
+                .expect("Failed to execute clang for std.ll");
+            assert!(
+                status.success(),
+                "✗ clang failed to build std.ll (exit {}). Ran in {}\nHint: ensure clang/LLVM are on PATH.",
+                status.code().unwrap_or(-1),
+                std_dir.display()
+            );
+        }
+        assert!(ll_path.is_file(), "✗ std.ll not found at {}", ll_path.display());
+    });
+}
 
 #[inline(always)]
 fn launch(dir: &PathBuf, input_file: &str, output_file: &str) -> String {
@@ -17,9 +64,6 @@ fn launch(dir: &PathBuf, input_file: &str, output_file: &str) -> String {
     String::from_utf8_lossy(&output.stderr).into_owned()
 }
 
-/// Normalize output like `diff -Bb`:
-/// -b: ignore changes in the amount of whitespace (collapse runs to single spaces)
-/// -B: ignore blank lines
 fn normalize_for_diff_bb(s: &str) -> String {
     let mut out = Vec::new();
     for line in s.lines() {
@@ -59,12 +103,6 @@ fn append_line<P: AsRef<Path>>(path: P, line: &str) {
     writeln!(f, "{line}").expect("Failed to append line");
 }
 
-/// End-to-end functional test that mirrors the shell function:
-/// 1) Compile .tea -> .ll
-/// 2) Link with sylib.ll -> out/<name>.ll
-/// 3) Run with lli (stdin from <name>.in if present), capture stdout to out/<name>.out
-///    and append the exit code as a final line
-/// 4) If <name>.out (expected) exists, compare with -Bb normalization; else warn
 fn test_single(test_name: &str) {
     let base_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests");
     let case_dir = base_dir.join(test_name);
@@ -104,7 +142,6 @@ fn test_single(test_name: &str) {
         stdlib.display()
     );
 
-    // Link: llvm-link "<dir>/<name>.ll" "src/sylib.ll" -S -o "<dir>/out/<name>.ll"
     let product = out_dir.join(&output_name);
     let (link_code, _link_out, link_err) = run_capture(
         Command::new("llvm-link")
@@ -183,7 +220,7 @@ fn test_single(test_name: &str) {
                     eprintln!("--- Expected:\n{exp}");
                     eprintln!("--- Got:\n{got}");
                 }
-                panic!("✗ Output mismatch for {test_name}");
+                panic!("Output mismatch for {test_name}");
             }
         }
         None => {
@@ -193,6 +230,7 @@ fn test_single(test_name: &str) {
 }
 
 #[test]
-fn test() {
+fn dfs() {
+    ensure_std();
     test_single("dfs");
 }

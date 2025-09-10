@@ -1,5 +1,5 @@
 fn getch()->int;
-fn _sysy_starttime(lineno:int);
-fn _sysy_stoptime(lineno:int);
+fn timer_start(lineno:int);
+fn timer_stop(lineno:int);
 fn putint(a:int);
 fn putch(a:int);

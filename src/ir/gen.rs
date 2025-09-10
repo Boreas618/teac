@@ -323,7 +323,6 @@ impl ir::ModuleGenerator {
                 decl.identifier.clone(),
                 StructMember {
                     offset,
-                    identifier: decl.identifier.clone(),
                     dtype: match decl.type_specifier.as_ref() {
                         Some(type_specifier) => type_specifier.into(),
                         None => ir::Dtype::Void,
@@ -334,13 +333,9 @@ impl ir::ModuleGenerator {
             offset += 1;
         }
 
-        self.registry.struct_types.insert(
-            identifier.clone(),
-            ir::StructType {
-                identifier,
-                elements,
-            },
-        );
+        self.registry
+            .struct_types
+            .insert(identifier.clone(), ir::StructType { elements });
 
         Ok(())
     }
