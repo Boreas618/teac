@@ -19,8 +19,7 @@ jobs:
 
     - name: Install LLVM
       run: |
-        wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-        sudo apt-get update && sudo apt-get install llvm-22 llvm-22-dev
+        bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
 
     - name: Build
       run: cargo build --verbose
