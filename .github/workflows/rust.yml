@@ -19,7 +19,11 @@ jobs:
 
     - name: Install LLVM
       run: |
-        sudo bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
+        sudo wget https://apt.llvm.org/llvm.sh
+        sudo chmod +x llvm.sh
+        sudo ./llvm.sh 20 all
+        sudo update-alternatives --install /usr/bin/llvm-link llvm-link "$(command -v llvm-link-20)" 200
+        sudo update-alternatives --set llvm-link "$(command -v llvm-link-20)"
 
     - name: Build
       run: cargo build --verbose
