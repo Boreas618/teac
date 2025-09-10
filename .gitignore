@@ -2,5 +2,4 @@
 *.o
 compiler
 target
-tests/progs/*.ll
-!tests/progs/oracle/*.ll
+tests/dfs/build
