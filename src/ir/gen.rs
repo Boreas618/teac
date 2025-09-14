@@ -242,20 +242,21 @@ impl ir::ModuleGenerator {
             None
         };
 
-        if let Some(var) = self.module.global_list.insert(
-            identifier.clone(),
-            ir::GlobalVariable {
-                dtype,
-                identifier,
-                initializers,
-            },
-        ) {
-            Err(ir::Error::RedefinedSymbol {
-                symbol: var.identifier,
+        self.module
+            .global_list
+            .insert(
+                identifier.clone(),
+                ir::GlobalVariable {
+                    dtype,
+                    identifier,
+                    initializers,
+                },
+            )
+            .map_or(Ok(()), |v| {
+                Err(ir::Error::VariableRedefinition {
+                    symbol: v.identifier,
+                })
             })
-        } else {
-            Ok(())
-        }
     }
 
     fn handle_fn_decl(&mut self, decl: &ast::FnDecl) -> Result<(), ir::Error> {
@@ -278,20 +279,25 @@ impl ir::ModuleGenerator {
             arguments,
         };
 
+        if let Some(ftype) = self
+            .registry
+            .function_types
+            .insert(identifier.clone(), function_type.clone())
+        {
+            if ftype != function_type {
+                return Err(ir::Error::ConflictedFunction { symbol: identifier });
+            }
+        }
+
         self.module.function_list.insert(
             identifier.clone(),
             ir::Function {
                 arguments: Vec::new(),
                 local_variables: None,
-                dtype: function_type.clone(),
                 identifier: identifier.clone(),
                 blocks: None,
             },
         );
-
-        self.registry
-            .function_types
-            .insert(identifier.clone(), function_type);
 
         Ok(())
     }
@@ -994,7 +1000,9 @@ impl<'ir> ir::FunctionGenerator<'ir> {
                 index: self.increment_virt_reg_index(),
             };
             self.arguments.push(var.clone());
-            self.local_variables.insert(id.clone(), var);
+            if self.local_variables.insert(id.clone(), var).is_some() {
+                return Err(ir::Error::VariableRedefinition { symbol: id.clone() });
+            }
         }
 
         self.irs.push(ir::stmt::Stmt::as_label(BlockLabel::Function(
@@ -1013,6 +1021,8 @@ impl<'ir> ir::FunctionGenerator<'ir> {
                         Rc::new(var.clone()),
                         Rc::clone(&ptr),
                     ));
+
+                    // No need to check duplicated variable definition here, since we are modifying exisiting variable record.
                     self.local_variables.insert(
                         id,
                         ptr.as_ref()
@@ -1159,7 +1169,15 @@ impl<'ir> ir::FunctionGenerator<'ir> {
             }
         }?;
 
-        self.local_variables.insert(identifier.clone(), variable);
+        if self
+            .local_variables
+            .insert(identifier.clone(), variable)
+            .is_some()
+        {
+            return Err(ir::Error::VariableRedefinition {
+                symbol: identifier.clone(),
+            });
+        }
 
         Ok(())
     }
@@ -1195,7 +1213,15 @@ impl<'ir> ir::FunctionGenerator<'ir> {
             }
         }?;
 
-        self.local_variables.insert(identifier.clone(), variable);
+        if self
+            .local_variables
+            .insert(identifier.clone(), variable)
+            .is_some()
+        {
+            return Err(ir::Error::VariableRedefinition {
+                symbol: identifier.clone(),
+            });
+        }
 
         Ok(())
     }

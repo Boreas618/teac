@@ -28,7 +28,7 @@ pub struct StructType {
     elements: Vec<(String, StructMember)>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 struct FunctionType {
     return_dtype: Dtype,
     arguments: Vec<(String, Dtype)>,
@@ -79,7 +79,6 @@ impl PartialEq<ast::FnDecl> for FunctionType {
 }
 
 struct Function {
-    dtype: FunctionType,
     identifier: String,
     local_variables: Option<IndexMap<String, LocalVariable>>,
     blocks: Option<Vec<Vec<stmt::Stmt>>>,
@@ -262,8 +261,11 @@ pub enum Error {
     #[error("Initialization of structs not supported")]
     StructInitialization,
 
-    #[error("Redefined symbol {symbol}")]
-    RedefinedSymbol { symbol: String },
+    #[error("Duplicated definition of variable {symbol}")]
+    VariableRedefinition { symbol: String },
+
+    #[error("Conflicted definition of function {symbol}")]
+    ConflictedFunction { symbol: String },
 
     #[error("Symbol missing")]
     SymbolMissing,
@@ -382,7 +384,13 @@ impl ModuleGenerator {
                 writeln!(
                     writer,
                     "define {} @{}({}) {{",
-                    func.dtype.return_dtype, func.identifier, args
+                    self.registry
+                        .function_types
+                        .get(&func.identifier.clone())
+                        .unwrap()
+                        .return_dtype,
+                    func.identifier,
+                    args
                 )?;
                 for block in blocks {
                     for stmt in block {
@@ -402,7 +410,13 @@ impl ModuleGenerator {
                 writeln!(
                     writer,
                     "declare {} @{}({});",
-                    func.dtype.return_dtype, func.identifier, args
+                    self.registry
+                        .function_types
+                        .get(&func.identifier.clone())
+                        .unwrap()
+                        .return_dtype,
+                    func.identifier,
+                    args
                 )?;
                 writeln!(writer)?; // blank line
             }
