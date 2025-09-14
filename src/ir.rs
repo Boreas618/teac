@@ -19,10 +19,19 @@ pub enum Dtype {
     Undecided,
 }
 
+pub struct StructMember {
+    offset: i32,
+    dtype: Dtype,
+}
+
+pub struct StructType {
+    elements: Vec<(String, StructMember)>,
+}
+
 #[derive(Clone)]
 struct FunctionType {
     return_dtype: Dtype,
-    arguments: Vec<LocalVariable>,
+    arguments: Vec<(String, Dtype)>,
 }
 
 impl PartialEq<ast::FnDecl> for FunctionType {
@@ -59,8 +68,8 @@ impl PartialEq<ast::FnDecl> for FunctionType {
             return false;
         }
 
-        for (var, (rhs_id, rhs_dtype)) in self.arguments.iter().zip(rhs_args) {
-            if var.identifier.clone().unwrap() != rhs_id || var.dtype != rhs_dtype {
+        for ((lhs_id, lhs_dtype), (rhs_id, rhs_dtype)) in self.arguments.iter().zip(rhs_args) {
+            if lhs_id != &rhs_id || lhs_dtype != &rhs_dtype {
                 return false;
             }
         }
@@ -246,15 +255,6 @@ impl Operand for Integer {
 
 pub trait Operand: Named + Typed + Display {
     fn as_any(&self) -> &dyn Any;
-}
-
-pub struct StructMember {
-    offset: i32,
-    dtype: Dtype,
-}
-
-pub struct StructType {
-    elements: Vec<(String, StructMember)>,
 }
 
 #[derive(Debug, Error)]

@@ -266,11 +266,7 @@ impl ir::ModuleGenerator {
             for decl in params.decls.iter() {
                 let identifier = &decl.identifier().unwrap();
                 let dtype = ir::Dtype::try_from(decl)?;
-                arguments.push(ir::LocalVariable {
-                    dtype,
-                    identifier: Some(identifier.clone()),
-                    index: 0,
-                });
+                arguments.push((identifier.clone(), dtype));
             }
         }
 
@@ -990,13 +986,16 @@ impl<'ir> ir::FunctionGenerator<'ir> {
             .get(identifier)
             .unwrap();
 
-        let mut arguments = function_type.arguments.clone();
-        for arg in arguments.iter_mut() {
-            arg.index = self.increment_virt_reg_index();
-            self.local_variables
-                .insert(arg.identifier.clone().unwrap(), arg.clone());
+        let arguments = function_type.arguments.clone();
+        for (id, dtype) in arguments {
+            let var = ir::LocalVariable {
+                dtype,
+                identifier: Some(id.clone()),
+                index: self.increment_virt_reg_index(),
+            };
+            self.arguments.push(var.clone());
+            self.local_variables.insert(id.clone(), var);
         }
-        self.arguments = arguments;
 
         self.irs.push(ir::stmt::Stmt::as_label(BlockLabel::Function(
             identifier.clone(),

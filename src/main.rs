@@ -129,7 +129,7 @@ fn main() {
     // Process input code file.
     let mut visited = HashSet::new();
     let prog = preprocess_file(Path::new(&input_path), &mut visited).unwrap_or_else(|e| {
-        eprintln!("Encountered Error while preprocessing: {e}");
+        eprintln!("Encountered error while preprocessing: {e}");
         std::process::exit(1);
     });
 
@@ -137,7 +137,7 @@ fn main() {
     let ast = teapl::ProgramParser::new()
         .parse(&prog)
         .unwrap_or_else(|e| {
-            eprintln!("Encountered Error while parsing: {e}");
+            eprintln!("Encountered error while parsing: {e}");
             std::process::exit(1);
         });
 
@@ -145,13 +145,13 @@ fn main() {
     let mut module_generator = ir::ModuleGenerator::new();
     let mut writer = BufWriter::new(File::create(output_path).unwrap());
     module_generator.gen(&ast).unwrap_or_else(|e| {
-        eprintln!("Encountered Error while generating IR from AST: {e}");
+        eprintln!("Encountered error while generating IR from AST: {e}");
         std::process::exit(1);
     });
 
     // Save the generated IR into a file.
     module_generator.output(&mut writer).unwrap_or_else(|e| {
-        eprintln!("Encountered Error outputing: {e}");
+        eprintln!("Encountered error outputing: {e}");
         std::process::exit(1);
     });
 }
