@@ -20,24 +20,6 @@ pub enum Dtype {
 }
 
 #[derive(Clone)]
-pub enum BiOpKind {
-    Add,
-    Sub,
-    Mul,
-    Div,
-}
-
-#[derive(Clone)]
-pub enum RelOpKind {
-    Eq,
-    Ne,
-    Lt,
-    Gt,
-    Le,
-    Ge,
-}
-
-#[derive(Clone)]
 struct FunctionType {
     return_dtype: Dtype,
     arguments: Vec<LocalVariable>,

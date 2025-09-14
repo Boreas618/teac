@@ -125,7 +125,7 @@ impl ir::ModuleGenerator {
         for elem in from.elements.iter() {
             use ast::ProgramElementInner::*;
             match &elem.inner {
-                VarDeclStmt(stmt) => self.handle_global_var_decl_stmt(stmt)?,
+                VarDeclStmt(stmt) => self.handle_global_var_decl(stmt)?,
                 FnDeclStmt(fn_decl) => self.handle_fn_decl(fn_decl)?,
                 FnDef(fn_def) => self.handle_fn_def(fn_def)?,
                 StructDef(struct_def) => self.handle_struct_def(struct_def)?,
@@ -213,7 +213,7 @@ impl ir::ModuleGenerator {
         return blocks;
     }
 
-    fn handle_global_var_decl_stmt(&mut self, stmt: &ast::VarDeclStmt) -> Result<(), ir::Error> {
+    fn handle_global_var_decl(&mut self, stmt: &ast::VarDeclStmt) -> Result<(), ir::Error> {
         let identifier = match stmt.identifier() {
             Some(id) => id,
             None => return Err(ir::Error::SymbolMissing),
@@ -226,7 +226,7 @@ impl ir::ModuleGenerator {
                     let initializers = def
                         .vals
                         .iter()
-                        .map(|val| Self::handle_right_val_static(val))
+                        .map(|val| Self::handle_right_val_static(val).unwrap())
                         .collect();
 
                     initializers
@@ -234,7 +234,7 @@ impl ir::ModuleGenerator {
 
                 // Global variable should be statically assigned
                 ast::VarDefInner::Scalar(scalar) => {
-                    let value = Self::handle_right_val_static(&scalar.val);
+                    let value = Self::handle_right_val_static(&scalar.val)?;
                     vec![value]
                 }
             })
@@ -242,16 +242,20 @@ impl ir::ModuleGenerator {
             None
         };
 
-        self.module.global_list.insert(
+        if let Some(var) = self.module.global_list.insert(
             identifier.clone(),
             ir::GlobalVariable {
                 dtype,
                 identifier,
                 initializers,
             },
-        );
-
-        Ok(())
+        ) {
+            Err(ir::Error::RedefinedSymbol {
+                symbol: var.identifier,
+            })
+        } else {
+            Ok(())
+        }
     }
 
     fn handle_fn_decl(&mut self, decl: &ast::FnDecl) -> Result<(), ir::Error> {
@@ -349,58 +353,60 @@ impl ir::ModuleGenerator {
 /// as they do not produce side effects on the internal state of the IR
 /// Module.
 impl ir::ModuleGenerator {
-    pub fn handle_right_val_static(r: &ast::RightVal) -> i32 {
+    pub fn handle_right_val_static(r: &ast::RightVal) -> Result<i32, ir::Error> {
         match &r.inner {
             ast::RightValInner::ArithExpr(expr) => Self::handle_arith_expr_static(&expr),
             ast::RightValInner::BoolExpr(expr) => Self::handle_bool_expr_static(&expr),
         }
     }
 
-    pub fn handle_arith_expr_static(expr: &ast::ArithExpr) -> i32 {
+    pub fn handle_arith_expr_static(expr: &ast::ArithExpr) -> Result<i32, ir::Error> {
         match &expr.inner {
             ast::ArithExprInner::ArithBiOpExpr(expr) => Self::handle_arith_biop_expr_static(&expr),
             ast::ArithExprInner::ExprUnit(unit) => Self::handle_expr_unit_static(&unit),
         }
     }
 
-    pub fn handle_bool_expr_static(expr: &ast::BoolExpr) -> i32 {
+    pub fn handle_bool_expr_static(expr: &ast::BoolExpr) -> Result<i32, ir::Error> {
         match &expr.inner {
             ast::BoolExprInner::BoolBiOpExpr(expr) => Self::handle_bool_biop_expr_static(&expr),
             ast::BoolExprInner::BoolUnit(unit) => Self::handle_bool_unit_static(&unit),
         }
     }
 
-    pub fn handle_arith_biop_expr_static(expr: &ast::ArithBiOpExpr) -> i32 {
-        let left = Self::handle_arith_expr_static(&expr.left);
-        let right = Self::handle_arith_expr_static(&expr.right);
+    pub fn handle_arith_biop_expr_static(expr: &ast::ArithBiOpExpr) -> Result<i32, ir::Error> {
+        let left = Self::handle_arith_expr_static(&expr.left)?;
+        let right = Self::handle_arith_expr_static(&expr.right)?;
         match &expr.op {
-            ast::ArithBiOp::Add => left + right,
-            ast::ArithBiOp::Sub => left - right,
-            ast::ArithBiOp::Mul => left * right,
-            ast::ArithBiOp::Div => left / right,
+            ast::ArithBiOp::Add => Ok(left + right),
+            ast::ArithBiOp::Sub => Ok(left - right),
+            ast::ArithBiOp::Mul => Ok(left * right),
+            ast::ArithBiOp::Div => Ok(left / right),
         }
     }
 
-    pub fn handle_expr_unit_static(expr: &ast::ExprUnit) -> i32 {
+    pub fn handle_expr_unit_static(expr: &ast::ExprUnit) -> Result<i32, ir::Error> {
         match &expr.inner {
-            ast::ExprUnitInner::Num(num) => *num,
+            ast::ExprUnitInner::Num(num) => Ok(*num),
             ast::ExprUnitInner::ArithExpr(expr) => Self::handle_arith_expr_static(&expr),
             ast::ExprUnitInner::ArithUExpr(expr) => Self::handle_arith_uexpr_static(&expr),
-            _ => panic!("[Error] Not supported expr unit."),
+            _ => Err(ir::Error::InvalidExprUnit {
+                expr_unit: expr.clone(),
+            }),
         }
     }
 
-    pub fn handle_bool_biop_expr_static(expr: &ast::BoolBiOpExpr) -> i32 {
-        let left = Self::handle_bool_expr_static(&expr.left) != 0;
-        let right = Self::handle_bool_expr_static(&expr.right) != 0;
+    pub fn handle_bool_biop_expr_static(expr: &ast::BoolBiOpExpr) -> Result<i32, ir::Error> {
+        let left = Self::handle_bool_expr_static(&expr.left)? != 0;
+        let right = Self::handle_bool_expr_static(&expr.right)? != 0;
         if expr.op == ast::BoolBiOp::And {
-            (left && right) as i32
+            Ok((left && right) as i32)
         } else {
-            (left || right) as i32
+            Ok((left || right) as i32)
         }
     }
 
-    pub fn handle_bool_unit_static(unit: &ast::BoolUnit) -> i32 {
+    pub fn handle_bool_unit_static(unit: &ast::BoolUnit) -> Result<i32, ir::Error> {
         match &unit.inner {
             ast::BoolUnitInner::ComExpr(expr) => Self::handle_com_op_expr_static(&expr),
             ast::BoolUnitInner::BoolExpr(expr) => Self::handle_bool_expr_static(&expr),
@@ -408,32 +414,32 @@ impl ir::ModuleGenerator {
         }
     }
 
-    pub fn handle_arith_uexpr_static(u: &ast::ArithUExpr) -> i32 {
+    pub fn handle_arith_uexpr_static(u: &ast::ArithUExpr) -> Result<i32, ir::Error> {
         if u.op == ast::ArithUOp::Neg {
-            -Self::handle_expr_unit_static(&u.expr)
+            Ok(-Self::handle_expr_unit_static(&u.expr)?)
         } else {
-            0
+            Ok(0)
         }
     }
 
-    pub fn handle_com_op_expr_static(expr: &ast::ComExpr) -> i32 {
-        let left = Self::handle_expr_unit_static(&expr.left);
-        let right = Self::handle_expr_unit_static(&expr.right);
+    pub fn handle_com_op_expr_static(expr: &ast::ComExpr) -> Result<i32, ir::Error> {
+        let left = Self::handle_expr_unit_static(&expr.left)?;
+        let right = Self::handle_expr_unit_static(&expr.right)?;
         match expr.op {
-            ast::ComOp::Lt => (left < right) as i32,
-            ast::ComOp::Eq => (left == right) as i32,
-            ast::ComOp::Ge => (left >= right) as i32,
-            ast::ComOp::Gt => (left > right) as i32,
-            ast::ComOp::Le => (left <= right) as i32,
-            ast::ComOp::Ne => (left != right) as i32,
+            ast::ComOp::Lt => Ok((left < right) as i32),
+            ast::ComOp::Eq => Ok((left == right) as i32),
+            ast::ComOp::Ge => Ok((left >= right) as i32),
+            ast::ComOp::Gt => Ok((left > right) as i32),
+            ast::ComOp::Le => Ok((left <= right) as i32),
+            ast::ComOp::Ne => Ok((left != right) as i32),
         }
     }
 
-    pub fn handle_bool_uop_expr_static(expr: &ast::BoolUOpExpr) -> i32 {
+    pub fn handle_bool_uop_expr_static(expr: &ast::BoolUOpExpr) -> Result<i32, ir::Error> {
         if expr.op == ast::BoolUOp::Not {
-            (Self::handle_bool_unit_static(&expr.cond) == 0) as i32
+            Ok((Self::handle_bool_unit_static(&expr.cond)? == 0) as i32)
         } else {
-            0
+            Ok(0)
         }
     }
 }
@@ -450,20 +456,15 @@ impl<'ir> ir::FunctionGenerator<'ir> {
         let right = self.handle_expr_unit(&expr.right)?;
         let right = self.ptr_deref(right);
 
-        let op = match expr.op {
-            ast::ComOp::Lt => ir::RelOpKind::Lt,
-            ast::ComOp::Eq => ir::RelOpKind::Eq,
-            ast::ComOp::Ge => ir::RelOpKind::Ge,
-            ast::ComOp::Gt => ir::RelOpKind::Gt,
-            ast::ComOp::Le => ir::RelOpKind::Le,
-            ast::ComOp::Ne => ir::RelOpKind::Ne,
-        };
-
         let index = self.increment_virt_reg_index();
         let dst: Rc<dyn ir::Operand> = Rc::new(ir::LocalVariable::create_int(index));
 
-        self.irs
-            .push(ir::stmt::Stmt::as_cmp(op, left, right, Rc::clone(&dst)));
+        self.irs.push(ir::stmt::Stmt::as_cmp(
+            expr.op.clone(),
+            left,
+            right,
+            Rc::clone(&dst),
+        ));
 
         self.irs
             .push(ir::stmt::Stmt::as_cjump(dst, true_label, false_label));
@@ -725,7 +726,7 @@ impl<'ir> ir::FunctionGenerator<'ir> {
         let res = ir::LocalVariable::create_int(self.increment_virt_reg_index());
         let res_op: Rc<dyn ir::Operand> = Rc::new(res);
         self.irs.push(ir::stmt::Stmt::as_biop(
-            ir::BiOpKind::Sub,
+            ast::ArithBiOp::Sub,
             Rc::new(ir::Integer::from(0)),
             val,
             Rc::clone(&res_op),
@@ -744,14 +745,7 @@ impl<'ir> ir::FunctionGenerator<'ir> {
             self.increment_virt_reg_index(),
         ));
 
-        let kind = match expr.op {
-            ast::ArithBiOp::Add => ir::BiOpKind::Add,
-            ast::ArithBiOp::Sub => ir::BiOpKind::Sub,
-            ast::ArithBiOp::Mul => ir::BiOpKind::Mul,
-            ast::ArithBiOp::Div => ir::BiOpKind::Div,
-        };
-
-        let biop_stmt = ir::stmt::Stmt::as_biop(kind, left, right, Rc::clone(&dst));
+        let biop_stmt = ir::stmt::Stmt::as_biop(expr.op.clone(), left, right, Rc::clone(&dst));
         self.irs.push(biop_stmt);
 
         Ok(dst)
@@ -807,7 +801,7 @@ impl<'ir> ir::FunctionGenerator<'ir> {
                 .push(ir::stmt::Stmt::as_load(Rc::clone(&dst), Rc::clone(&ptr)));
 
             self.irs.push(ir::stmt::Stmt::as_cmp(
-                ir::RelOpKind::Ne,
+                ast::ComOp::Ne,
                 Rc::clone(&dst),
                 Rc::new(ir::Integer::from(0)),
                 Rc::clone(&retval),

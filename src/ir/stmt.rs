@@ -1,6 +1,7 @@
+use crate::ast;
 use crate::ir::{self, LocalVariable};
 
-use super::{BiOpKind, BlockLabel, Operand, RelOpKind};
+use super::{BlockLabel, Operand};
 use std::fmt::{self, Display, Formatter};
 use std::rc::Rc;
 
@@ -46,7 +47,7 @@ impl Stmt {
     }
 
     pub fn as_biop(
-        kind: BiOpKind,
+        kind: ast::ArithBiOp,
         left: Rc<dyn Operand>,
         right: Rc<dyn Operand>,
         dst: Rc<dyn Operand>,
@@ -68,7 +69,7 @@ impl Stmt {
     }
 
     pub fn as_cmp(
-        kind: RelOpKind,
+        kind: ast::ComOp,
         left: Rc<dyn Operand>,
         right: Rc<dyn Operand>,
         dst: Rc<dyn Operand>,
@@ -165,7 +166,7 @@ pub struct LoadStmt {
 
 #[derive(Clone)]
 pub struct BiOpStmt {
-    kind: BiOpKind,
+    kind: ast::ArithBiOp,
     left: Rc<dyn Operand>,
     right: Rc<dyn Operand>,
     dst: Rc<dyn Operand>,
@@ -178,7 +179,7 @@ pub struct AllocaStmt {
 
 #[derive(Clone)]
 pub struct CmpStmt {
-    kind: RelOpKind,
+    kind: ast::ComOp,
     left: Rc<dyn Operand>,
     right: Rc<dyn Operand>,
     dst: Rc<dyn Operand>,
@@ -219,28 +220,26 @@ pub struct ReturnStmt {
     val: Option<Rc<dyn Operand>>,
 }
 
-impl Display for ir::BiOpKind {
+impl Display for ast::ArithBiOp {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use ir::BiOpKind::*;
         match self {
-            Add => write!(f, "add"),
-            Sub => write!(f, "sub"),
-            Mul => write!(f, "mul"),
-            Div => write!(f, "udiv"),
+            ast::ArithBiOp::Add => write!(f, "add"),
+            ast::ArithBiOp::Sub => write!(f, "sub"),
+            ast::ArithBiOp::Mul => write!(f, "mul"),
+            ast::ArithBiOp::Div => write!(f, "udiv"),
         }
     }
 }
 
-impl Display for ir::RelOpKind {
+impl Display for ast::ComOp {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use ir::RelOpKind::*;
         match self {
-            Eq => write!(f, "eq"),
-            Ne => write!(f, "ne"),
-            Gt => write!(f, "sgt"),
-            Ge => write!(f, "sge"),
-            Lt => write!(f, "slt"),
-            Le => write!(f, "sle"),
+            ast::ComOp::Eq => write!(f, "eq"),
+            ast::ComOp::Ne => write!(f, "ne"),
+            ast::ComOp::Gt => write!(f, "sgt"),
+            ast::ComOp::Ge => write!(f, "sge"),
+            ast::ComOp::Lt => write!(f, "slt"),
+            ast::ComOp::Le => write!(f, "sle"),
         }
     }
 }
