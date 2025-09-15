@@ -220,30 +220,6 @@ pub struct ReturnStmt {
     val: Option<Rc<dyn Operand>>,
 }
 
-impl Display for ast::ArithBiOp {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ast::ArithBiOp::Add => write!(f, "add"),
-            ast::ArithBiOp::Sub => write!(f, "sub"),
-            ast::ArithBiOp::Mul => write!(f, "mul"),
-            ast::ArithBiOp::Div => write!(f, "udiv"),
-        }
-    }
-}
-
-impl Display for ast::ComOp {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ast::ComOp::Eq => write!(f, "eq"),
-            ast::ComOp::Ne => write!(f, "ne"),
-            ast::ComOp::Gt => write!(f, "sgt"),
-            ast::ComOp::Ge => write!(f, "sge"),
-            ast::ComOp::Lt => write!(f, "slt"),
-            ast::ComOp::Le => write!(f, "sle"),
-        }
-    }
-}
-
 impl Display for ir::Dtype {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

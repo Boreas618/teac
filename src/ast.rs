@@ -1,5 +1,9 @@
-use std::fmt::{Display, Formatter};
-use std::{ops::Deref, rc::Rc};
+use std::{
+    fmt::{Display, Formatter, Error},
+    ops::Deref, rc::Rc
+};
+use crate::util::ast_tree::*;
+
 type Pos = usize;
 
 #[derive(Debug, Clone)]
@@ -96,12 +100,6 @@ pub enum ExprUnitInner {
 pub struct ExprUnit {
     pub pos: Pos,
     pub inner: ExprUnitInner,
-}
-
-impl Display for ExprUnit {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
-        write!(f, "{:?}", self)
-    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -515,3 +513,372 @@ pub enum ProgramElementInner {
 pub struct ProgramElement {
     pub inner: ProgramElementInner,
 }
+
+impl Display for BuiltIn {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        match self {
+            BuiltIn::Int => write!(f, "int"),
+        }
+    }
+}
+
+impl Display for TypeSpecifierInner {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        match self {
+            TypeSpecifierInner::BuiltIn(b) => write!(f, "{}", b),
+            TypeSpecifierInner::Composite(name) => write!(f, "{}", name),
+        }
+    }
+}
+
+impl Display for TypeSepcifier {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        write!(f, "{}@{}", self.inner, self.pos)
+    }
+}
+
+impl Display for ArithBiOp {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        let op = match self {
+            ArithBiOp::Add => "+",
+            ArithBiOp::Sub => "-",
+            ArithBiOp::Mul => "*",
+            ArithBiOp::Div => "/",
+        };
+        write!(f, "{}", op)
+    }
+}
+
+impl Display for ArithBiOpExpr {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        write!(f, "({} {} {})", self.left, self.op, self.right)
+    }
+}
+
+impl Display for ArithUOp {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        match self {
+            ArithUOp::Neg => write!(f, "-"),
+        }
+    }
+}
+
+impl Display for ArithUExpr {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        write!(f, "({}{})", self.op, self.expr)
+    }
+}
+
+impl Display for ArithExprInner {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        match self {
+            ArithExprInner::ArithBiOpExpr(expr) => write!(f, "{}", expr),
+            ArithExprInner::ExprUnit(unit) => write!(f, "{}", unit),
+        }
+    }
+}
+
+impl Display for ArithExpr {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        write!(f, "{}", self.inner)
+    }
+}
+
+impl Display for BoolUOp {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        match self {
+            BoolUOp::Not => write!(f, "!"),
+        }
+    }
+}
+
+impl Display for BoolBiOp {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        let op = match self {
+            BoolBiOp::And => "&&",
+            BoolBiOp::Or => "||",
+        };
+        write!(f, "{}", op)
+    }
+}
+
+impl Display for ComOp {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        let op = match self {
+            ComOp::Lt => "<",
+            ComOp::Le => "<=",
+            ComOp::Gt => ">",
+            ComOp::Ge => ">=",
+            ComOp::Eq => "==",
+            ComOp::Ne => "!=",
+        };
+        write!(f, "{}", op)
+    }
+}
+
+impl Display for ComExpr {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        write!(f, "({} {} {})", self.left, self.op, self.right)
+    }
+}
+
+impl Display for BoolUOpExpr {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        write!(f, "({}{})", self.op, self.cond)
+    }
+}
+
+impl Display for BoolBiOpExpr {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        write!(f, "({} {} {})", self.left, self.op, self.right)
+    }
+}
+
+impl Display for BoolExprInner {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        match self {
+            BoolExprInner::BoolUnit(b) => write!(f, "{}", b),
+            BoolExprInner::BoolBiOpExpr(b) => write!(f, "{}", b),
+        }
+    }
+}
+
+impl Display for BoolExpr {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        write!(f, "{}", self.inner)
+    }
+}
+
+impl Display for BoolUnitInner {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        match self {
+            BoolUnitInner::ComExpr(c) => write!(f, "{}", c),
+            BoolUnitInner::BoolExpr(b) => write!(f, "{}", b),
+            BoolUnitInner::BoolUOpExpr(u) => write!(f, "{}", u),
+        }
+    }
+}
+
+impl Display for BoolUnit {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        write!(f, "{}", self.inner)
+    }
+}
+
+// --- RightVal ---
+impl Display for RightValInner {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        match self {
+            RightValInner::ArithExpr(a) => write!(f, "{}", a),
+            RightValInner::BoolExpr(b) => write!(f, "{}", b),
+        }
+    }
+}
+
+impl Display for RightVal {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        write!(f, "{}", self.inner)
+    }
+}
+
+// --- LeftVal ---
+impl Display for LeftValInner {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        match self {
+            LeftValInner::Id(id) => write!(f, "{}", id),
+            LeftValInner::ArrayExpr(ae) => write!(f, "{}", ae),
+            LeftValInner::MemberExpr(me) => write!(f, "{}", me),
+        }
+    }
+}
+
+impl Display for LeftVal {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        write!(f, "{}", self.inner)
+    }
+}
+
+// --- Index / Array / Member / FnCall ---
+impl Display for IndexExpr {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        match &self.inner {
+            IndexExprInner::Num(n) => write!(f, "{}", n),
+            IndexExprInner::Id(id) => write!(f, "{}", id),
+        }
+    }
+}
+
+impl Display for ArrayExpr {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        write!(f, "{}[{}]", self.arr, self.idx)
+    }
+}
+
+impl Display for MemberExpr {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        write!(f, "{}.{}", self.struct_id, self.member_id)
+    }
+}
+
+impl Display for FnCall {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        if let Some(vals) = &self.vals {
+            let args: Vec<String> = vals.iter().map(|v| format!("{}", v)).collect();
+            write!(f, "{}({})", self.name, args.join(", "))
+        } else {
+            write!(f, "{}()", self.name)
+        }
+    }
+}
+
+// --- ExprUnit ---
+impl Display for ExprUnitInner {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        match self {
+            ExprUnitInner::Num(n) => write!(f, "{}", n),
+            ExprUnitInner::Id(id) => write!(f, "{}", id),
+            ExprUnitInner::ArithExpr(a) => write!(f, "{}", a),
+            ExprUnitInner::FnCall(fc) => write!(f, "{}", fc),
+            ExprUnitInner::ArrayExpr(ae) => write!(f, "{}", ae),
+            ExprUnitInner::MemberExpr(me) => write!(f, "{}", me),
+            ExprUnitInner::ArithUExpr(ue) => write!(f, "{}", ue),
+        }
+    }
+}
+
+impl Display for ExprUnit {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        write!(f, "{}", self.inner)
+    }
+}
+
+impl Display for RightValList {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        let vals: Vec<String> = self.iter().map(|v| format!("{}", v)).collect();
+        write!(f, "{}", vals.join(", "))
+    }
+}
+
+// --- VarDecl ---
+impl Display for VarDecl {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        let type_str = if let Some(ts) = self.type_specifier.as_ref() {
+            format!("{}", ts)
+        } else {
+            "unknown".to_string()
+        };
+        write!(f, "{} {};", type_str, self.identifier)
+    }
+}
+
+// --- AssignmentStmt ---
+impl Display for AssignmentStmt {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        write!(f, "{} = {};", self.left_val, self.right_val)
+    }
+}
+
+impl Display for CodeBlockStmtInner {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        match self {
+            CodeBlockStmtInner::Assignment(a) => write!(f, "{}", a),
+            CodeBlockStmtInner::VarDecl(v) => write!(f, "{}", v),
+            CodeBlockStmtInner::Call(c) => write!(f, "{};", c.fn_call),
+            CodeBlockStmtInner::Return(r) => {
+                if let Some(val) = &r.val {
+                    write!(f, "return {};", val)
+                } else {
+                    write!(f, "return;")
+                }
+            }
+            CodeBlockStmtInner::Continue(_) => write!(f, "continue;"),
+            CodeBlockStmtInner::Break(_) => write!(f, "break;"),
+            CodeBlockStmtInner::Null(_) => write!(f, ";"),
+            CodeBlockStmtInner::If(i) => {
+                if let Some(else_stmts) = &i.else_stmts {
+                    write!(
+                        f,
+                        "if ({}) {{\n{}\n}} else {{\n{}\n}}",
+                        i.bool_unit, i.if_stmts, else_stmts
+                    )
+                } else {
+                    write!(f, "if ({}) {{\n{}\n}}", i.bool_unit, i.if_stmts)
+                }
+            }
+            CodeBlockStmtInner::While(w) => {
+                write!(f, "while ({}) {{\n{}\n}}", w.bool_unit, w.stmts)
+            }
+        }
+    }
+}
+
+impl Display for CodeBlockStmt {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        write!(f, "{}", self.inner)
+    }
+}
+
+impl Display for CodeBlockStmtList {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        let stmts: Vec<String> = self.iter().map(|s| format!("{}", s)).collect();
+        write!(f, "{}", stmts.join("\n"))
+    }
+}
+
+impl Display for ProgramElementInner {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        match self {
+            ProgramElementInner::VarDeclStmt(v) => write!(f, "{}", v),
+            ProgramElementInner::StructDef(s) => write!(f, "struct {} {{\n{}\n}}", s.identifier, s.decls),
+            ProgramElementInner::FnDeclStmt(d) => write!(f, "fn {}(...);", d.identifier),
+            ProgramElementInner::FnDef(fdef) => write!(f, "fn {} {{\n{}\n}}", fdef.fn_decl.identifier, fdef.stmts),
+        }
+    }
+}
+
+impl Display for ProgramElement {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        write!(f, "{}", self.inner)
+    }
+}
+
+impl Display for ProgramElementList {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        let elements: Vec<String> = self.iter().map(|e| format!("{}", e)).collect();
+        write!(f, "{}", elements.join("\n"))
+    }
+}
+
+impl Display for Program {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        //write!(f, "{}", self.elements)
+        self.fmt_tree_root(f)
+    }
+}
+
+impl Display for VarDeclStmtInner {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        match self {
+            VarDeclStmtInner::Decl(var_decl) => write!(f, "{}", var_decl),
+            VarDeclStmtInner::Def(var_def) => match &var_def.inner {
+                VarDefInner::Scalar(s) => write!(f, "{} = {};", var_def.identifier, s.val),
+                VarDefInner::Array(a) => write!(f, "{} = [{}];", var_def.identifier, a.vals),
+            },
+        }
+    }
+}
+
+// VarDeclStmt
+impl Display for VarDeclStmt {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        write!(f, "{}", self.inner)
+    }
+}
+
+impl Display for VarDeclList {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        let decls: Vec<String> = self.iter().map(|v| format!("{}", v)).collect();
+        write!(f, "{}", decls.join("\n"))
+    }
+}
+

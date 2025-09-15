@@ -1,5 +1,6 @@
 mod ast;
 mod ir;
+mod util;
 
 lalrpop_mod!(pub teapl);
 
@@ -14,7 +15,7 @@ use std::{
 };
 
 /// Dump mode: AST / IR / Assembly
-#[derive(Copy, Clone, Debug, ValueEnum)]
+#[derive(Copy, Clone, Debug, PartialEq, ValueEnum)]
 enum DumpMode {
     AST,
     IR,
@@ -30,8 +31,8 @@ struct Cli {
     #[clap(value_name = "FILE")]
     input: String,
 
-    /// Dump mode (-D AST|IR|S)
-    #[arg(short = 'D', value_enum, ignore_case=true)]
+    /// Dump mode (-d ast|ir|s)
+    #[arg(short = 'd', value_enum, ignore_case=true)]
     dump: Option<DumpMode>,
 
     #[clap(short, long, value_name = "FILE")]
@@ -111,21 +112,6 @@ fn main() {
         Some(path) => path,
     };
 
-    match cli.dump {
-        Some(DumpMode::AST) => {
-            println!("Will dump AST");
-        }
-        Some(DumpMode::IR) => {
-            println!("Will dump LLVM IR");
-        }
-        Some(DumpMode::S) => {
-            println!("Will dump Assembly");
-        }
-        None => {
-            println!("No dump mode specified, proceed normally.");
-        }
-    }
-
     // Process input code file.
     let mut visited = HashSet::new();
     let prog = preprocess_file(Path::new(&input_path), &mut visited).unwrap_or_else(|e| {
@@ -141,6 +127,9 @@ fn main() {
             std::process::exit(1);
         });
 
+    if cli.dump == Some(DumpMode::AST) {
+        print!("{}", ast);
+    }
     // Generate LLVM IR based on the ast.
     let mut module_generator = ir::ModuleGenerator::new();
     let mut writer = BufWriter::new(File::create(output_path).unwrap());
