@@ -227,7 +227,11 @@ impl Display for ir::Dtype {
             ir::Dtype::Void => write!(f, "void"),
             ir::Dtype::Struct { .. } => write!(f, "struct"),
             ir::Dtype::Pointer { inner, length } => {
-                write!(f, "[{} x {}]", length, inner.as_ref())
+                if *length == 0 {
+                    write!(f, "{}", inner.as_ref())
+                } else {
+                    write!(f, "[{} x {}]", length, inner.as_ref())
+                }
             }
             ir::Dtype::Undecided => write!(f, "?"),
         }
@@ -355,15 +359,31 @@ impl Display for LabelStmt {
 
 impl Display for GepStmt {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{} = getelementptr {}, ptr {}, i32 {}, i32 {}",
-            self.new_ptr,
-            self.base_ptr.dtype(),
-            self.base_ptr,
-            0,
-            self.index,
-        )
+        match self.base_ptr.dtype() {
+            ir::Dtype::Pointer { length, .. } => {
+                if *length == 0 {
+                    write!(
+                        f,
+                        "{} = getelementptr {}, ptr {}, i32 {}",
+                        self.new_ptr,
+                        self.base_ptr.dtype(),
+                        self.base_ptr,
+                        self.index,
+                    )
+                } else {
+                    write!(
+                        f,
+                        "{} = getelementptr {}, ptr {}, i32 {}, i32 {}",
+                        self.new_ptr,
+                        self.base_ptr.dtype(),
+                        self.base_ptr,
+                        0,
+                        self.index,
+                    )
+                }
+            }
+            _ => Err(fmt::Error),
+        }
     }
 }
 

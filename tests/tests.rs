@@ -258,3 +258,15 @@ fn brainfk_pl() {
     ensure_std();
     test_single("brainfk_pl");
 }
+
+#[test]
+fn brainfk() {
+    ensure_std();
+    test_single("brainfk");
+}
+
+#[test]
+fn conv() {
+    ensure_std();
+    test_single("conv");
+}

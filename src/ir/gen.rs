@@ -1036,13 +1036,13 @@ impl<'ir> ir::FunctionGenerator<'ir> {
                     let ptr = Rc::new(match inner.as_ref() {
                         ir::Dtype::I32 => Ok(ir::LocalVariable::create_int_ptr(
                             var.index,
-                            *length,
+                            if *length == 0 { usize::MAX } else { *length },
                         )),
                         ir::Dtype::Struct { type_name } => {
                             Ok(ir::LocalVariable::create_struct_ptr(
                                 type_name.clone(),
                                 var.index,
-                                *length,
+                                if *length == 0 { usize::MAX } else { *length },
                             ))
                         }
                         _ => Err(ir::Error::ArgumentTypeUnsupported),
@@ -1095,7 +1095,7 @@ impl<'ir> ir::FunctionGenerator<'ir> {
         con_label: Option<ir::BlockLabel>,
         bre_label: Option<ir::BlockLabel>,
     ) -> Result<(), ir::Error> {
-        match &stmt.inner {
+        let res = match &stmt.inner {
             ast::CodeBlockStmtInner::Assignment(s) => self.handle_assignment_stmt(s),
             ast::CodeBlockStmtInner::VarDecl(s) => match &s.inner {
                 ast::VarDeclStmtInner::Decl(d) => self.handle_local_var_decl(d),
@@ -1116,12 +1116,12 @@ impl<'ir> ir::FunctionGenerator<'ir> {
                 Ok(())
             }
             ast::CodeBlockStmtInner::Null(_) => Ok(()),
-        }
+        };
+        res
     }
 
     pub fn handle_assignment_stmt(&mut self, stmt: &AssignmentStmt) -> Result<(), ir::Error> {
         let left = self.handle_left_val(&stmt.left_val)?;
-        // let left = self.ptr_deref(left);
         let right = self.handle_right_val(&stmt.right_val)?;
         let right = self.ptr_deref(right);
 
@@ -1414,18 +1414,22 @@ impl<'ir> ir::FunctionGenerator<'ir> {
 
         // True block
         self.irs.push(ir::stmt::Stmt::as_label(true_label));
+        let local_variables_prev = self.local_variables.clone();
         for s in stmt.if_stmts.iter() {
             self.handle_block(s, con_label.clone(), bre_label.clone())?;
         }
+        self.local_variables = local_variables_prev;
         self.irs.push(ir::stmt::Stmt::as_jump(after_label.clone()));
 
         // False block
         self.irs.push(ir::stmt::Stmt::as_label(false_label));
+        let local_variables_prev = self.local_variables.clone();
         if let Some(else_stmts) = &stmt.else_stmts {
             for s in else_stmts.iter() {
                 self.handle_block(s, con_label.clone(), bre_label.clone())?;
             }
         }
+        self.local_variables = local_variables_prev;
         self.irs.push(ir::stmt::Stmt::as_jump(after_label.clone()));
 
         // After block
@@ -1463,9 +1467,11 @@ impl<'ir> ir::FunctionGenerator<'ir> {
 
         // While body
         self.irs.push(ir::stmt::Stmt::as_label(true_label.clone()));
+        let local_variables_prev = self.local_variables.clone();
         for s in stmt.stmts.iter() {
             self.handle_block(s, Some(test_label.clone()), Some(false_label.clone()))?;
         }
+        self.local_variables = local_variables_prev;
         self.irs.push(ir::stmt::Stmt::as_jump(test_label.clone()));
 
         // After while
@@ -1480,7 +1486,6 @@ impl<'ir> ir::FunctionGenerator<'ir> {
             }
             Some(val) => {
                 let val = self.handle_right_val(val)?;
-                // let val = self.ptr_deref(val);
                 self.irs.push(ir::stmt::Stmt::as_return(Some(val)));
             }
         }
