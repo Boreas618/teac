@@ -539,13 +539,12 @@ impl Display for TypeSepcifier {
 
 impl Display for ArithBiOp {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
-        let op = match self {
-            ArithBiOp::Add => "+",
-            ArithBiOp::Sub => "-",
-            ArithBiOp::Mul => "*",
-            ArithBiOp::Div => "/",
-        };
-        write!(f, "{}", op)
+        match self {
+            ArithBiOp::Add => write!(f, "add"),
+            ArithBiOp::Sub => write!(f, "sub"),
+            ArithBiOp::Mul => write!(f, "mul"),
+            ArithBiOp::Div => write!(f, "udiv"),
+        }
     }
 }
 
@@ -604,15 +603,14 @@ impl Display for BoolBiOp {
 
 impl Display for ComOp {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
-        let op = match self {
-            ComOp::Lt => "<",
-            ComOp::Le => "<=",
-            ComOp::Gt => ">",
-            ComOp::Ge => ">=",
-            ComOp::Eq => "==",
-            ComOp::Ne => "!=",
-        };
-        write!(f, "{}", op)
+        match self {
+            ComOp::Eq => write!(f, "eq"),
+            ComOp::Ne => write!(f, "ne"),
+            ComOp::Gt => write!(f, "sgt"),
+            ComOp::Ge => write!(f, "sge"),
+            ComOp::Lt => write!(f, "slt"),
+            ComOp::Le => write!(f, "sle"),
+        }
     }
 }
 
