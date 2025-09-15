@@ -254,7 +254,7 @@ fn bin_search() {
 }
 
 #[test]
-fn brainfk_xh() {
+fn brainfk_pl() {
     ensure_std();
-    test_single("brainfk_xh");
+    test_single("brainfk_pl");
 }
