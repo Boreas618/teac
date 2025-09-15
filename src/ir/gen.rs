@@ -1,8 +1,10 @@
 use indexmap::IndexMap;
 
-use crate::ast::{self, AssignmentStmt};
+use crate::ast::{self, AssignmentStmt, RightValList};
 use crate::ir::stmt::Stmt;
-use crate::ir::{self, BlockLabel, Dtype, FunctionGenerator, Operand, StructMember, Typed};
+use crate::ir::{
+    self, BlockLabel, Dtype, FunctionGenerator, LocalVariable, Operand, StructMember, Typed,
+};
 use std::rc::Rc;
 
 pub trait BaseDtype {
@@ -479,7 +481,7 @@ impl<'ir> ir::FunctionGenerator<'ir> {
             ast::ExprUnitInner::Num(num) => Ok(Rc::new(ir::Integer::from(*num))),
             ast::ExprUnitInner::Id(id) => {
                 if let Some(def) = self.local_variables.get(id) {
-                    Ok(Rc::new(def.clone()))
+                    Ok(def.clone())
                 } else if let Some(def) = self.module_generator.module.global_list.get(id) {
                     Ok(Rc::new(def.clone()))
                 } else {
@@ -707,7 +709,7 @@ impl<'ir> ir::FunctionGenerator<'ir> {
         match &val.inner {
             ast::LeftValInner::Id(id) => {
                 if let Some(local) = self.local_variables.get(id) {
-                    Ok(Rc::new(local.clone()))
+                    Ok(local.clone())
                 } else if let Some(global) = self.module_generator.module.global_list.get(id) {
                     Ok(Rc::new(global.clone()))
                 } else {
@@ -867,7 +869,7 @@ impl<'ir> ir::FunctionGenerator<'ir> {
                     let src = self.local_variables.get(id).unwrap();
                     self.irs.push(ir::stmt::Stmt::as_load(
                         Rc::clone(&idx),
-                        Rc::new(src.clone()),
+                        src.clone() as Rc<dyn Operand>,
                     ));
                 } else if self.module_generator.module.global_list.get(id).is_some() {
                     let src = self.module_generator.module.global_list.get(id).unwrap();
@@ -1000,7 +1002,11 @@ impl<'ir> ir::FunctionGenerator<'ir> {
                 index: self.increment_virt_reg_index(),
             };
             self.arguments.push(var.clone());
-            if self.local_variables.insert(id.clone(), var).is_some() {
+            if self
+                .local_variables
+                .insert(id.clone(), Rc::new(var))
+                .is_some()
+            {
                 return Err(ir::Error::VariableRedefinition { symbol: id.clone() });
             }
         }
@@ -1012,25 +1018,19 @@ impl<'ir> ir::FunctionGenerator<'ir> {
         for (id, var) in self.local_variables.clone() {
             match &var.dtype {
                 ir::Dtype::I32 => {
-                    let ptr: Rc<dyn ir::Operand> = Rc::new(ir::LocalVariable::create_int_ptr(
+                    let ptr = Rc::new(ir::LocalVariable::create_int_ptr(
                         self.increment_virt_reg_index(),
                         0,
                     ));
-                    self.irs.push(ir::stmt::Stmt::as_alloca(Rc::clone(&ptr)));
+                    self.irs
+                        .push(ir::stmt::Stmt::as_alloca(ptr.clone() as Rc<dyn Operand>));
                     self.irs.push(ir::stmt::Stmt::as_store(
-                        Rc::new(var.clone()),
-                        Rc::clone(&ptr),
+                        (var as Rc<dyn Operand>).clone(),
+                        ptr.clone() as Rc<dyn Operand>,
                     ));
 
                     // No need to check duplicated variable definition here, since we are modifying exisiting variable record.
-                    self.local_variables.insert(
-                        id,
-                        ptr.as_ref()
-                            .as_any()
-                            .downcast_ref::<ir::LocalVariable>()
-                            .unwrap()
-                            .clone(),
-                    );
+                    self.local_variables.insert(id, ptr);
                 }
                 _ => {
                     return Err(ir::Error::ArgumentTypeUnsupported);
@@ -1134,9 +1134,20 @@ impl<'ir> ir::FunctionGenerator<'ir> {
                 },
                 _ => Err(ir::Error::LocalVarTypeUnsupported),
             }?;
-            let left: Rc<dyn ir::Operand> = Rc::new(local_val.clone());
-            self.irs.push(ir::stmt::Stmt::as_alloca(Rc::clone(&left)));
-            self.local_variables[&left.as_ref().identifier().unwrap()] = local_val;
+            let left = Rc::new(local_val);
+            self.irs.push(ir::stmt::Stmt::as_alloca(Rc::clone(
+                &(left.clone() as Rc<dyn ir::Operand>),
+            )));
+
+            if self
+                .local_variables
+                .insert(left.as_ref().identifier().unwrap(), left.clone())
+                .is_some()
+            {
+                return Err(ir::Error::VariableRedefinition {
+                    symbol: left.as_ref().identifier().unwrap(),
+                });
+            }
         }
         self.irs.push(ir::stmt::Stmt::as_store(right, left));
         Ok(())
@@ -1149,25 +1160,56 @@ impl<'ir> ir::FunctionGenerator<'ir> {
             None => None,
         };
 
-        let variable = match &dtype {
-            None => Ok(ir::LocalVariable::create_undecided()),
-            Some(inner) => {
-                let v = match inner {
-                    ir::Dtype::Struct { type_name } => Ok(ir::LocalVariable::create_struct_ptr(
-                        type_name.clone(),
+        let variable: Rc<LocalVariable> = match &decl.inner {
+            ast::VarDeclInner::Scalar(_) => match &dtype {
+                None => {
+                    let v = Rc::new(ir::LocalVariable::create_undecided());
+                    Ok(v)
+                }
+                Some(inner) => {
+                    let v = Rc::new(match inner {
+                        ir::Dtype::I32 => Ok(ir::LocalVariable::create_int_ptr(
+                            self.increment_virt_reg_index(),
+                            0,
+                        )),
+                        _ => Err(ir::Error::LocalVarDefinitionUnsupported),
+                    }?);
+                    self.irs.push(ir::stmt::Stmt::as_alloca(v.clone()));
+                    Ok(v)
+                }
+            }?,
+            ast::VarDeclInner::Array(array) => {
+                match &dtype {
+                    // Since we don't support defining an array of structs, we can infer that the
+                    // base type is i32.
+                    None => Ok(Rc::new(ir::LocalVariable::create_int_ptr(
                         self.increment_virt_reg_index(),
-                        0,
-                    )),
-                    ir::Dtype::I32 => Ok(ir::LocalVariable::create_int_ptr(
-                        self.increment_virt_reg_index(),
-                        0,
-                    )),
-                    _ => Err(ir::Error::LocalVarTypeUnsupported),
-                }?;
-                self.irs.push(ir::stmt::Stmt::as_alloca(Rc::new(v.clone())));
-                Ok(v)
+                        array.len,
+                    ))),
+
+                    Some(inner) => {
+                        let v = match inner {
+                            ir::Dtype::I32 => Ok(ir::LocalVariable::create_int_ptr(
+                                self.increment_virt_reg_index(),
+                                array.len,
+                            )),
+                            ir::Dtype::Struct { type_name } => {
+                                Ok(ir::LocalVariable::create_struct_ptr(
+                                    type_name.clone(),
+                                    self.increment_virt_reg_index(),
+                                    array.len,
+                                ))
+                            }
+                            _ => Err(ir::Error::LocalVarDefinitionUnsupported),
+                        }?;
+                        let v = Rc::new(v);
+                        self.irs.push(ir::stmt::Stmt::as_alloca(v.clone()));
+
+                        Ok(v)
+                    }
+                }?
             }
-        }?;
+        };
 
         if self
             .local_variables
@@ -1182,36 +1224,101 @@ impl<'ir> ir::FunctionGenerator<'ir> {
         Ok(())
     }
 
+    pub fn init_array(
+        &mut self,
+        base_ptr: Rc<dyn Operand>,
+        vals: Box<RightValList>,
+    ) -> Result<(), ir::Error> {
+        // let vals_size = vals.iter().count();
+        for (i, val) in vals.iter().enumerate() {
+            let element_ptr: Rc<dyn Operand> = Rc::new(ir::LocalVariable::create_int_ptr(
+                self.increment_virt_reg_index(),
+                0,
+            ));
+            let right_elem = self.handle_right_val(val)?;
+            let right_elem = self.ptr_deref(right_elem);
+
+            self.irs.push(ir::stmt::Stmt::as_gep(
+                element_ptr.clone(),
+                base_ptr.clone(),
+                Rc::new(ir::Integer::from(i as i32)),
+            ));
+
+            self.irs
+                .push(ir::stmt::Stmt::as_store(right_elem, element_ptr));
+        }
+
+        Ok(())
+    }
+
     pub fn handle_local_var_def(&mut self, def: &ast::VarDef) -> Result<(), ir::Error> {
         let identifier = &def.identifier;
-        let right_val = if let ast::VarDefInner::Scalar(scalar) = &def.inner {
-            self.handle_right_val(&scalar.val)
-        } else {
-            Err(ir::Error::DefineLocalVarArrayUnsupported)
-        }?;
-        let right_val = self.ptr_deref(right_val);
-
         let dtype = match def.type_specifier.as_ref() {
             Some(type_spec) => Some(ir::Dtype::from(type_spec)),
             None => None,
         };
 
-        let variable = match &dtype {
-            None => Ok(ir::LocalVariable::create_undecided()),
-            Some(inner) => {
-                let v = match inner {
-                    ir::Dtype::I32 => Ok(ir::LocalVariable::create_int_ptr(
-                        self.increment_virt_reg_index(),
-                        0,
-                    )),
-                    _ => Err(ir::Error::DefineLocalVarArrayUnsupported),
-                }?;
-                self.irs.push(ir::stmt::Stmt::as_alloca(Rc::new(v.clone())));
-                self.irs
-                    .push(ir::stmt::Stmt::as_store(right_val, Rc::new(v.clone())));
-                Ok(v)
+        let variable: Rc<LocalVariable> = match &def.inner {
+            ast::VarDefInner::Scalar(scalar) => {
+                let right_val = self.handle_right_val(&scalar.val)?;
+                let right_val = self.ptr_deref(right_val);
+                match &dtype {
+                    None => {
+                        let v = Rc::new(ir::LocalVariable::create_undecided());
+                        Ok(v)
+                    }
+                    Some(inner) => {
+                        let v = Rc::new(match inner {
+                            ir::Dtype::I32 => Ok(ir::LocalVariable::create_int_ptr(
+                                self.increment_virt_reg_index(),
+                                0,
+                            )),
+                            _ => Err(ir::Error::LocalVarDefinitionUnsupported),
+                        }?);
+                        self.irs.push(ir::stmt::Stmt::as_alloca(v.clone()));
+                        self.irs
+                            .push(ir::stmt::Stmt::as_store(right_val, v.clone()));
+                        Ok(v)
+                    }
+                }?
             }
-        }?;
+            ast::VarDefInner::Array(array) => {
+                match &dtype {
+                    // Since we don't support defining an array of structs, we can infer that the
+                    // base type is i32.
+                    None => Ok(Rc::new(ir::LocalVariable::create_int_ptr(
+                        self.increment_virt_reg_index(),
+                        array.len,
+                    ))),
+
+                    Some(inner) => {
+                        let v = match inner {
+                            ir::Dtype::I32 => Ok(ir::LocalVariable::create_int_ptr(
+                                self.increment_virt_reg_index(),
+                                array.len,
+                            )),
+                            ir::Dtype::Struct { type_name } => {
+                                Ok(ir::LocalVariable::create_struct_ptr(
+                                    type_name.clone(),
+                                    self.increment_virt_reg_index(),
+                                    array.len,
+                                ))
+                            }
+                            _ => Err(ir::Error::LocalVarDefinitionUnsupported),
+                        }?;
+                        let v = Rc::new(v);
+                        self.irs.push(ir::stmt::Stmt::as_alloca(v.clone()));
+
+                        match inner {
+                            ir::Dtype::I32 => self.init_array(v.clone(), array.vals.clone()),
+                            _ => Err(ir::Error::LocalVarDefinitionUnsupported),
+                        }?;
+
+                        Ok(v)
+                    }
+                }?
+            }
+        };
 
         if self
             .local_variables

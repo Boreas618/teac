@@ -8,6 +8,7 @@ use indexmap::IndexMap;
 use std::any::Any;
 use std::fmt::{Display, Formatter};
 use std::io::Write;
+use std::rc::Rc;
 use thiserror::Error;
 
 #[derive(Clone, PartialEq, PartialOrd)]
@@ -80,7 +81,7 @@ impl PartialEq<ast::FnDecl> for FunctionType {
 
 struct Function {
     identifier: String,
-    local_variables: Option<IndexMap<String, LocalVariable>>,
+    local_variables: Option<IndexMap<String, Rc<LocalVariable>>>,
     blocks: Option<Vec<Vec<stmt::Stmt>>>,
     arguments: Vec<LocalVariable>,
 }
@@ -294,8 +295,8 @@ pub enum Error {
     #[error("Unsupported type of local variable")]
     LocalVarTypeUnsupported,
 
-    #[error("Definition of array is not supported")]
-    DefineLocalVarArrayUnsupported,
+    #[error("Unsupported local variable definition")]
+    LocalVarDefinitionUnsupported,
 
     #[error("Unsupported function call")]
     FunctionCallUnsupported,
@@ -428,7 +429,7 @@ impl ModuleGenerator {
 
 pub struct FunctionGenerator<'ir> {
     pub module_generator: &'ir mut ModuleGenerator,
-    pub local_variables: IndexMap<String, LocalVariable>,
+    pub local_variables: IndexMap<String, Rc<LocalVariable>>,
     pub irs: Vec<stmt::Stmt>,
     pub arguments: Vec<LocalVariable>,
     virt_reg_index: usize,
