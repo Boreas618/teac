@@ -263,7 +263,13 @@ impl Display for CallStmt {
         let args = self
             .args
             .iter()
-            .map(|a| format!("{} {}", a.dtype(), a))
+            .map(|a| {
+                if matches!(&a.dtype(), ir::Dtype::Pointer { .. }) {
+                    format!("ptr {}", a)
+                } else {
+                    format!("{} {}", a.dtype(), a)
+                }
+            })
             .collect::<Vec<_>>()
             .join(", ");
 
@@ -373,11 +379,6 @@ impl Display for LabelStmt {
 
 impl Display for GepStmt {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        // Only valid if the base is a pointer
-        if !matches!(self.base_ptr.dtype(), ir::Dtype::Pointer { .. }) {
-            return Err(fmt::Error);
-        }
-
         write!(
             f,
             "{} = getelementptr {}, ptr {}, i32 {}, i32 {}",

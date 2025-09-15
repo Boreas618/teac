@@ -1032,6 +1032,23 @@ impl<'ir> ir::FunctionGenerator<'ir> {
                     // No need to check duplicated variable definition here, since we are modifying exisiting variable record.
                     self.local_variables.insert(id, ptr);
                 }
+                ir::Dtype::Pointer { inner, length } => {
+                    let ptr = Rc::new(match inner.as_ref() {
+                        ir::Dtype::I32 => Ok(ir::LocalVariable::create_int_ptr(
+                            var.index,
+                            *length,
+                        )),
+                        ir::Dtype::Struct { type_name } => {
+                            Ok(ir::LocalVariable::create_struct_ptr(
+                                type_name.clone(),
+                                var.index,
+                                *length,
+                            ))
+                        }
+                        _ => Err(ir::Error::ArgumentTypeUnsupported),
+                    }?);
+                    self.local_variables.insert(id, ptr);
+                }
                 _ => {
                     return Err(ir::Error::ArgumentTypeUnsupported);
                 }

@@ -378,7 +378,13 @@ impl ModuleGenerator {
                 let args = func
                     .arguments
                     .iter()
-                    .map(|var| format!("{} %r{}", var.dtype, var.index))
+                    .map(|var| {
+                        if matches!(&var.dtype, ir::Dtype::Pointer { .. }) {
+                            format!("ptr %r{}", var.index)
+                        } else {
+                            format!("{} %r{}", var.dtype, var.index)
+                        }
+                    })
                     .collect::<Vec<_>>()
                     .join(", ");
 

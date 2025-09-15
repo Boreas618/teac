@@ -252,3 +252,9 @@ fn bin_search() {
     ensure_std();
     test_single("bin_search");
 }
+
+#[test]
+fn brainfk_xh() {
+    ensure_std();
+    test_single("brainfk_xh");
+}
