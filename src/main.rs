@@ -1,6 +1,5 @@
 mod ast;
 mod ir;
-mod util;
 
 lalrpop_mod!(pub teapl);
 

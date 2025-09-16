@@ -1,8 +1,11 @@
+mod tree;
+
+use crate::ast::tree::*;
 use std::{
-    fmt::{Display, Formatter, Error},
-    ops::Deref, rc::Rc
+    fmt::{Display, Error, Formatter},
+    ops::Deref,
+    rc::Rc,
 };
-use crate::util::ast_tree::*;
 
 type Pos = usize;
 
@@ -663,7 +666,6 @@ impl Display for BoolUnit {
     }
 }
 
-// --- RightVal ---
 impl Display for RightValInner {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         match self {
@@ -679,7 +681,6 @@ impl Display for RightVal {
     }
 }
 
-// --- LeftVal ---
 impl Display for LeftValInner {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         match self {
@@ -696,7 +697,6 @@ impl Display for LeftVal {
     }
 }
 
-// --- Index / Array / Member / FnCall ---
 impl Display for IndexExpr {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         match &self.inner {
@@ -729,7 +729,6 @@ impl Display for FnCall {
     }
 }
 
-// --- ExprUnit ---
 impl Display for ExprUnitInner {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         match self {
@@ -750,133 +749,8 @@ impl Display for ExprUnit {
     }
 }
 
-impl Display for RightValList {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
-        let vals: Vec<String> = self.iter().map(|v| format!("{}", v)).collect();
-        write!(f, "{}", vals.join(", "))
-    }
-}
-
-// --- VarDecl ---
-impl Display for VarDecl {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
-        let type_str = if let Some(ts) = self.type_specifier.as_ref() {
-            format!("{}", ts)
-        } else {
-            "unknown".to_string()
-        };
-        write!(f, "{} {};", type_str, self.identifier)
-    }
-}
-
-// --- AssignmentStmt ---
-impl Display for AssignmentStmt {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
-        write!(f, "{} = {};", self.left_val, self.right_val)
-    }
-}
-
-impl Display for CodeBlockStmtInner {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
-        match self {
-            CodeBlockStmtInner::Assignment(a) => write!(f, "{}", a),
-            CodeBlockStmtInner::VarDecl(v) => write!(f, "{}", v),
-            CodeBlockStmtInner::Call(c) => write!(f, "{};", c.fn_call),
-            CodeBlockStmtInner::Return(r) => {
-                if let Some(val) = &r.val {
-                    write!(f, "return {};", val)
-                } else {
-                    write!(f, "return;")
-                }
-            }
-            CodeBlockStmtInner::Continue(_) => write!(f, "continue;"),
-            CodeBlockStmtInner::Break(_) => write!(f, "break;"),
-            CodeBlockStmtInner::Null(_) => write!(f, ";"),
-            CodeBlockStmtInner::If(i) => {
-                if let Some(else_stmts) = &i.else_stmts {
-                    write!(
-                        f,
-                        "if ({}) {{\n{}\n}} else {{\n{}\n}}",
-                        i.bool_unit, i.if_stmts, else_stmts
-                    )
-                } else {
-                    write!(f, "if ({}) {{\n{}\n}}", i.bool_unit, i.if_stmts)
-                }
-            }
-            CodeBlockStmtInner::While(w) => {
-                write!(f, "while ({}) {{\n{}\n}}", w.bool_unit, w.stmts)
-            }
-        }
-    }
-}
-
-impl Display for CodeBlockStmt {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
-        write!(f, "{}", self.inner)
-    }
-}
-
-impl Display for CodeBlockStmtList {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
-        let stmts: Vec<String> = self.iter().map(|s| format!("{}", s)).collect();
-        write!(f, "{}", stmts.join("\n"))
-    }
-}
-
-impl Display for ProgramElementInner {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
-        match self {
-            ProgramElementInner::VarDeclStmt(v) => write!(f, "{}", v),
-            ProgramElementInner::StructDef(s) => write!(f, "struct {} {{\n{}\n}}", s.identifier, s.decls),
-            ProgramElementInner::FnDeclStmt(d) => write!(f, "fn {}(...);", d.identifier),
-            ProgramElementInner::FnDef(fdef) => write!(f, "fn {} {{\n{}\n}}", fdef.fn_decl.identifier, fdef.stmts),
-        }
-    }
-}
-
-impl Display for ProgramElement {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
-        write!(f, "{}", self.inner)
-    }
-}
-
-impl Display for ProgramElementList {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
-        let elements: Vec<String> = self.iter().map(|e| format!("{}", e)).collect();
-        write!(f, "{}", elements.join("\n"))
-    }
-}
-
 impl Display for Program {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
-        //write!(f, "{}", self.elements)
         self.fmt_tree_root(f)
     }
 }
-
-impl Display for VarDeclStmtInner {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
-        match self {
-            VarDeclStmtInner::Decl(var_decl) => write!(f, "{}", var_decl),
-            VarDeclStmtInner::Def(var_def) => match &var_def.inner {
-                VarDefInner::Scalar(s) => write!(f, "{} = {};", var_def.identifier, s.val),
-                VarDefInner::Array(a) => write!(f, "{} = [{}];", var_def.identifier, a.vals),
-            },
-        }
-    }
-}
-
-// VarDeclStmt
-impl Display for VarDeclStmt {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
-        write!(f, "{}", self.inner)
-    }
-}
-
-impl Display for VarDeclList {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
-        let decls: Vec<String> = self.iter().map(|v| format!("{}", v)).collect();
-        write!(f, "{}", decls.join("\n"))
-    }
-}
-
