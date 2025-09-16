@@ -11,7 +11,7 @@ use std::io::Write;
 use std::rc::Rc;
 use thiserror::Error;
 
-#[derive(Clone, PartialEq, PartialOrd)]
+#[derive(Clone, PartialEq, PartialOrd, Debug)]
 pub enum Dtype {
     Void,
     I32,
@@ -283,8 +283,8 @@ pub enum Error {
     #[error("Invalid array expression")]
     InvalidArrayExpression,
 
-    #[error("Invalid struct member expression")]
-    InvalidStructMemberExpression,
+    #[error("Invalid struct member expression {expr}")]
+    InvalidStructMemberExpression { expr: ast::MemberExpr },
 
     #[error("Invalid operand")]
     InvalidOperand,
@@ -348,6 +348,18 @@ impl ModuleGenerator {
     }
 
     pub fn output<W: Write>(&self, writer: &mut W) -> std::io::Result<()> {
+        // Structs
+        for (type_name, struct_type) in self.registry.struct_types.iter().clone() {
+            let members: Vec<String> = struct_type
+                .elements
+                .iter()
+                .map(|e| format!("{}", e.1.dtype.clone()))
+                .collect();
+            let members = members.join(", ");
+            writeln!(writer, "%{} = type {{{}}}", type_name, members)?;
+        }
+        writeln!(writer)?; // blank line
+
         // Globals
         for global in self.module.global_list.values() {
             let init_str = match (&global.initializers, &global.dtype) {
@@ -369,8 +381,8 @@ impl ModuleGenerator {
                 "@{} = global {} {}",
                 global.identifier, global.dtype, init_str
             )?;
-            writeln!(writer)?; // blank line
         }
+        writeln!(writer)?; // blank line
 
         // Functions
         for func in self.module.function_list.values() {

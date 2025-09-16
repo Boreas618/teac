@@ -270,3 +270,10 @@ fn conv() {
     ensure_std();
     test_single("conv");
 }
+
+#[test]
+fn dijkstra() {
+    ensure_std();
+    test_single("dijkstra");
+}
+

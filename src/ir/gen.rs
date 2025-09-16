@@ -331,9 +331,18 @@ impl ir::ModuleGenerator {
                 decl.identifier.clone(),
                 StructMember {
                     offset,
-                    dtype: match decl.type_specifier.as_ref() {
-                        Some(type_specifier) => type_specifier.into(),
-                        None => ir::Dtype::Void,
+                    dtype: {
+                        let base_dtype = match decl.type_specifier.as_ref() {
+                            Some(type_specifier) => type_specifier.into(),
+                            None => ir::Dtype::Void,
+                        };
+                        match &decl.inner {
+                            ast::VarDeclInner::Scalar(_) => base_dtype,
+                            ast::VarDeclInner::Array(array) => ir::Dtype::Pointer {
+                                inner: Box::new(base_dtype),
+                                length: array.len,
+                            },
+                        }
                     },
                 },
             ));
@@ -596,9 +605,13 @@ impl<'ir> ir::FunctionGenerator<'ir> {
             index: usize,
         ) -> Result<Rc<dyn ir::Operand>, ir::Error> {
             match var.dtype() {
-                ir::Dtype::Pointer { .. } => {
-                    Ok(Rc::new(ir::LocalVariable::create_int_ptr(index, 0)))
-                }
+                ir::Dtype::Pointer { inner, .. } => match inner.as_ref() {
+                    ir::Dtype::I32 => Ok(Rc::new(ir::LocalVariable::create_int_ptr(index, 0))),
+                    ir::Dtype::Struct { type_name } => Ok(Rc::new(
+                        ir::LocalVariable::create_struct_ptr(type_name.clone(), index, 0),
+                    )),
+                    _ => Err(ir::Error::InvalidArrayExpression),
+                },
                 ir::Dtype::Struct {
                     type_name: name, ..
                 } => Ok(Rc::new(ir::LocalVariable::create_struct_ptr(
@@ -614,7 +627,7 @@ impl<'ir> ir::FunctionGenerator<'ir> {
             if let Some(_) = arr.as_ref().as_any().downcast_ref::<ir::Integer>() {
                 Err(ir::Error::InvalidArrayExpression)
             } else if let Some(l) = arr.as_ref().as_any().downcast_ref::<ir::LocalVariable>() {
-                let index = self.increment_virt_reg_index();
+                let index: usize = self.increment_virt_reg_index();
                 handle_pointer_or_struct_var(l, index)
             } else if let Some(g) = arr.as_ref().as_any().downcast_ref::<ir::GlobalVariable>() {
                 let index = self.increment_virt_reg_index();
@@ -640,23 +653,32 @@ impl<'ir> ir::FunctionGenerator<'ir> {
     ) -> Result<Rc<dyn ir::Operand>, ir::Error> {
         let s = self.handle_left_val(&expr.struct_id)?;
         let type_name = if let Some(_) = s.as_ref().as_any().downcast_ref::<ir::Integer>() {
-            Err(ir::Error::InvalidStructMemberExpression)
+            Err(ir::Error::InvalidStructMemberExpression { expr: expr.clone() })
         } else if let Some(l) = s.as_ref().as_any().downcast_ref::<ir::LocalVariable>() {
             if let ir::Dtype::Struct { type_name: name } = l.dtype() {
                 Ok(name)
+            } else if let ir::Dtype::Pointer { inner, .. } = l.dtype() {
+                match inner.as_ref() {
+                    ir::Dtype::Struct { type_name } => Ok(type_name),
+                    _ => Err(ir::Error::InvalidStructMemberExpression { expr: expr.clone() }),
+                }
             } else {
-                Err(ir::Error::InvalidStructMemberExpression)
+                Err(ir::Error::InvalidStructMemberExpression { expr: expr.clone() })
             }
         } else if let Some(l) = s.as_ref().as_any().downcast_ref::<ir::GlobalVariable>() {
             if let ir::Dtype::Struct { type_name: name } = l.dtype() {
                 Ok(name)
+            } else if let ir::Dtype::Pointer { inner, .. } = l.dtype() {
+                match inner.as_ref() {
+                    ir::Dtype::Struct { type_name } => Ok(type_name),
+                    _ => Err(ir::Error::InvalidStructMemberExpression { expr: expr.clone() }),
+                }
             } else {
-                Err(ir::Error::InvalidStructMemberExpression)
+                Err(ir::Error::InvalidStructMemberExpression { expr: expr.clone() })
             }
         } else {
-            Err(ir::Error::InvalidStructMemberExpression)
-        }
-        .unwrap();
+            Err(ir::Error::InvalidStructMemberExpression { expr: expr.clone() })
+        }?;
 
         let target_index = self.increment_virt_reg_index();
 
@@ -672,29 +694,30 @@ impl<'ir> ir::FunctionGenerator<'ir> {
             .unwrap()
             .1;
 
-        let target: Rc<dyn ir::Operand> =
-            match &member.dtype {
-                ir::Dtype::I32 => Rc::new(ir::LocalVariable::create_int_ptr(target_index, 0)),
-                ir::Dtype::Pointer { inner, length } => {
-                    if let ir::Dtype::I32 = inner.as_ref() {
-                        Rc::new(ir::LocalVariable::create_int_ptr(target_index, *length))
-                    } else if let ir::Dtype::Struct { type_name: name } = inner.as_ref() {
-                        Rc::new(ir::LocalVariable::create_struct_ptr(
-                            name.clone(),
-                            target_index,
-                            *length,
-                        ))
-                    } else {
-                        return Err(ir::Error::InvalidStructMemberExpression);
-                    }
+        let target: Rc<dyn ir::Operand> = match &member.dtype {
+            ir::Dtype::I32 => Rc::new(ir::LocalVariable::create_int_ptr(target_index, 0)),
+            ir::Dtype::Pointer { inner, length } => {
+                if let ir::Dtype::I32 = inner.as_ref() {
+                    Rc::new(ir::LocalVariable::create_int_ptr(target_index, *length))
+                } else if let ir::Dtype::Struct { type_name: name } = inner.as_ref() {
+                    Rc::new(ir::LocalVariable::create_struct_ptr(
+                        name.clone(),
+                        target_index,
+                        *length,
+                    ))
+                } else {
+                    return Err(ir::Error::InvalidStructMemberExpression { expr: expr.clone() });
                 }
-                ir::Dtype::Struct { type_name: name } => Rc::new(
-                    ir::LocalVariable::create_struct_ptr(name.clone(), target_index, 0),
-                ),
-                ir::Dtype::Void | ir::Dtype::Undecided => {
-                    return Err(ir::Error::InvalidStructMemberExpression)
-                }
-            };
+            }
+            ir::Dtype::Struct { type_name: name } => Rc::new(ir::LocalVariable::create_struct_ptr(
+                name.clone(),
+                target_index,
+                0,
+            )),
+            ir::Dtype::Void | ir::Dtype::Undecided => {
+                return Err(ir::Error::InvalidStructMemberExpression { expr: expr.clone() })
+            }
+        };
 
         self.irs.push(ir::stmt::Stmt::as_gep(
             Rc::clone(&target),

@@ -225,7 +225,7 @@ impl Display for ir::Dtype {
         match self {
             ir::Dtype::I32 => write!(f, "i32"),
             ir::Dtype::Void => write!(f, "void"),
-            ir::Dtype::Struct { .. } => write!(f, "struct"),
+            ir::Dtype::Struct { type_name } => write!(f, "%{}", type_name),
             ir::Dtype::Pointer { inner, length } => {
                 if *length == 0 {
                     write!(f, "{}", inner.as_ref())
