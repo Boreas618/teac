@@ -543,7 +543,7 @@ impl Display for ArithBiOp {
             ArithBiOp::Add => write!(f, "add"),
             ArithBiOp::Sub => write!(f, "sub"),
             ArithBiOp::Mul => write!(f, "mul"),
-            ArithBiOp::Div => write!(f, "udiv"),
+            ArithBiOp::Div => write!(f, "sdiv"),
         }
     }
 }

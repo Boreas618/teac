@@ -1,0 +1,7 @@
+fn getint()->int;
+fn getch()->int;
+fn timer_start(lineno:int);
+fn timer_stop(lineno:int);
+fn putint(a:int);
+fn putch(a:int);
+fn putarray(n:int, a[0]:int);

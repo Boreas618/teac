@@ -45,9 +45,10 @@ __attribute__((destructor)) static void timer_after_main(void) {
     long long total_us = 0;
 
     for (int i = 1; i < timer_idx; i++) {
+#ifdef BENCHMARK
         fprintf(stderr, "Timer@%04d-%04d: %dH-%dM-%dS-%dus\n", timer_l1[i],
                 timer_l2[i], timer_h[i], timer_m[i], timer_s[i], timer_us[i]);
-
+#endif
         total_us += (long long)timer_us[i] + (long long)timer_s[i] * 1000000LL +
                     (long long)timer_m[i] * 60LL * 1000000LL +
                     (long long)timer_h[i] * 60LL * 60LL * 1000000LL;
@@ -61,8 +62,9 @@ __attribute__((destructor)) static void timer_after_main(void) {
 
     int ts = (int)(total_us / 1000000LL);
     int tus = (int)(total_us % 1000000LL);
-
+#ifdef BENCHMARK
     fprintf(stderr, "TOTAL: %dH-%dM-%dS-%dus\n", th, tm, ts, tus);
+#endif
 }
 
 void timer_start(int lineno) {
