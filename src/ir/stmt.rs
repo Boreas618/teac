@@ -1,36 +1,63 @@
+//! IR statement types.
+//!
+//! This module defines the IR statement representation:
+//!
+//! - [`Stmt`]: A single IR statement
+//! - [`StmtInner`]: The kind of statement (load, store, call, etc.)
+//! - Individual statement types (LoadStmt, StoreStmt, etc.)
+
 use crate::ast;
-use crate::ir::{self, LocalVariable};
 
-use super::{BlockLabel, Operand};
+use super::function::BlockLabel;
+use super::types::Dtype;
+use super::value::{LocalVariable, Value};
 use std::fmt::{self, Display, Formatter};
-use std::rc::Rc;
 
+// =============================================================================
+// Statement Types
+// =============================================================================
+
+/// The kind of IR statement.
 #[derive(Clone)]
 pub enum StmtInner {
+    /// Function call.
     Call(CallStmt),
+    /// Load from memory.
     Load(LoadStmt),
+    /// Binary arithmetic operation.
     BiOp(BiOpStmt),
+    /// Stack allocation.
     Alloca(AllocaStmt),
+    /// Comparison.
     Cmp(CmpStmt),
+    /// Conditional jump.
     CJump(CJumpStmt),
+    /// Label declaration.
     Label(LabelStmt),
+    /// Store to memory.
     Store(StoreStmt),
+    /// Unconditional jump.
     Jump(JumpStmt),
+    /// Get element pointer.
     Gep(GepStmt),
+    /// Return from function.
     Return(ReturnStmt),
 }
 
+/// An IR statement with its inner data.
 #[derive(Clone)]
 pub struct Stmt {
+    /// The statement data.
     pub inner: StmtInner,
 }
 
+// =============================================================================
+// Statement Constructors
+// =============================================================================
+
 impl Stmt {
-    pub fn as_call(
-        func_name: String,
-        res: Option<Rc<LocalVariable>>,
-        args: Vec<Rc<dyn Operand>>,
-    ) -> Self {
+    /// Creates a call statement.
+    pub fn as_call(func_name: String, res: Option<LocalVariable>, args: Vec<Value>) -> Self {
         Self {
             inner: StmtInner::Call(CallStmt {
                 func_name,
@@ -40,18 +67,15 @@ impl Stmt {
         }
     }
 
-    pub fn as_load(dst: Rc<dyn Operand>, ptr: Rc<dyn Operand>) -> Self {
+    /// Creates a load statement.
+    pub fn as_load(dst: Value, ptr: Value) -> Self {
         Self {
             inner: StmtInner::Load(LoadStmt { dst, ptr }),
         }
     }
 
-    pub fn as_biop(
-        kind: ast::ArithBiOp,
-        left: Rc<dyn Operand>,
-        right: Rc<dyn Operand>,
-        dst: Rc<dyn Operand>,
-    ) -> Self {
+    /// Creates a binary operation statement.
+    pub fn as_biop(kind: ast::ArithBiOp, left: Value, right: Value, dst: Value) -> Self {
         Self {
             inner: StmtInner::BiOp(BiOpStmt {
                 kind,
@@ -62,18 +86,15 @@ impl Stmt {
         }
     }
 
-    pub fn as_alloca(dst: Rc<dyn Operand>) -> Self {
+    /// Creates an alloca statement.
+    pub fn as_alloca(dst: Value) -> Self {
         Self {
             inner: StmtInner::Alloca(AllocaStmt { dst }),
         }
     }
 
-    pub fn as_cmp(
-        kind: ast::ComOp,
-        left: Rc<dyn Operand>,
-        right: Rc<dyn Operand>,
-        dst: Rc<dyn Operand>,
-    ) -> Self {
+    /// Creates a comparison statement.
+    pub fn as_cmp(kind: ast::ComOp, left: Value, right: Value, dst: Value) -> Self {
         Self {
             inner: StmtInner::Cmp(CmpStmt {
                 kind,
@@ -84,7 +105,8 @@ impl Stmt {
         }
     }
 
-    pub fn as_cjump(dst: Rc<dyn Operand>, true_label: BlockLabel, false_label: BlockLabel) -> Self {
+    /// Creates a conditional jump statement.
+    pub fn as_cjump(dst: Value, true_label: BlockLabel, false_label: BlockLabel) -> Self {
         Self {
             inner: StmtInner::CJump(CJumpStmt {
                 dst,
@@ -94,35 +116,36 @@ impl Stmt {
         }
     }
 
+    /// Creates a label statement.
     pub fn as_label(label: BlockLabel) -> Self {
         Self {
             inner: StmtInner::Label(LabelStmt { label }),
         }
     }
 
-    pub fn as_store(src: Rc<dyn Operand>, ptr: Rc<dyn Operand>) -> Self {
+    /// Creates a store statement.
+    pub fn as_store(src: Value, ptr: Value) -> Self {
         Self {
             inner: StmtInner::Store(StoreStmt { src, ptr }),
         }
     }
 
+    /// Creates an unconditional jump statement.
     pub fn as_jump(target: BlockLabel) -> Self {
         Self {
             inner: StmtInner::Jump(JumpStmt { target }),
         }
     }
 
-    pub fn as_return(val: Option<Rc<dyn Operand>>) -> Self {
+    /// Creates a return statement.
+    pub fn as_return(val: Option<Value>) -> Self {
         Self {
             inner: StmtInner::Return(ReturnStmt { val }),
         }
     }
 
-    pub fn as_gep(
-        new_ptr: Rc<dyn Operand>,
-        base_ptr: Rc<dyn Operand>,
-        index: Rc<dyn Operand>,
-    ) -> Self {
+    /// Creates a GEP statement.
+    pub fn as_gep(new_ptr: Value, base_ptr: Value, index: Value) -> Self {
         Self {
             inner: StmtInner::Gep(GepStmt {
                 new_ptr,
@@ -133,8 +156,12 @@ impl Stmt {
     }
 }
 
+// =============================================================================
+// Statement Display
+// =============================================================================
+
 impl Display for Stmt {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match &self.inner {
             StmtInner::Alloca(s) => write!(f, "\t{}", s),
             StmtInner::BiOp(s) => write!(f, "\t{}", s),
@@ -151,92 +178,118 @@ impl Display for Stmt {
     }
 }
 
+// =============================================================================
+// Individual Statement Types
+// =============================================================================
+
+/// Function call statement.
 #[derive(Clone)]
 pub struct CallStmt {
-    func_name: String,
-    res: Option<Rc<LocalVariable>>,
-    args: Vec<Rc<dyn Operand>>,
+    /// Function name.
+    pub func_name: String,
+    /// Optional result register.
+    pub res: Option<LocalVariable>,
+    /// Call arguments.
+    pub args: Vec<Value>,
 }
 
+/// Load from memory statement.
 #[derive(Clone)]
 pub struct LoadStmt {
-    dst: Rc<dyn Operand>,
-    ptr: Rc<dyn Operand>,
+    /// Destination register.
+    pub dst: Value,
+    /// Source pointer.
+    pub ptr: Value,
 }
 
+/// Binary arithmetic operation statement.
 #[derive(Clone)]
 pub struct BiOpStmt {
-    kind: ast::ArithBiOp,
-    left: Rc<dyn Operand>,
-    right: Rc<dyn Operand>,
-    dst: Rc<dyn Operand>,
+    /// Operation kind.
+    pub kind: ast::ArithBiOp,
+    /// Left operand.
+    pub left: Value,
+    /// Right operand.
+    pub right: Value,
+    /// Destination register.
+    pub dst: Value,
 }
 
+/// Stack allocation statement.
 #[derive(Clone)]
 pub struct AllocaStmt {
-    dst: Rc<dyn Operand>,
+    /// Destination pointer register.
+    pub dst: Value,
 }
 
+/// Comparison statement.
 #[derive(Clone)]
 pub struct CmpStmt {
-    kind: ast::ComOp,
-    left: Rc<dyn Operand>,
-    right: Rc<dyn Operand>,
-    dst: Rc<dyn Operand>,
+    /// Comparison kind.
+    pub kind: ast::ComOp,
+    /// Left operand.
+    pub left: Value,
+    /// Right operand.
+    pub right: Value,
+    /// Destination register (boolean result).
+    pub dst: Value,
 }
 
+/// Conditional jump statement.
 #[derive(Clone)]
 pub struct CJumpStmt {
-    dst: Rc<dyn Operand>,
-    true_label: BlockLabel,
-    false_label: BlockLabel,
+    /// Condition register.
+    pub dst: Value,
+    /// Label to jump to if true.
+    pub true_label: BlockLabel,
+    /// Label to jump to if false.
+    pub false_label: BlockLabel,
 }
 
+/// Label statement.
 #[derive(Clone)]
 pub struct LabelStmt {
-    label: BlockLabel,
+    /// The label.
+    pub label: BlockLabel,
 }
 
+/// Store to memory statement.
 #[derive(Clone)]
 pub struct StoreStmt {
-    src: Rc<dyn Operand>,
-    ptr: Rc<dyn Operand>,
+    /// Source value.
+    pub src: Value,
+    /// Destination pointer.
+    pub ptr: Value,
 }
 
+/// Unconditional jump statement.
 #[derive(Clone)]
 pub struct JumpStmt {
-    target: BlockLabel,
+    /// Target label.
+    pub target: BlockLabel,
 }
 
+/// Get element pointer statement.
 #[derive(Clone)]
 pub struct GepStmt {
-    new_ptr: Rc<dyn Operand>,
-    base_ptr: Rc<dyn Operand>,
-    index: Rc<dyn Operand>,
+    /// Result pointer.
+    pub new_ptr: Value,
+    /// Base pointer.
+    pub base_ptr: Value,
+    /// Index value.
+    pub index: Value,
 }
 
+/// Return statement.
 #[derive(Clone)]
 pub struct ReturnStmt {
-    val: Option<Rc<dyn Operand>>,
+    /// Optional return value.
+    pub val: Option<Value>,
 }
 
-impl Display for ir::Dtype {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ir::Dtype::I32 => write!(f, "i32"),
-            ir::Dtype::Void => write!(f, "void"),
-            ir::Dtype::Struct { type_name } => write!(f, "%{}", type_name),
-            ir::Dtype::Pointer { inner, length } => {
-                if *length == 0 {
-                    write!(f, "{}", inner.as_ref())
-                } else {
-                    write!(f, "[{} x {}]", length, inner.as_ref())
-                }
-            }
-            ir::Dtype::Undecided => write!(f, "?"),
-        }
-    }
-}
+// =============================================================================
+// Statement Display Implementations
+// =============================================================================
 
 impl Display for CallStmt {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -244,7 +297,7 @@ impl Display for CallStmt {
             .args
             .iter()
             .map(|a| {
-                if matches!(&a.dtype(), ir::Dtype::Pointer { .. }) {
+                if matches!(a.dtype(), Dtype::Pointer { .. }) {
                     format!("ptr {}", a)
                 } else {
                     format!("{} {}", a.dtype(), a)
@@ -257,10 +310,7 @@ impl Display for CallStmt {
             write!(
                 f,
                 "{} = call {} @{}({})",
-                res,
-                &res.as_ref().dtype,
-                self.func_name,
-                args
+                res, &res.dtype, self.func_name, args
             )
         } else {
             write!(f, "call void @{}({})", self.func_name, args)
@@ -295,7 +345,7 @@ impl Display for StoreStmt {
 impl Display for AllocaStmt {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self.dst.dtype() {
-            ir::Dtype::Pointer { inner, length } => {
+            Dtype::Pointer { inner, length } => {
                 if *length == 0 {
                     write!(f, "{} = alloca {}, align 4", self.dst, inner)
                 } else {
@@ -360,7 +410,7 @@ impl Display for LabelStmt {
 impl Display for GepStmt {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self.base_ptr.dtype() {
-            ir::Dtype::Pointer { length, .. } => {
+            Dtype::Pointer { length, .. } => {
                 if *length == 0 {
                     write!(
                         f,

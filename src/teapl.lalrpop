@@ -8,13 +8,12 @@ pub Program: Box<ast::Program> = {
     ProgramElementList => Box::new(ast::Program{elements: <>})
 };
 
-ProgramElementList: Box<ast::ProgramElementList> = {
-    <pe: ProgramElement> <pl: ProgramElementList?> => Box::new(
-        ast::ProgramElementList {
-            element: pe,
-            next: pl
-        }
-    ),
+ProgramElementList: ast::ProgramElementList = {
+    <mut list: ProgramElementList> <pe: ProgramElement> => {
+        list.push(*pe);
+        list
+    },
+    <pe: ProgramElement> => vec![*pe],
 };
 
 ProgramElement: Box<ast::ProgramElement> = {
@@ -41,7 +40,7 @@ ProgramElement: Box<ast::ProgramElement> = {
 };
 
 StructDef: Box<ast::StructDef> = {
-    <begin: @L> Struct <id: Identifier> LCurlyBrace <vdl: VarDeclList> RCurlyBrace =>  Box::new(
+    <begin: @L> Struct <id: Identifier> LCurlyBrace <vdl: VarDeclList> RCurlyBrace => Box::new(
         ast::StructDef {
             pos: begin,
             identifier: id.to_string(),
@@ -178,19 +177,12 @@ ArithExpr: Box<ast::ArithExpr> = {
     ),
 };
 
-RightValList: Box<ast::RightValList> = {
-    <begin: @L> <right_val: RightVal> Comma <remainder: RightValList> => Box::new(
-        ast::RightValList {
-            head: right_val,
-            next: Some(remainder)
-        }
-    ),
-    <begin: @L> <right_val: RightVal> => Box::new(
-        ast::RightValList {
-            head: right_val,
-            next: None
-        }
-    ),
+RightValList: ast::RightValList = {
+    <mut list: RightValList> Comma <rv: RightVal> => {
+        list.push(*rv);
+        list
+    },
+    <rv: RightVal> => vec![*rv],
 };
 
 ArrayExpr: Box<ast::ArrayExpr> = {
@@ -457,19 +449,12 @@ VarDef: Box<ast::VarDef> = {
     ),
 };
 
-VarDeclList: Box<ast::VarDeclList> = {
-    <begin: @L> <head: VarDecl> Comma <remainder: VarDeclList> => Box::new(
-        ast::VarDeclList {
-            head: head,
-            next: Some(remainder)
-        }
-    ),
-    <begin: @L> <head: VarDecl> => Box::new(
-        ast::VarDeclList {
-            head: head,
-            next: None
-        }
-    )
+VarDeclList: ast::VarDeclList = {
+    <mut list: VarDeclList> Comma <vd: VarDecl> => {
+        list.push(*vd);
+        list
+    },
+    <vd: VarDecl> => vec![*vd],
 };
 
 FnDeclStmt: Box<ast::FnDeclStmt> = {
@@ -501,7 +486,7 @@ FnDecl: Box<ast::FnDecl> = {
 };
 
 ParamDecl: Box<ast::ParamDecl> = {
-    <begin: @L> <vdecl_list: VarDeclList> => Box::new(
+    <vdecl_list: VarDeclList> => Box::new(
         ast::ParamDecl {
             decls: vdecl_list
         }
@@ -509,28 +494,21 @@ ParamDecl: Box<ast::ParamDecl> = {
 };
 
 FnDef: Box<ast::FnDef> = {
-    <begin: @L> <fn_decl: FnDecl> LCurlyBrace <code_block_stmt_list: CodeBlockStmtList> RCurlyBrace => Box::new(
+    <begin: @L> <fn_decl: FnDecl> LCurlyBrace <stmts: CodeBlockStmtList> RCurlyBrace => Box::new(
         ast::FnDef {
             pos: begin,
             fn_decl: fn_decl,
-            stmts: code_block_stmt_list
+            stmts: stmts
         }
     )
 };
 
-CodeBlockStmtList: Box<ast::CodeBlockStmtList> = {
-    <begin: @L> <head: CodeBlockStmt> <remainder: CodeBlockStmtList> => Box::new(
-        ast::CodeBlockStmtList {
-            head: head,
-            next: Some(remainder)
-        }
-    ),
-    <begin: @L> <head: CodeBlockStmt> => Box::new(
-        ast::CodeBlockStmtList {
-            head: head,
-            next: None
-        }
-    ),
+CodeBlockStmtList: ast::CodeBlockStmtList = {
+    <mut list: CodeBlockStmtList> <stmt: CodeBlockStmt> => {
+        list.push(*stmt);
+        list
+    },
+    <stmt: CodeBlockStmt> => vec![*stmt],
 };
 
 CodeBlockStmt: Box<ast::CodeBlockStmt> = {
@@ -765,7 +743,7 @@ FnCall: Box<ast::FnCall> = {
         ast::FnCall {
             pos: begin,
             name: id.to_string(),
-            vals: rval_list
+            vals: rval_list.unwrap_or_default()
         }
     ),
 };
@@ -886,7 +864,7 @@ Type: Rc<Option<ast::TypeSepcifier>> = {
         Some(
             ast::TypeSepcifier {
                 pos: begin,
-                inner: ast::TypeSpecifierInner::BuiltIn(Box::new(ast::BuiltIn::Int))
+                inner: ast::TypeSpecifierInner::BuiltIn(ast::BuiltIn::Int)
             }
         )
     ),
@@ -894,7 +872,7 @@ Type: Rc<Option<ast::TypeSepcifier>> = {
         Some(
             ast::TypeSepcifier {
                 pos: begin,
-                inner: ast::TypeSpecifierInner::Composite(Box::new(id.to_string()))
+                inner: ast::TypeSpecifierInner::Composite(id.to_string())
             }
         )
     )

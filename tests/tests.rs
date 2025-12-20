@@ -1,4 +1,3 @@
-use std::ffi::OsStr;
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
@@ -7,61 +6,157 @@ use std::sync::Once;
 
 static INIT: Once = Once::new();
 
+/// Returns true if running on macOS (requires cross-compilation for aarch64-linux).
+fn is_macos() -> bool {
+    cfg!(target_os = "macos")
+}
+
+/// Checks if a command is available in PATH.
+fn command_exists(cmd: &str) -> bool {
+    Command::new("which")
+        .arg(cmd)
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false)
+}
+
+/// Ensures cross-compilation toolchain is available on macOS.
+fn ensure_cross_tools() {
+    if !is_macos() {
+        return;
+    }
+
+    // Check for Docker (needed to run Linux aarch64 binaries on macOS)
+    if !command_exists("docker") {
+        panic!(
+            "✗ Docker not found.\n\
+             Please install Docker Desktop for macOS: https://www.docker.com/products/docker-desktop"
+        );
+    }
+
+    // Verify Docker is running
+    let status = Command::new("docker")
+        .arg("info")
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status();
+    if !status.map(|s| s.success()).unwrap_or(false) {
+        panic!(
+            "✗ Docker is not running.\n\
+             Please start Docker Desktop."
+        );
+    }
+}
+
+/// Returns the path to std.o (different for native vs cross-compilation).
+fn get_std_o_path() -> PathBuf {
+    let project_root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let std_dir = project_root.join("tests").join("std");
+    if is_macos() {
+        // Use a separate file for cross-compiled object to avoid conflicts
+        std_dir.join("std-linux.o")
+    } else {
+        std_dir.join("std.o")
+    }
+}
+
+/// Compiles std.c to std.o using Docker on macOS.
+fn compile_std_in_docker(std_dir: &Path, o_path: &Path) {
+    let o_name = o_path.file_name().unwrap().to_str().unwrap();
+
+    let status = Command::new("docker")
+        .arg("run")
+        .arg("--rm")
+        .arg("-v")
+        .arg(format!("{}:/work", std_dir.display()))
+        .arg("-w")
+        .arg("/work")
+        .arg("--platform")
+        .arg("linux/arm64")
+        .arg("gcc:latest")
+        .arg("gcc")
+        .arg("-c")
+        .arg("std.c")
+        .arg("-o")
+        .arg(o_name)
+        .status()
+        .expect("Failed to run docker");
+
+    assert!(
+        status.success(),
+        "✗ Failed to compile std.c in Docker (exit {})",
+        status.code().unwrap_or(-1)
+    );
+}
+
 fn ensure_std() {
     INIT.call_once(|| {
+        // Ensure cross tools on macOS
+        ensure_cross_tools();
+
         let project_root = Path::new(env!("CARGO_MANIFEST_DIR"));
         let std_dir = project_root.join("tests").join("std");
         let c_path = std_dir.join("std.c");
-        let ll_path = std_dir.join("std.ll");
+        let o_path = get_std_o_path();
 
-        // If std.ll already exists and is newer than std.c, skip rebuild.
-        let needs_build = match (fs::metadata(&c_path), fs::metadata(&ll_path)) {
-            (Ok(c_meta), Ok(ll_meta)) => {
-                match (c_meta.modified(), ll_meta.modified()) {
-                    (Ok(c_m), Ok(ll_m)) => c_m > ll_m, // std.c is newer → rebuild
+        // If std.o already exists and is newer than std.c, skip rebuild.
+        let needs_build = match (fs::metadata(&c_path), fs::metadata(&o_path)) {
+            (Ok(c_meta), Ok(o_meta)) => {
+                match (c_meta.modified(), o_meta.modified()) {
+                    (Ok(c_m), Ok(o_m)) => c_m > o_m, // std.c is newer → rebuild
                     _ => true,
                 }
             }
-            (Ok(_), Err(_)) => true, // no std.ll yet
+            (Ok(_), Err(_)) => true, // no std.o yet
             _ => {
                 panic!("✗ Missing tests/std/std.c at {}", c_path.display());
             }
         };
 
         if needs_build {
-            let clang = OsStr::new("clang");
-            let status = Command::new(clang)
-                .arg("-S")
-                .arg("-emit-llvm")
-                .arg("std.c")
-                .arg("-o")
-                .arg("std.ll")
-                .current_dir(&std_dir)
-                .status()
-                .expect("Failed to execute clang for std.ll");
-            assert!(
-                status.success(),
-                "✗ clang failed to build std.ll (exit {}). Ran in {}\nHint: ensure clang/LLVM are on PATH.",
-                status.code().unwrap_or(-1),
-                std_dir.display()
-            );
+            if is_macos() {
+                compile_std_in_docker(&std_dir, &o_path);
+            } else {
+                let status = Command::new("clang")
+                    .arg("std.c")
+                    .arg("-o")
+                    .arg(&o_path)
+                    .arg("-c")
+                    .current_dir(&std_dir)
+                    .status()
+                    .expect("Failed to execute clang");
+
+                assert!(
+                    status.success(),
+                    "✗ clang failed to build {} (exit {}). Ran in {}",
+                    o_path.display(),
+                    status.code().unwrap_or(-1),
+                    std_dir.display()
+                );
+            }
         }
-        assert!(ll_path.is_file(), "✗ std.ll not found at {}", ll_path.display());
+        assert!(
+            o_path.is_file(),
+            "✗ std.o not found at {}",
+            o_path.display()
+        );
     });
 }
 
 #[inline(always)]
-fn launch(dir: &PathBuf, input_file: &str, output_file: &str) -> String {
-    let project_root = Path::new(env!("CARGO_MANIFEST_DIR"));
-    let tool = project_root.join("target/debug/teac");
-    let output: Output = Command::new(tool)
+fn launch(dir: &PathBuf, input_file: &str, output_file: &str) -> Output {
+    let tool = Path::new(env!("CARGO_BIN_EXE_teac"));
+    Command::new(tool)
         .arg(input_file)
+        .arg("-d")
+        .arg("s")
         .arg("-o")
         .arg(output_file)
         .current_dir(dir)
         .output()
-        .expect("Failed to execute teac");
-    String::from_utf8_lossy(&output.stderr).into_owned()
+        .expect("Failed to execute teac")
 }
 
 fn normalize_for_diff_bb(s: &str) -> String {
@@ -103,6 +198,144 @@ fn append_line<P: AsRef<Path>>(path: P, line: &str) {
     writeln!(f, "{line}").expect("Failed to append line");
 }
 
+/// Links and runs an executable using Docker on macOS.
+fn link_and_run_in_docker(
+    build_dir: &Path,
+    asm_name: &str,
+    std_o: &Path,
+    exe_name: &str,
+    input: Option<&Path>,
+) -> io::Result<(i32, Vec<u8>, Vec<u8>)> {
+    // We need to mount both the build dir and the std dir
+    let std_dir = std_o.parent().unwrap();
+    let std_o_name = std_o.file_name().unwrap().to_str().unwrap();
+
+    // Link the executable inside Docker
+    let link_status = Command::new("docker")
+        .arg("run")
+        .arg("--rm")
+        .arg("-v")
+        .arg(format!("{}:/build", build_dir.display()))
+        .arg("-v")
+        .arg(format!("{}:/std:ro", std_dir.display()))
+        .arg("-w")
+        .arg("/build")
+        .arg("--platform")
+        .arg("linux/arm64")
+        .arg("gcc:latest")
+        .arg("gcc")
+        .arg(asm_name)
+        .arg(format!("/std/{std_o_name}"))
+        .arg("-o")
+        .arg(exe_name)
+        .arg("-static")
+        .status()?;
+
+    if !link_status.success() {
+        return Ok((
+            link_status.code().unwrap_or(-1),
+            Vec::new(),
+            b"Linking failed in Docker".to_vec(),
+        ));
+    }
+
+    // Run the executable inside Docker
+    let mut run_cmd = Command::new("docker");
+    run_cmd
+        .arg("run")
+        .arg("--rm")
+        .arg("-i")
+        .arg("-v")
+        .arg(format!("{}:/build:ro", build_dir.display()))
+        .arg("-w")
+        .arg("/build")
+        .arg("--platform")
+        .arg("linux/arm64")
+        .arg("debian:bookworm-slim")
+        .arg(format!("./{exe_name}"));
+
+    if let Some(input_path) = input {
+        let mut data = Vec::new();
+        File::open(input_path)?.read_to_end(&mut data)?;
+
+        let mut child = run_cmd
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()?;
+
+        if let Some(mut stdin) = child.stdin.take() {
+            stdin.write_all(&data)?;
+        }
+
+        let output = child.wait_with_output()?;
+        Ok((
+            output.status.code().unwrap_or(-1),
+            output.stdout,
+            output.stderr,
+        ))
+    } else {
+        run_capture(
+            run_cmd
+                .stdin(Stdio::null())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped()),
+        )
+    }
+}
+
+/// Links an executable natively (Linux).
+fn link_native(
+    build_dir: &Path,
+    asm_path: &Path,
+    std_o: &Path,
+    exe_path: &Path,
+) -> io::Result<(i32, Vec<u8>)> {
+    let output = Command::new("gcc")
+        .arg(asm_path)
+        .arg(std_o)
+        .arg("-o")
+        .arg(exe_path)
+        .current_dir(build_dir)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .output()?;
+
+    Ok((output.status.code().unwrap_or(-1), output.stderr))
+}
+
+/// Runs an executable natively (Linux).
+fn run_native(exe: &Path, input: Option<&Path>) -> io::Result<(i32, Vec<u8>, Vec<u8>)> {
+    if let Some(input_path) = input {
+        let mut data = Vec::new();
+        File::open(input_path)?.read_to_end(&mut data)?;
+
+        let mut child = Command::new(exe)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()?;
+
+        if let Some(mut stdin) = child.stdin.take() {
+            stdin.write_all(&data)?;
+        }
+
+        let output = child.wait_with_output()?;
+        Ok((
+            output.status.code().unwrap_or(-1),
+            output.stdout,
+            output.stderr,
+        ))
+    } else {
+        run_capture(
+            Command::new(exe)
+                .stdin(Stdio::null())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped()),
+        )
+    }
+}
+
 fn test_single(test_name: &str) {
     let base_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests");
     let case_dir = base_dir.join(test_name);
@@ -117,16 +350,22 @@ fn test_single(test_name: &str) {
         tea.display()
     );
 
-    let output_name = format!("{test_name}.ll");
+    let output_name = format!("{test_name}.s");
     let output_path = out_dir.join(&output_name);
-    let stderr = launch(
+    let output = launch(
         &case_dir,
         &format!("{test_name}.tea"),
-        &output_path.to_str().unwrap(),
+        output_path.to_str().unwrap(),
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
+    assert!(
+        output.status.success(),
+        "✗ Compilation failed (exit {}). teac stderr:\n{stderr}",
+        output.status.code().unwrap_or(-1)
     );
     assert!(
         stderr.is_empty(),
-        "✗ Compilation failed, teac stderr:\n{stderr}"
+        "✗ Compilation produced stderr:\n{stderr}"
     );
 
     assert!(
@@ -135,71 +374,46 @@ fn test_single(test_name: &str) {
         output_path.display()
     );
 
-    let stdlib = base_dir.join("std").join("std.ll");
+    let stdlib = get_std_o_path();
     assert!(
         stdlib.is_file(),
-        "✗ std.ll not found at {}",
+        "✗ std.o not found at {}",
         stdlib.display()
-    );
-
-    let product = out_dir.join(&output_name);
-    let (link_code, _link_out, link_err) = run_capture(
-        Command::new("llvm-link")
-            .arg(&product)
-            .arg(&stdlib)
-            .arg("-S")
-            .arg("-o")
-            .arg(&product)
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped()),
-    )
-    .expect("Failed to execute llvm-link");
-    assert!(
-        link_code == 0,
-        "✗ Linking failed (exit {link_code}). Stderr:\n{}",
-        String::from_utf8_lossy(&link_err)
     );
 
     let input = case_dir.join(format!("{test_name}.in"));
     let expected_out = case_dir.join(format!("{test_name}.out"));
     let actual_out = out_dir.join(format!("{test_name}.out"));
 
-    let (run_code, run_stdout, _run_stderr) = if input.is_file() {
-        // Feed stdin from <name>.in
-        let mut data = Vec::new();
-        File::open(&input)
-            .and_then(|mut f| {
-                f.read_to_end(&mut data)?;
-                Ok(())
-            })
-            .unwrap_or_else(|e| panic!("Failed to read {}: {e}", input.display()));
-
-        // spawn to write stdin
-        let mut child = Command::new("lli")
-            .arg(&product)
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .spawn()
-            .expect("Failed to spawn lli");
-        {
-            let mut stdin = child.stdin.take().expect("Failed to open lli stdin");
-            stdin.write_all(&data).expect("Failed to write lli stdin");
-        }
-        let out = child.wait_with_output().expect("Failed to wait for lli");
-        (out.status.code().unwrap_or(-1), out.stdout, out.stderr)
+    let input_path = if input.is_file() {
+        Some(input.as_path())
     } else {
-        run_capture(
-            Command::new("lli")
-                .arg(&product)
-                .stdin(Stdio::null())
-                .stdout(Stdio::piped())
-                .stderr(Stdio::piped()),
-        )
-        .expect("Failed to run lli")
+        None
     };
 
-    if run_code == 124 {
-        panic!("✗ Timeout");
+    let (run_code, run_stdout, run_stderr) = if is_macos() {
+        // Use Docker for linking and running on macOS
+        link_and_run_in_docker(&out_dir, &output_name, &stdlib, test_name, input_path)
+            .expect("Failed to run in Docker")
+    } else {
+        // Native linking and running on Linux
+        let exe = out_dir.join(test_name);
+        let (link_code, link_err) =
+            link_native(&out_dir, &output_path, &stdlib, &exe).expect("Failed to link");
+        assert!(
+            link_code == 0,
+            "✗ Linking failed (exit {link_code}). Stderr:\n{}",
+            String::from_utf8_lossy(&link_err)
+        );
+        run_native(&exe, input_path).expect("Failed to run executable")
+    };
+
+    // Check for linking failures (from Docker path)
+    if !run_stderr.is_empty() {
+        let stderr_str = String::from_utf8_lossy(&run_stderr);
+        if stderr_str.contains("Linking failed") {
+            panic!("✗ Linking failed. Stderr:\n{stderr_str}");
+        }
     }
 
     // Write stdout to actual_out and append exit code
@@ -224,7 +438,10 @@ fn test_single(test_name: &str) {
             }
         }
         None => {
-            eprintln!("⚠ No expected output file for {test_name} (treated as pass)");
+            panic!(
+                "✗ No expected output file for {test_name} at {}",
+                expected_out.display()
+            );
         }
     }
 }
@@ -283,13 +500,11 @@ fn full_conn() {
     test_single("full_conn");
 }
 
-
 #[test]
 fn hanoi() {
     ensure_std();
     test_single("hanoi");
 }
-
 
 #[test]
 fn insert_order() {
@@ -404,6 +619,3 @@ fn unique_path() {
     ensure_std();
     test_single("unique_path");
 }
-
-
-

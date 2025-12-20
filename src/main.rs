@@ -1,5 +1,8 @@
 mod ast;
+mod asm;
 mod ir;
+
+use asm::AsmGenerator;
 
 lalrpop_mod!(pub teapl);
 
@@ -101,10 +104,14 @@ fn main() {
     // Parse the command.
     let cli = Cli::parse();
     let input_path = cli.input;
+    let default_ext = match cli.dump {
+        Some(DumpMode::S) => "s",
+        _ => "ll",
+    };
     let output_path = match cli.output {
         None => {
             Path::new(&input_path)
-                .with_extension("ll") // replaces whatever extension it had
+                .with_extension(default_ext) // replaces whatever extension it had
                 .to_string_lossy() // convert PathBuf to String
                 .into_owned()
         }
@@ -128,18 +135,46 @@ fn main() {
 
     if cli.dump == Some(DumpMode::AST) {
         print!("{}", ast);
+        return;
     }
-    // Generate LLVM IR based on the ast.
+
+    // Generate IR based on the AST.
     let mut module_generator = ir::ModuleGenerator::new();
-    let mut writer = BufWriter::new(File::create(output_path).unwrap());
     module_generator.gen(&ast).unwrap_or_else(|e| {
         eprintln!("Encountered error while generating IR from AST: {e}");
         std::process::exit(1);
     });
 
-    // Save the generated IR into a file.
-    module_generator.output(&mut writer).unwrap_or_else(|e| {
-        eprintln!("Encountered error outputing: {e}");
+    let out_path = Path::new(&output_path);
+    if let Some(parent) = out_path.parent() {
+        if !parent.as_os_str().is_empty() {
+            std::fs::create_dir_all(parent).unwrap_or_else(|e| {
+                eprintln!("Failed to create output directory {}: {e}", parent.to_string_lossy());
+                std::process::exit(1);
+            });
+        }
+    }
+    let mut writer = BufWriter::new(File::create(out_path).unwrap_or_else(|e| {
+        eprintln!("Failed to create output file {}: {e}", out_path.to_string_lossy());
         std::process::exit(1);
-    });
+    }));
+
+    match cli.dump {
+        None | Some(DumpMode::IR) => {
+            // Save the generated LLVM IR into a file.
+            module_generator.output(&mut writer).unwrap_or_else(|e| {
+                eprintln!("Encountered error outputing: {e}");
+                std::process::exit(1);
+            });
+        }
+        Some(DumpMode::S) => {
+            // Lower IR to AArch64 assembly.
+            let asm_gen = asm::AArch64AsmGenerator::new(&module_generator.module, &module_generator.registry);
+            asm_gen.output(&mut writer).unwrap_or_else(|e| {
+                eprintln!("Encountered error while generating assembly: {e}");
+                std::process::exit(1);
+            });
+        }
+        Some(DumpMode::AST) => unreachable!("handled above"),
+    }
 }
