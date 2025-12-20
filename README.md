@@ -78,7 +78,13 @@ Run the full test suite:
 cargo test
 ```
 
-> **Note (macOS):** Tests require Docker to cross-compile and run AArch64 binaries. Ensure Docker Desktop is installed and running.
+### Platform Requirements
+
+| Platform | Requirements |
+|----------|--------------|
+| **AArch64 Linux** | Native — just `gcc` |
+| **x86/x86_64 Linux** | Cross-compiler + QEMU: `sudo apt install gcc-aarch64-linux-gnu qemu-user` |
+| **macOS** | Docker Desktop (uses ARM64 Linux containers) |
 
 ## Project Milestones
 

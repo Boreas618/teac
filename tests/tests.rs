@@ -6,9 +6,14 @@ use std::sync::Once;
 
 static INIT: Once = Once::new();
 
-/// Returns true if running on macOS (requires cross-compilation for aarch64-linux).
+/// Returns true if running on macOS (requires Docker for aarch64-linux).
 fn is_macos() -> bool {
     cfg!(target_os = "macos")
+}
+
+/// Returns true if running on x86/x86_64 Linux (requires cross-compiler + QEMU).
+fn is_cross_linux() -> bool {
+    cfg!(all(target_os = "linux", any(target_arch = "x86", target_arch = "x86_64")))
 }
 
 /// Checks if a command is available in PATH.
@@ -22,39 +27,54 @@ fn command_exists(cmd: &str) -> bool {
         .unwrap_or(false)
 }
 
-/// Ensures cross-compilation toolchain is available on macOS.
+/// Ensures cross-compilation toolchain is available.
 fn ensure_cross_tools() {
-    if !is_macos() {
-        return;
-    }
+    if is_macos() {
+        // Check for Docker (needed to run Linux aarch64 binaries on macOS)
+        if !command_exists("docker") {
+            panic!(
+                "✗ Docker not found.\n\
+                 Please install Docker Desktop for macOS: https://www.docker.com/products/docker-desktop"
+            );
+        }
 
-    // Check for Docker (needed to run Linux aarch64 binaries on macOS)
-    if !command_exists("docker") {
-        panic!(
-            "✗ Docker not found.\n\
-             Please install Docker Desktop for macOS: https://www.docker.com/products/docker-desktop"
-        );
-    }
+        // Verify Docker is running
+        let status = Command::new("docker")
+            .arg("info")
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
+        if !status.map(|s| s.success()).unwrap_or(false) {
+            panic!(
+                "✗ Docker is not running.\n\
+                 Please start Docker Desktop."
+            );
+        }
+    } else if is_cross_linux() {
+        // Check for aarch64 cross-compiler
+        if !command_exists("aarch64-linux-gnu-gcc") {
+            panic!(
+                "✗ aarch64-linux-gnu-gcc not found.\n\
+                 Please install: sudo apt install gcc-aarch64-linux-gnu"
+            );
+        }
 
-    // Verify Docker is running
-    let status = Command::new("docker")
-        .arg("info")
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status();
-    if !status.map(|s| s.success()).unwrap_or(false) {
-        panic!(
-            "✗ Docker is not running.\n\
-             Please start Docker Desktop."
-        );
+        // Check for QEMU user-mode emulator
+        if !command_exists("qemu-aarch64") {
+            panic!(
+                "✗ qemu-aarch64 not found.\n\
+                 Please install: sudo apt install qemu-user"
+            );
+        }
     }
+    // Native aarch64 Linux needs no special tools
 }
 
 /// Returns the path to std.o (different for native vs cross-compilation).
 fn get_std_o_path() -> PathBuf {
     let project_root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let std_dir = project_root.join("tests").join("std");
-    if is_macos() {
+    if is_macos() || is_cross_linux() {
         // Use a separate file for cross-compiled object to avoid conflicts
         std_dir.join("std-linux.o")
     } else {
@@ -91,9 +111,29 @@ fn compile_std_in_docker(std_dir: &Path, o_path: &Path) {
     );
 }
 
+/// Compiles std.c to std.o using aarch64 cross-compiler on x86 Linux.
+fn compile_std_cross_linux(std_dir: &Path, o_path: &Path) {
+    let status = Command::new("aarch64-linux-gnu-gcc")
+        .arg("-c")
+        .arg("std.c")
+        .arg("-o")
+        .arg(o_path)
+        .current_dir(std_dir)
+        .status()
+        .expect("Failed to execute aarch64-linux-gnu-gcc");
+
+    assert!(
+        status.success(),
+        "✗ aarch64-linux-gnu-gcc failed to build {} (exit {}). Ran in {}",
+        o_path.display(),
+        status.code().unwrap_or(-1),
+        std_dir.display()
+    );
+}
+
 fn ensure_std() {
     INIT.call_once(|| {
-        // Ensure cross tools on macOS
+        // Ensure cross tools are available
         ensure_cross_tools();
 
         let project_root = Path::new(env!("CARGO_MANIFEST_DIR"));
@@ -118,19 +158,22 @@ fn ensure_std() {
         if needs_build {
             if is_macos() {
                 compile_std_in_docker(&std_dir, &o_path);
+            } else if is_cross_linux() {
+                compile_std_cross_linux(&std_dir, &o_path);
             } else {
-                let status = Command::new("clang")
+                // Native aarch64 Linux
+                let status = Command::new("gcc")
+                    .arg("-c")
                     .arg("std.c")
                     .arg("-o")
                     .arg(&o_path)
-                    .arg("-c")
                     .current_dir(&std_dir)
                     .status()
-                    .expect("Failed to execute clang");
+                    .expect("Failed to execute gcc");
 
                 assert!(
                     status.success(),
-                    "✗ clang failed to build {} (exit {}). Ran in {}",
+                    "✗ gcc failed to build {} (exit {}). Ran in {}",
                     o_path.display(),
                     status.code().unwrap_or(-1),
                     std_dir.display()
@@ -284,7 +327,62 @@ fn link_and_run_in_docker(
     }
 }
 
-/// Links an executable natively (Linux).
+/// Links an executable using aarch64 cross-compiler on x86 Linux.
+fn link_cross_linux(
+    build_dir: &Path,
+    asm_path: &Path,
+    std_o: &Path,
+    exe_path: &Path,
+) -> io::Result<(i32, Vec<u8>)> {
+    let output = Command::new("aarch64-linux-gnu-gcc")
+        .arg(asm_path)
+        .arg(std_o)
+        .arg("-o")
+        .arg(exe_path)
+        .arg("-static")
+        .current_dir(build_dir)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .output()?;
+
+    Ok((output.status.code().unwrap_or(-1), output.stderr))
+}
+
+/// Runs an executable using QEMU user-mode emulation.
+fn run_with_qemu(exe: &Path, input: Option<&Path>) -> io::Result<(i32, Vec<u8>, Vec<u8>)> {
+    if let Some(input_path) = input {
+        let mut data = Vec::new();
+        File::open(input_path)?.read_to_end(&mut data)?;
+
+        let mut child = Command::new("qemu-aarch64")
+            .arg(exe)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()?;
+
+        if let Some(mut stdin) = child.stdin.take() {
+            stdin.write_all(&data)?;
+        }
+
+        let output = child.wait_with_output()?;
+        Ok((
+            output.status.code().unwrap_or(-1),
+            output.stdout,
+            output.stderr,
+        ))
+    } else {
+        run_capture(
+            Command::new("qemu-aarch64")
+                .arg(exe)
+                .stdin(Stdio::null())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped()),
+        )
+    }
+}
+
+/// Links an executable natively (aarch64 Linux).
 fn link_native(
     build_dir: &Path,
     asm_path: &Path,
@@ -304,7 +402,7 @@ fn link_native(
     Ok((output.status.code().unwrap_or(-1), output.stderr))
 }
 
-/// Runs an executable natively (Linux).
+/// Runs an executable natively (aarch64 Linux).
 fn run_native(exe: &Path, input: Option<&Path>) -> io::Result<(i32, Vec<u8>, Vec<u8>)> {
     if let Some(input_path) = input {
         let mut data = Vec::new();
@@ -395,8 +493,19 @@ fn test_single(test_name: &str) {
         // Use Docker for linking and running on macOS
         link_and_run_in_docker(&out_dir, &output_name, &stdlib, test_name, input_path)
             .expect("Failed to run in Docker")
+    } else if is_cross_linux() {
+        // Use cross-compiler and QEMU on x86/x86_64 Linux
+        let exe = out_dir.join(test_name);
+        let (link_code, link_err) =
+            link_cross_linux(&out_dir, &output_path, &stdlib, &exe).expect("Failed to link");
+        assert!(
+            link_code == 0,
+            "✗ Linking failed (exit {link_code}). Stderr:\n{}",
+            String::from_utf8_lossy(&link_err)
+        );
+        run_with_qemu(&exe, input_path).expect("Failed to run with QEMU")
     } else {
-        // Native linking and running on Linux
+        // Native linking and running on aarch64 Linux
         let exe = out_dir.join(test_name);
         let (link_code, link_err) =
             link_native(&out_dir, &output_path, &stdlib, &exe).expect("Failed to link");

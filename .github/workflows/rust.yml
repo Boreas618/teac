@@ -28,6 +28,7 @@ jobs:
         sudo update-alternatives --set lli "$(command -v lli-20)"
         sudo update-alternatives --install /usr/bin/clang clang "$(command -v clang-20)" 200
         sudo update-alternatives --set clang "$(command -v clang-20)"
+        sudo apt-get install qemu-user
 
     - name: Run tests
       run: cargo test --verbose
