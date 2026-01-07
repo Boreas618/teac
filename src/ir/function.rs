@@ -1,3 +1,4 @@
+#![allow(unused)]
 //! IR function representation and generation context.
 //!
 //! This module provides:

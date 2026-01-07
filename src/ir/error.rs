@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 //! IR generation errors.
 
 use crate::ast;

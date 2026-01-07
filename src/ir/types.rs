@@ -1,3 +1,4 @@
+#![allow(unused)]
 //! IR data types and type-related structures.
 //!
 //! This module provides the core type system for the IR:

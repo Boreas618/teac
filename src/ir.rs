@@ -33,5 +33,5 @@ pub mod value;
 pub use error::Error;
 pub use function::{BlockLabel, Function};
 pub use module::{Module, ModuleGenerator, Registry};
-pub use types::{Dtype, FunctionType, StructType};
+pub use types::{Dtype, StructType};
 pub use value::{GlobalVariable, LocalVariable, Value};

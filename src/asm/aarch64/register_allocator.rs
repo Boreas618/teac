@@ -543,7 +543,7 @@ impl<'a> InstRewriter<'a> {
         match self.map_reg(dst) {
             MappedReg::Physical { reg } | MappedReg::Colored { reg, .. } => {
                 let (final_dst, vreg) = match self.map_reg(dst) {
-                    MappedReg::Colored { reg, vreg } if self.is_spilled(vreg) => {
+                    MappedReg::Colored { reg:_, vreg } if self.is_spilled(vreg) => {
                         (Reg::P(SCRATCH0), Some(vreg))
                     }
                     _ => (reg, None),

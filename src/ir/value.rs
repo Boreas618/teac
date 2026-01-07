@@ -1,3 +1,4 @@
+#![allow(unused)]
 //! IR values and operands.
 //!
 //! This module provides the value types that can be used as operands in IR statements:
