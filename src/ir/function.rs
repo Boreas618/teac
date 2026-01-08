@@ -108,32 +108,52 @@ impl<'ir> FunctionGenerator<'ir> {
 
     /// Creates a new integer virtual register.
     pub fn new_int_reg(&mut self) -> Value {
-        Value::Local(LocalVariable::create_int(self.increment_virt_reg_index()))
+        Value::Local(
+            LocalVariable::builder()
+                .dtype(Dtype::I32)
+                .index(self.increment_virt_reg_index())
+                .build(),
+        )
     }
 
     /// Creates a new integer pointer virtual register.
     pub fn new_int_ptr_reg(&mut self, length: usize) -> Value {
-        Value::Local(LocalVariable::create_int_ptr(
-            self.increment_virt_reg_index(),
-            length,
-        ))
+        Value::Local(
+            LocalVariable::builder()
+                .dtype(Dtype::Pointer {
+                    inner: Box::new(Dtype::I32),
+                    length,
+                })
+                .index(self.increment_virt_reg_index())
+                .build(),
+        )
     }
 
     /// Creates a new struct virtual register.
     pub fn new_struct_reg(&mut self, type_name: &str) -> Value {
-        Value::Local(LocalVariable::create_struct(
-            type_name.to_string(),
-            self.increment_virt_reg_index(),
-        ))
+        Value::Local(
+            LocalVariable::builder()
+                .dtype(Dtype::Struct {
+                    type_name: type_name.to_string(),
+                })
+                .index(self.increment_virt_reg_index())
+                .build(),
+        )
     }
 
     /// Creates a new struct pointer virtual register.
     pub fn new_struct_ptr_reg(&mut self, type_name: &str, length: usize) -> Value {
-        Value::Local(LocalVariable::create_struct_ptr(
-            type_name.to_string(),
-            self.increment_virt_reg_index(),
-            length,
-        ))
+        Value::Local(
+            LocalVariable::builder()
+                .dtype(Dtype::Pointer {
+                    inner: Box::new(Dtype::Struct {
+                        type_name: type_name.to_string(),
+                    }),
+                    length,
+                })
+                .index(self.increment_virt_reg_index())
+                .build(),
+        )
     }
 
     /// Creates a new block label.
@@ -163,16 +183,33 @@ impl<'ir> FunctionGenerator<'ir> {
     // =========================================================================
 
     /// Creates a pointer variable appropriate for the given dtype.
-    pub fn create_ptr_for_dtype(&mut self, dtype: &Dtype, length: usize) -> Result<LocalVariable, Error> {
+    pub fn create_ptr_for_dtype(
+        &mut self,
+        dtype: &Dtype,
+        length: usize,
+    ) -> Result<LocalVariable, Error> {
         let index = self.increment_virt_reg_index();
         match dtype {
-            Dtype::I32 => Ok(LocalVariable::create_int_ptr(index, length)),
-            Dtype::Struct { type_name } => {
-                Ok(LocalVariable::create_struct_ptr(type_name.clone(), index, length))
-            }
-            Dtype::Pointer { inner, length: ptr_len } => {
-                self.create_ptr_for_inner_dtype(inner, *ptr_len)
-            }
+            Dtype::I32 => Ok(LocalVariable::builder()
+                .dtype(Dtype::Pointer {
+                    inner: Box::new(Dtype::I32),
+                    length,
+                })
+                .index(index)
+                .build()),
+            Dtype::Struct { type_name } => Ok(LocalVariable::builder()
+                .dtype(Dtype::Pointer {
+                    inner: Box::new(Dtype::Struct {
+                        type_name: type_name.clone(),
+                    }),
+                    length,
+                })
+                .index(index)
+                .build()),
+            Dtype::Pointer {
+                inner,
+                length: ptr_len,
+            } => self.create_ptr_for_inner_dtype(inner, *ptr_len),
             _ => Err(Error::LocalVarTypeUnsupported),
         }
     }
@@ -185,10 +222,22 @@ impl<'ir> FunctionGenerator<'ir> {
     ) -> Result<LocalVariable, Error> {
         let index = self.increment_virt_reg_index();
         match inner {
-            Dtype::I32 => Ok(LocalVariable::create_int_ptr(index, length)),
-            Dtype::Struct { type_name } => {
-                Ok(LocalVariable::create_struct_ptr(type_name.clone(), index, length))
-            }
+            Dtype::I32 => Ok(LocalVariable::builder()
+                .dtype(Dtype::Pointer {
+                    inner: Box::new(Dtype::I32),
+                    length,
+                })
+                .index(index)
+                .build()),
+            Dtype::Struct { type_name } => Ok(LocalVariable::builder()
+                .dtype(Dtype::Pointer {
+                    inner: Box::new(Dtype::Struct {
+                        type_name: type_name.clone(),
+                    }),
+                    length,
+                })
+                .index(index)
+                .build()),
             _ => Err(Error::LocalVarTypeUnsupported),
         }
     }

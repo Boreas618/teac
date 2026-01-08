@@ -32,6 +32,14 @@ pub enum Dtype {
 }
 
 impl Dtype {
+    pub fn ptr_to(inner: Self) -> Self {
+        Self::Pointer { inner: Box::new(inner), length: 0 }
+    }
+
+    pub fn array_of(elem: Self, len: usize) -> Self {
+        Self::Pointer { inner: Box::new(elem), length: len }
+    }
+
     /// Extracts the struct type name, looking through pointers if needed.
     pub fn struct_type_name(&self) -> Option<&String> {
         match self {
@@ -39,24 +47,6 @@ impl Dtype {
             Dtype::Pointer { inner, .. } => inner.struct_type_name(),
             _ => None,
         }
-    }
-
-    /// Returns the inner type for pointer types, or self for non-pointers.
-    pub fn inner_type(&self) -> &Dtype {
-        match self {
-            Dtype::Pointer { inner, .. } => inner.as_ref(),
-            _ => self,
-        }
-    }
-
-    /// Returns true if this is a pointer type with length 0 (scalar pointer).
-    pub fn is_scalar_ptr(&self) -> bool {
-        matches!(self, Dtype::Pointer { length: 0, .. })
-    }
-
-    /// Returns true if this is a pointer type with length > 0 (array).
-    pub fn is_array_ptr(&self) -> bool {
-        matches!(self, Dtype::Pointer { length, .. } if *length > 0)
     }
 }
 

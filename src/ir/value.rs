@@ -207,54 +207,45 @@ impl Display for LocalVariable {
 }
 
 impl LocalVariable {
-    /// Creates a new integer virtual register.
-    pub fn create_int(index: usize) -> Self {
-        LocalVariable {
-            dtype: Dtype::I32,
-            index,
-            identifier: None,
-        }
+    /// Creates a new builder for constructing a LocalVariable.
+    pub fn builder() -> LocalVariableBuilder {
+        LocalVariableBuilder::new()
+    }
+}
+
+
+#[derive(Default)]
+pub struct LocalVariableBuilder {
+    dtype: Option<Dtype>,
+    identifier: Option<String>,
+    index: Option<usize>,
+}
+
+impl LocalVariableBuilder {
+    pub fn new() -> Self {
+        Self::default()
     }
 
-    /// Creates a new integer pointer virtual register.
-    pub fn create_int_ptr(index: usize, length: usize) -> Self {
-        LocalVariable {
-            dtype: Dtype::Pointer {
-                inner: Box::new(Dtype::I32),
-                length,
-            },
-            index,
-            identifier: None,
-        }
+    pub fn dtype(mut self, dtype: Dtype) -> Self {
+        self.dtype = Some(dtype);
+        self
     }
 
-    /// Creates a new struct virtual register.
-    pub fn create_struct(name: String, index: usize) -> Self {
-        LocalVariable {
-            dtype: Dtype::Struct { type_name: name },
-            index,
-            identifier: None,
-        }
+    pub fn identifier(mut self, identifier: impl Into<String>) -> Self {
+        self.identifier = Some(identifier.into());
+        self
     }
 
-    /// Creates a new struct pointer virtual register.
-    pub fn create_struct_ptr(name: String, index: usize, length: usize) -> Self {
-        LocalVariable {
-            dtype: Dtype::Pointer {
-                inner: Box::new(Dtype::Struct { type_name: name }),
-                length,
-            },
-            index,
-            identifier: None,
-        }
+    pub fn index(mut self, index: usize) -> Self {
+        self.index = Some(index);
+        self
     }
 
-    /// Creates an undecided-type placeholder variable.
-    pub fn create_undecided() -> Self {
+    pub fn build(self) -> LocalVariable {
         LocalVariable {
-            dtype: Dtype::Undecided,
-            index: 0,
-            identifier: None,
+            dtype: self.dtype.expect("dtype is required"),
+            identifier: self.identifier,
+            index: self.index.expect("index is required"),
         }
     }
 }
