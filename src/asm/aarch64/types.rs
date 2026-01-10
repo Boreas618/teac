@@ -69,4 +69,3 @@ pub fn dtype_to_regsize(dtype: &ir::Dtype) -> Result<RegSize, Error> {
         }),
     }
 }
-

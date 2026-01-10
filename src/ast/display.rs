@@ -268,4 +268,3 @@ impl Display for Program {
         self.fmt_tree_root(f)
     }
 }
-

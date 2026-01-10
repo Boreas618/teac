@@ -38,4 +38,3 @@ pub enum ComOp {
     Eq,
     Ne,
 }
-

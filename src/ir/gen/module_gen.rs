@@ -13,7 +13,7 @@ use crate::ir::types::{Dtype, FunctionType, StructMember, StructType};
 use crate::ir::value::GlobalVariable;
 use crate::ir::Error;
 
-use super::Named;
+use crate::ir::value::Named;
 
 impl ModuleGenerator {
     /// Generates IR for an entire program.
@@ -40,7 +40,10 @@ impl ModuleGenerator {
                 let local_variables = function_generator.local_variables;
                 let arguments = function_generator.arguments;
 
-                let func = self.module.function_list.get_mut(&fn_def.fn_decl.identifier);
+                let func = self
+                    .module
+                    .function_list
+                    .get_mut(&fn_def.fn_decl.identifier);
 
                 if let Some(f) = func {
                     f.blocks = Some(blocks);
@@ -110,12 +113,11 @@ impl ModuleGenerator {
         let dtype = Dtype::try_from(stmt)?;
         let initializers = if let ast::VarDeclStmtInner::Def(d) = &stmt.inner {
             Some(match &d.inner {
-                ast::VarDefInner::Array(def) => {
-                    def.vals
-                        .iter()
-                        .map(|val| Self::handle_right_val_static(val).unwrap())
-                        .collect()
-                }
+                ast::VarDefInner::Array(def) => def
+                    .vals
+                    .iter()
+                    .map(|val| Self::handle_right_val_static(val).unwrap())
+                    .collect(),
                 ast::VarDefInner::Scalar(scalar) => {
                     let value = Self::handle_right_val_static(&scalar.val)?;
                     vec![value]
@@ -249,4 +251,3 @@ impl ModuleGenerator {
         Ok(())
     }
 }
-

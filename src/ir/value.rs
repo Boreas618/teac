@@ -177,6 +177,9 @@ impl Display for Integer {
 // =============================================================================
 
 /// A local variable (virtual register) within a function.
+///
+/// Can be either named (corresponding to source-level variables) or anonymous
+/// (IR temporaries for maintaining SSA form).
 #[derive(Clone)]
 pub struct LocalVariable {
     /// Data type of the variable.

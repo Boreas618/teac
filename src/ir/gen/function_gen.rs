@@ -53,10 +53,7 @@ impl<'ir> FunctionGenerator<'ir> {
                 Some(id.to_string()),
             ));
             self.emit_alloca(Operand::Local(ptr.as_ref().clone()));
-            self.emit_store(
-                Operand::Local(var),
-                Operand::Local(ptr.as_ref().clone()),
-            );
+            self.emit_store(Operand::Local(var), Operand::Local(ptr.as_ref().clone()));
             self.local_variables.insert(id.clone(), ptr);
         }
 
@@ -97,7 +94,6 @@ impl<'ir> FunctionGenerator<'ir> {
 // =============================================================================
 
 impl<'ir> FunctionGenerator<'ir> {
-    /// Handles a code block statement.
     pub fn handle_block(
         &mut self,
         stmt: &ast::CodeBlockStmt,
@@ -120,11 +116,9 @@ impl<'ir> FunctionGenerator<'ir> {
         }
     }
 
-    /// Handles an assignment statement.
     pub fn handle_assignment_stmt(&mut self, stmt: &AssignmentStmt) -> Result<(), Error> {
         let mut left = self.handle_left_val(&stmt.left_val)?;
         let right = self.handle_right_val(&stmt.right_val)?;
-        let right = self.ptr_deref(right);
 
         if left.dtype() == &Dtype::Undecided {
             let right_type = right.dtype();
@@ -144,7 +138,6 @@ impl<'ir> FunctionGenerator<'ir> {
         Ok(())
     }
 
-    /// Handles a local variable declaration.
     pub fn handle_local_var_decl(&mut self, decl: &ast::VarDecl) -> Result<(), Error> {
         let identifier = &decl.identifier;
         let dtype = match decl.type_specifier.as_ref() {
@@ -152,57 +145,34 @@ impl<'ir> FunctionGenerator<'ir> {
             None => None,
         };
 
-        let variable: Rc<LocalVariable> = match &decl.inner {
-            ast::VarDeclInner::Scalar(_) => match &dtype {
-                None => Ok(Rc::new(LocalVariable::new(
-                    Dtype::Undecided,
-                    0,
-                    Some(identifier.clone()),
-                ))),
-                Some(inner) => {
-                    let v = Rc::new(match inner {
-                        Dtype::I32 => Ok(LocalVariable::new(
-                            Dtype::ptr_to(Dtype::I32),
-                            self.increment_virt_reg_index(),
-                            Some(identifier.clone()),
-                        )),
-                        _ => Err(Error::LocalVarDefinitionUnsupported),
-                    }?);
-                    self.emit_alloca(Operand::Local(v.as_ref().clone()));
-                    Ok(v)
-                }
-            }?,
-            ast::VarDeclInner::Array(array) => match &dtype {
-                None => Ok(Rc::new(LocalVariable::new(
-                    Dtype::array_of(Dtype::I32, array.len),
-                    self.increment_virt_reg_index(),
-                    Some(identifier.clone()),
-                ))),
-                Some(inner) => {
-                    let v = match inner {
-                        Dtype::I32 => Ok(LocalVariable::new(
-                            Dtype::array_of(Dtype::I32, array.len),
-                            self.increment_virt_reg_index(),
-                            Some(identifier.clone()),
-                        )),
-                        Dtype::Struct { type_name } => Ok(LocalVariable::new(
-                            Dtype::array_of(
-                                Dtype::Struct {
-                                    type_name: type_name.clone(),
-                                },
-                                array.len,
-                            ),
-                            self.increment_virt_reg_index(),
-                            Some(identifier.clone()),
-                        )),
-                        _ => Err(Error::LocalVarDefinitionUnsupported),
-                    }?;
-                    let v = Rc::new(v);
-                    self.emit_alloca(Operand::Local(v.as_ref().clone()));
-                    Ok(v)
-                }
-            }?,
+        let (var_dtype, needs_alloca) = match (&decl.inner, &dtype) {
+            (ast::VarDeclInner::Scalar(_), None) => (Dtype::Undecided, false),
+            (ast::VarDeclInner::Scalar(_), Some(Dtype::I32)) => (Dtype::ptr_to(Dtype::I32), true),
+            (ast::VarDeclInner::Array(arr), None) => (Dtype::array_of(Dtype::I32, arr.len), false),
+            (ast::VarDeclInner::Array(arr), Some(Dtype::I32)) => {
+                (Dtype::array_of(Dtype::I32, arr.len), true)
+            }
+            (ast::VarDeclInner::Array(arr), Some(Dtype::Struct { type_name })) => (
+                Dtype::array_of(
+                    Dtype::Struct {
+                        type_name: type_name.clone(),
+                    },
+                    arr.len,
+                ),
+                true,
+            ),
+            _ => return Err(Error::LocalVarDefinitionUnsupported),
         };
+
+        let variable = Rc::new(LocalVariable::new(
+            var_dtype,
+            self.increment_virt_reg_index(),
+            Some(identifier.clone()),
+        ));
+
+        if needs_alloca {
+            self.emit_alloca(Operand::Local(variable.as_ref().clone()));
+        }
 
         if self
             .local_variables
@@ -217,20 +187,21 @@ impl<'ir> FunctionGenerator<'ir> {
         Ok(())
     }
 
-    /// Initializes an array with values.
     pub fn init_array(&mut self, base_ptr: Operand, vals: &RightValList) -> Result<(), Error> {
         for (i, val) in vals.iter().enumerate() {
-            let element_ptr = self.new_int_ptr_reg(0);
+            let element_ptr = self.alloc_temporary(Dtype::ptr_to(Dtype::I32));
             let right_elem = self.handle_right_val(val)?;
-            let right_elem = self.ptr_deref(right_elem);
 
-            self.emit_gep(element_ptr.clone(), base_ptr.clone(), Operand::from(i as i32));
+            self.emit_gep(
+                element_ptr.clone(),
+                base_ptr.clone(),
+                Operand::from(i as i32),
+            );
             self.emit_store(right_elem, element_ptr);
         }
         Ok(())
     }
 
-    /// Handles a local variable definition.
     pub fn handle_local_var_def(&mut self, def: &ast::VarDef) -> Result<(), Error> {
         let identifier = &def.identifier;
         let dtype = match def.type_specifier.as_ref() {
@@ -241,65 +212,43 @@ impl<'ir> FunctionGenerator<'ir> {
         let variable: Rc<LocalVariable> = match &def.inner {
             ast::VarDefInner::Scalar(scalar) => {
                 let right_val = self.handle_right_val(&scalar.val)?;
-                let right_val = self.ptr_deref(right_val);
-                match &dtype {
-                    None => Ok(Rc::new(LocalVariable::new(
-                        Dtype::Undecided,
-                        0,
+
+                let v = match &dtype {
+                    None => LocalVariable::new(Dtype::Undecided, 0, Some(identifier.clone())),
+                    Some(Dtype::I32) => LocalVariable::new(
+                        Dtype::ptr_to(Dtype::I32),
+                        self.increment_virt_reg_index(),
                         Some(identifier.clone()),
-                    ))),
-                    Some(inner) => {
-                        let v = Rc::new(match inner {
-                            Dtype::I32 => Ok(LocalVariable::new(
-                                Dtype::ptr_to(Dtype::I32),
-                                self.increment_virt_reg_index(),
-                                Some(identifier.clone()),
-                            )),
-                            _ => Err(Error::LocalVarDefinitionUnsupported),
-                        }?);
-                        self.emit_alloca(Operand::Local(v.as_ref().clone()));
-                        self.emit_store(right_val, Operand::Local(v.as_ref().clone()));
-                        Ok(v)
-                    }
-                }?
+                    ),
+                    _ => return Err(Error::LocalVarDefinitionUnsupported),
+                };
+                let v = Rc::new(v);
+
+                if dtype.is_some() {
+                    self.emit_alloca(Operand::Local(v.as_ref().clone()));
+                    self.emit_store(right_val, Operand::Local(v.as_ref().clone()));
+                }
+                v
             }
-            ast::VarDefInner::Array(array) => match &dtype {
-                None => Ok(Rc::new(LocalVariable::new(
-                    Dtype::array_of(Dtype::I32, array.len),
+            ast::VarDefInner::Array(array) => {
+                let (var_dtype, needs_init) = match &dtype {
+                    None => (Dtype::array_of(Dtype::I32, array.len), false),
+                    Some(Dtype::I32) => (Dtype::array_of(Dtype::I32, array.len), true),
+                    _ => return Err(Error::LocalVarDefinitionUnsupported),
+                };
+
+                let v = Rc::new(LocalVariable::new(
+                    var_dtype,
                     self.increment_virt_reg_index(),
                     Some(identifier.clone()),
-                ))),
-                Some(inner) => {
-                    let v = match inner {
-                        Dtype::I32 => Ok(LocalVariable::new(
-                            Dtype::array_of(Dtype::I32, array.len),
-                            self.increment_virt_reg_index(),
-                            Some(identifier.clone()),
-                        )),
-                        Dtype::Struct { type_name } => Ok(LocalVariable::new(
-                            Dtype::array_of(
-                                Dtype::Struct {
-                                    type_name: type_name.clone(),
-                                },
-                                array.len,
-                            ),
-                            self.increment_virt_reg_index(),
-                            Some(identifier.clone()),
-                        )),
-                        _ => Err(Error::LocalVarDefinitionUnsupported),
-                    }?;
-                    let v = Rc::new(v);
+                ));
+
+                if needs_init {
                     self.emit_alloca(Operand::Local(v.as_ref().clone()));
-
-                    if matches!(inner, Dtype::I32) {
-                        self.init_array(Operand::Local(v.as_ref().clone()), &array.vals)?;
-                    } else {
-                        return Err(Error::LocalVarDefinitionUnsupported);
-                    }
-
-                    Ok(v)
+                    self.init_array(Operand::Local(v.as_ref().clone()), &array.vals)?;
                 }
-            }?,
+                v
+            }
         };
 
         if self
@@ -315,12 +264,10 @@ impl<'ir> FunctionGenerator<'ir> {
         Ok(())
     }
 
-    /// Handles a function call statement.
     pub fn handle_call_stmt(&mut self, stmt: &ast::CallStmt) -> Result<(), Error> {
         let function_name = stmt.fn_call.name.clone();
         let mut args = Vec::new();
         for arg in stmt.fn_call.vals.iter() {
-            // handle_right_val already calls ptr_deref internally
             let right_val = self.handle_right_val(arg)?;
             args.push(right_val);
         }
@@ -335,40 +282,30 @@ impl<'ir> FunctionGenerator<'ir> {
                 symbol: function_name,
             }),
             Some(function_type) => {
-                let ret = match &function_type.return_dtype {
+                let retval = match &function_type.return_dtype {
                     Dtype::Void => Ok(None),
-                    Dtype::I32 => Ok(Some(LocalVariable::new(
-                        Dtype::I32,
-                        self.increment_virt_reg_index(),
-                        None,
-                    ))),
-                    Dtype::Struct { type_name } => Ok(Some(LocalVariable::new(
-                        Dtype::ptr_to(Dtype::Struct {
-                            type_name: type_name.clone(),
-                        }),
-                        self.increment_virt_reg_index(),
-                        None,
-                    ))),
+                    Dtype::I32 | Dtype::Struct { .. } => Ok(Some(
+                        self.alloc_temporary(function_type.return_dtype.clone()),
+                    )),
                     _ => Err(Error::FunctionCallUnsupported),
                 }?;
-                self.emit_call(function_name, ret, args);
+                self.emit_call(function_name, retval, args);
                 Ok(())
             }
         }
     }
 
-    /// Handles an if statement.
     pub fn handle_if_stmt(
         &mut self,
         stmt: &ast::IfStmt,
         con_label: Option<BlockLabel>,
         bre_label: Option<BlockLabel>,
     ) -> Result<(), Error> {
-        let true_label = self.new_block_label();
-        let false_label = self.new_block_label();
-        let after_label = self.new_block_label();
+        let true_label = self.alloc_basic_block();
+        let false_label = self.alloc_basic_block();
+        let after_label = self.alloc_basic_block();
 
-        let bool_evaluated = self.new_int_ptr_reg(0);
+        let bool_evaluated = self.alloc_temporary(Dtype::ptr_to(Dtype::I32));
         self.handle_bool_unit(&stmt.bool_unit, true_label.clone(), false_label.clone())?;
         self.emit_alloca(bool_evaluated);
 
@@ -398,11 +335,10 @@ impl<'ir> FunctionGenerator<'ir> {
         Ok(())
     }
 
-    /// Handles a while statement.
     pub fn handle_while_stmt(&mut self, stmt: &ast::WhileStmt) -> Result<(), Error> {
-        let test_label = self.new_block_label();
-        let true_label = self.new_block_label();
-        let false_label = self.new_block_label();
+        let test_label = self.alloc_basic_block();
+        let true_label = self.alloc_basic_block();
+        let false_label = self.alloc_basic_block();
 
         self.emit_jump(test_label.clone());
 
@@ -424,7 +360,6 @@ impl<'ir> FunctionGenerator<'ir> {
         Ok(())
     }
 
-    /// Handles a return statement.
     pub fn handle_return_stmt(&mut self, stmt: &ast::ReturnStmt) -> Result<(), Error> {
         match &stmt.val {
             None => {
@@ -438,14 +373,12 @@ impl<'ir> FunctionGenerator<'ir> {
         Ok(())
     }
 
-    /// Handles a continue statement.
     pub fn handle_continue_stmt(&mut self, con_label: Option<BlockLabel>) -> Result<(), Error> {
         let label = con_label.ok_or(Error::InvalidContinueInst)?;
         self.emit_jump(label);
         Ok(())
     }
 
-    /// Handles a break statement.
     pub fn handle_break_stmt(&mut self, bre_label: Option<BlockLabel>) -> Result<(), Error> {
         let label = bre_label.ok_or(Error::InvalidBreakInst)?;
         self.emit_jump(label);
@@ -458,7 +391,6 @@ impl<'ir> FunctionGenerator<'ir> {
 // =============================================================================
 
 impl<'ir> FunctionGenerator<'ir> {
-    /// Handles a comparison expression, emitting comparison and conditional jump.
     fn handle_com_op_expr(
         &mut self,
         expr: &ast::ComExpr,
@@ -466,20 +398,17 @@ impl<'ir> FunctionGenerator<'ir> {
         false_label: BlockLabel,
     ) -> Result<(), Error> {
         let left = self.handle_expr_unit(&expr.left)?;
-        let left = self.ptr_deref(left);
         let right = self.handle_expr_unit(&expr.right)?;
-        let right = self.ptr_deref(right);
 
-        let dst = self.new_int_reg();
+        let dst = self.alloc_temporary(Dtype::I32);
         self.emit_cmp(expr.op.clone(), left, right, dst.clone());
         self.emit_cjump(dst, true_label, false_label);
 
         Ok(())
     }
 
-    /// Handles an expression unit and returns its value.
     fn handle_expr_unit(&mut self, unit: &ast::ExprUnit) -> Result<Operand, Error> {
-        match &unit.inner {
+        let operand = match &unit.inner {
             ast::ExprUnitInner::Num(num) => Ok(Operand::from(*num)),
             ast::ExprUnitInner::Id(id) => self.lookup_variable(id),
             ast::ExprUnitInner::ArithExpr(expr) => self.handle_arith_expr(expr),
@@ -496,16 +425,7 @@ impl<'ir> FunctionGenerator<'ir> {
                     .return_dtype;
 
                 let res = match &return_dtype {
-                    Dtype::I32 => {
-                        LocalVariable::new(Dtype::I32, self.increment_virt_reg_index(), None)
-                    }
-                    Dtype::Struct { type_name } => LocalVariable::new(
-                        Dtype::Struct {
-                            type_name: type_name.clone(),
-                        },
-                        self.increment_virt_reg_index(),
-                        None,
-                    ),
+                    Dtype::I32 | Dtype::Struct { .. } => self.alloc_temporary(return_dtype.clone()),
                     _ => {
                         return Err(Error::InvalidExprUnit {
                             expr_unit: unit.clone(),
@@ -515,32 +435,41 @@ impl<'ir> FunctionGenerator<'ir> {
 
                 let mut args: Vec<Operand> = Vec::new();
                 for arg in fn_call.vals.iter() {
-                    // handle_right_val already calls ptr_deref internally
                     let rval = self.handle_right_val(arg)?;
                     args.push(rval);
                 }
                 self.emit_call(name, Some(res.clone()), args);
 
-                Ok(Operand::Local(res))
+                Ok(res)
             }
             ast::ExprUnitInner::ArrayExpr(expr) => self.handle_array_expr(expr),
             ast::ExprUnitInner::MemberExpr(expr) => self.handle_member_expr(expr),
             ast::ExprUnitInner::ArithUExpr(expr) => self.handle_arith_uexpr(expr),
-        }
+        }?;
+
+        // Pointer dereferencing: Expression units may return pointers (addresses) when referencing
+        // local variables, which are stored in memory (stack slots) to allow reassignment while
+        // maintaining SSA form. When used as rvalues, we must load the actual value from memory.
+        Ok(match operand.dtype() {
+            Dtype::Pointer { inner, length: 0 } if operand.is_addressable() => {
+                let dst = self.alloc_temporary(inner.as_ref().clone());
+                self.emit_load(dst, operand)
+            }
+            Dtype::I32 if matches!(&operand, Operand::Global(_)) => {
+                let dst = self.alloc_temporary(Dtype::I32);
+                self.emit_load(dst, operand)
+            }
+            _ => operand,
+        })
     }
 
-    /// Handles an arithmetic expression.
     fn handle_arith_expr(&mut self, expr: &ast::ArithExpr) -> Result<Operand, Error> {
         match &expr.inner {
             ast::ArithExprInner::ArithBiOpExpr(expr) => self.handle_arith_biop_expr(expr),
-            ast::ArithExprInner::ExprUnit(unit) => {
-                let res = self.handle_expr_unit(unit)?;
-                Ok(self.ptr_deref(res))
-            }
+            ast::ArithExprInner::ExprUnit(unit) => self.handle_expr_unit(unit),
         }
     }
 
-    /// Handles a right-value expression.
     fn handle_right_val(&mut self, val: &ast::RightVal) -> Result<Operand, Error> {
         match &val.inner {
             ast::RightValInner::ArithExpr(expr) => self.handle_arith_expr(expr),
@@ -548,15 +477,15 @@ impl<'ir> FunctionGenerator<'ir> {
         }
     }
 
-    /// Handles an array indexing expression.
     fn handle_array_expr(&mut self, expr: &ast::ArrayExpr) -> Result<Operand, Error> {
         let arr = self.handle_left_val(&expr.arr)?;
 
-        // For nested pointers (ptr to ptr), load the inner pointer first
+        // For nested pointers, load the inner pointer first
         let (arr, arr_dtype) = match arr.dtype() {
-            Dtype::Pointer { inner, length: 0 } if matches!(inner.as_ref(), Dtype::Pointer { .. }) => {
-                // This is ptr_to(Pointer{...}), load the inner pointer
-                let inner_ptr = self.new_ptr_reg(inner.as_ref().clone());
+            Dtype::Pointer { inner, length: 0 }
+                if matches!(inner.as_ref(), Dtype::Pointer { .. }) =>
+            {
+                let inner_ptr = self.alloc_temporary(inner.as_ref().clone());
                 self.emit_load(inner_ptr.clone(), arr);
                 (inner_ptr.clone(), inner_ptr.dtype().clone())
             }
@@ -564,31 +493,10 @@ impl<'ir> FunctionGenerator<'ir> {
         };
 
         let target = match &arr_dtype {
-            Dtype::Pointer { inner, .. } => match inner.as_ref() {
-                Dtype::I32 => Ok(Operand::Local(LocalVariable::new(
-                    Dtype::ptr_to(Dtype::I32),
-                    self.increment_virt_reg_index(),
-                    None,
-                ))),
-                Dtype::Struct { type_name } => Ok(Operand::Local(LocalVariable::new(
-                    Dtype::ptr_to(Dtype::Struct {
-                        type_name: type_name.clone(),
-                    }),
-                    self.increment_virt_reg_index(),
-                    None,
-                ))),
-                _ => Err(Error::InvalidArrayExpression),
-            },
-            Dtype::Struct { type_name } => Ok(Operand::Local(LocalVariable::new(
-                Dtype::Pointer {
-                    inner: Box::new(Dtype::Struct {
-                        type_name: type_name.clone(),
-                    }),
-                    length: 0,
-                },
-                self.increment_virt_reg_index(),
-                None,
-            ))),
+            Dtype::Pointer { inner, .. } => {
+                Ok(self.alloc_temporary(Dtype::ptr_to(inner.as_ref().clone())))
+            }
+            Dtype::Struct { .. } => Ok(self.alloc_temporary(Dtype::ptr_to(arr_dtype))),
             _ => Err(Error::InvalidArrayExpression),
         }?;
 
@@ -598,7 +506,6 @@ impl<'ir> FunctionGenerator<'ir> {
         Ok(target)
     }
 
-    /// Handles a struct member access expression.
     fn handle_member_expr(&mut self, expr: &ast::MemberExpr) -> Result<Operand, Error> {
         let s = self.handle_left_val(&expr.struct_id)?;
 
@@ -606,8 +513,6 @@ impl<'ir> FunctionGenerator<'ir> {
             .dtype()
             .struct_type_name()
             .ok_or_else(|| Error::InvalidStructMemberExpression { expr: expr.clone() })?;
-
-        let target_index = self.increment_virt_reg_index();
 
         let member = &self
             .module_generator
@@ -620,51 +525,20 @@ impl<'ir> FunctionGenerator<'ir> {
             .find(|elem| elem.0 == expr.member_id)
             .unwrap()
             .1;
+        let member_dtype = member.dtype.clone();
+        let member_offset = member.offset;
 
-        let target = match &member.dtype {
-            Dtype::I32 => Operand::Local(LocalVariable::new(
-                Dtype::ptr_to(Dtype::I32),
-                target_index,
-                None,
-            )),
-            Dtype::Pointer { inner, length } => {
-                let len = *length;
-                match inner.as_ref() {
-                    Dtype::I32 => Operand::Local(LocalVariable::new(
-                        Dtype::array_of(Dtype::I32, len),
-                        target_index,
-                        None,
-                    )),
-                    Dtype::Struct { type_name } => Operand::Local(LocalVariable::new(
-                        Dtype::array_of(
-                            Dtype::Struct {
-                                type_name: type_name.clone(),
-                            },
-                            len,
-                        ),
-                        target_index,
-                        None,
-                    )),
-                    _ => return Err(Error::InvalidStructMemberExpression { expr: expr.clone() }),
-                }
-            }
-            Dtype::Struct { type_name } => Operand::Local(LocalVariable::new(
-                Dtype::ptr_to(Dtype::Struct {
-                    type_name: type_name.clone(),
-                }),
-                target_index,
-                None,
-            )),
+        let target = match &member_dtype {
             Dtype::Void | Dtype::Undecided => {
                 return Err(Error::InvalidStructMemberExpression { expr: expr.clone() })
             }
+            _ => self.alloc_temporary(member_dtype),
         };
 
-        self.emit_gep(target.clone(), s, Operand::from(member.offset));
+        self.emit_gep(target.clone(), s, Operand::from(member_offset));
         Ok(target)
     }
 
-    /// Handles a left-value expression.
     fn handle_left_val(&mut self, val: &ast::LeftVal) -> Result<Operand, Error> {
         match &val.inner {
             ast::LeftValInner::Id(id) => self.lookup_variable(id),
@@ -673,63 +547,31 @@ impl<'ir> FunctionGenerator<'ir> {
         }
     }
 
-    /// Handles a unary arithmetic expression (negation).
     fn handle_arith_uexpr(&mut self, expr: &ast::ArithUExpr) -> Result<Operand, Error> {
-        let expr_val = self.handle_expr_unit(expr.expr.as_ref())?;
-        let val = self.ptr_deref(expr_val);
-        let res = self.new_int_reg();
+        let val = self.handle_expr_unit(expr.expr.as_ref())?;
+        let res = self.alloc_temporary(Dtype::I32);
         self.emit_biop(ast::ArithBiOp::Sub, Operand::from(0), val, res.clone());
         Ok(res)
     }
 
-    /// Handles a binary arithmetic expression.
     fn handle_arith_biop_expr(&mut self, expr: &ast::ArithBiOpExpr) -> Result<Operand, Error> {
         let left = self.handle_arith_expr(&expr.left)?;
         let right = self.handle_arith_expr(&expr.right)?;
-        let dst = self.new_int_reg();
+        let dst = self.alloc_temporary(Dtype::I32);
         self.emit_biop(expr.op.clone(), left, right, dst.clone());
         Ok(dst)
     }
 
-    /// Handles an index expression for array access.
     fn handle_index_expr(&mut self, expr: &ast::IndexExpr) -> Result<Operand, Error> {
         match &expr.inner {
             ast::IndexExprInner::Id(id) => {
                 let src = self.lookup_variable(id)?;
-                let idx = self.new_int_reg();
+                let idx = self.alloc_temporary(Dtype::I32);
                 self.emit_load(idx.clone(), src);
                 Ok(idx)
             }
             ast::IndexExprInner::Num(num) => Ok(Operand::from(*num as i32)),
         }
-    }
-
-    /// Dereferences a pointer value, loading its content if it's a scalar pointer.
-    /// - `length == 0`: scalar pointer - needs load
-    /// - `length > 0`: array - no load needed
-    fn ptr_deref(&mut self, op: Operand) -> Operand {
-        match op.dtype() {
-            Dtype::Pointer { inner, length: 0 } => {
-                if op.is_addressable() {
-                    // Create register with the correct inner type
-                    let val = match inner.as_ref() {
-                        Dtype::Pointer { .. } => self.new_ptr_reg(inner.as_ref().clone()),
-                        _ => self.new_int_reg(),
-                    };
-                    self.emit_load(val.clone(), op);
-                    return val;
-                }
-            }
-            Dtype::I32 => {
-                if let Operand::Global(_) = &op {
-                    let val = self.new_int_reg();
-                    self.emit_load(val.clone(), op);
-                    return val;
-                }
-            }
-            _ => {}
-        }
-        op
     }
 }
 
@@ -738,13 +580,12 @@ impl<'ir> FunctionGenerator<'ir> {
 // =============================================================================
 
 impl<'ir> FunctionGenerator<'ir> {
-    /// Evaluates a boolean expression and returns its value as an i32 (0 or 1).
     fn handle_bool_expr_as_value(&mut self, expr: &ast::BoolExpr) -> Result<Operand, Error> {
-        let true_label = self.new_block_label();
-        let false_label = self.new_block_label();
-        let after_label = self.new_block_label();
+        let true_label = self.alloc_basic_block();
+        let false_label = self.alloc_basic_block();
+        let after_label = self.alloc_basic_block();
 
-        let bool_evaluated = self.new_int_ptr_reg(0);
+        let bool_evaluated = self.alloc_temporary(Dtype::ptr_to(Dtype::I32));
         self.emit_alloca(bool_evaluated.clone());
 
         self.handle_bool_expr_as_branch(expr, true_label.clone(), false_label.clone())?;
@@ -755,13 +596,12 @@ impl<'ir> FunctionGenerator<'ir> {
             bool_evaluated.clone(),
         );
 
-        let loaded = self.new_int_reg();
+        let loaded = self.alloc_temporary(Dtype::I32);
         self.emit_load(loaded.clone(), bool_evaluated);
 
         Ok(loaded)
     }
 
-    /// Evaluates a boolean expression and branches to true_label or false_label.
     fn handle_bool_expr_as_branch(
         &mut self,
         expr: &ast::BoolExpr,
@@ -778,7 +618,6 @@ impl<'ir> FunctionGenerator<'ir> {
         }
     }
 
-    /// Emits code to materialize a boolean value after branch evaluation.
     fn emit_bool_materialization(
         &mut self,
         true_label: BlockLabel,
@@ -797,14 +636,13 @@ impl<'ir> FunctionGenerator<'ir> {
         self.emit_label(after_label);
     }
 
-    /// Handles a boolean binary operator expression (AND/OR) with short-circuit evaluation.
     fn handle_bool_biop_expr(
         &mut self,
         expr: &ast::BoolBiOpExpr,
         true_label: BlockLabel,
         false_label: BlockLabel,
     ) -> Result<(), Error> {
-        let eval_right_label = self.new_block_label();
+        let eval_right_label = self.alloc_basic_block();
         let lhs = self.handle_bool_expr_as_value(&expr.left)?;
 
         match &expr.op {
@@ -830,14 +668,12 @@ impl<'ir> FunctionGenerator<'ir> {
         Ok(())
     }
 
-    /// Converts a boolean value (i32) to a condition (i1).
     fn emit_bool_to_condition(&mut self, val: Operand) -> Operand {
-        let cond = self.new_int_reg();
+        let cond = self.alloc_temporary(Dtype::I32);
         self.emit_cmp(ast::ComOp::Ne, val, Operand::from(0), cond.clone());
         cond
     }
 
-    /// Handles a boolean unit expression.
     fn handle_bool_unit(
         &mut self,
         unit: &ast::BoolUnit,

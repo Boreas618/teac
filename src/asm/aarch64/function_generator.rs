@@ -235,7 +235,7 @@ impl<'a> FunctionGenerator<'a> {
         self.insts.push(Inst::RestoreCallerRegs);
 
         if let Some(res) = &s.res {
-            self.gen_call_result(res)?;
+            self.gen_call_result(res.as_local().unwrap())?;
         }
         Ok(())
     }

@@ -26,11 +26,22 @@ pub enum Inst {
         rhs: Operand,
     },
 
-    Ldr { size: RegSize, dst: Reg, addr: Addr },
+    Ldr {
+        size: RegSize,
+        dst: Reg,
+        addr: Addr,
+    },
 
-    Str { size: RegSize, src: Reg, addr: Addr },
+    Str {
+        size: RegSize,
+        src: Reg,
+        addr: Addr,
+    },
 
-    Lea { dst: Reg, addr: Addr },
+    Lea {
+        dst: Reg,
+        addr: Addr,
+    },
 
     Gep {
         dst: Reg,
@@ -45,15 +56,26 @@ pub enum Inst {
         rhs: Operand,
     },
 
-    B { label: String },
-    BCond { cond: Cond, label: String },
-    Bl { func: String },
+    B {
+        label: String,
+    },
+    BCond {
+        cond: Cond,
+        label: String,
+    },
+    Bl {
+        func: String,
+    },
 
     SaveCallerRegs,
     RestoreCallerRegs,
 
-    SubSp { imm: i64 },
-    AddSp { imm: i64 },
+    SubSp {
+        imm: i64,
+    },
+    AddSp {
+        imm: i64,
+    },
 
     Ret,
 }
@@ -135,4 +157,3 @@ impl Inst {
         defined
     }
 }
-

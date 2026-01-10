@@ -34,4 +34,4 @@ pub use error::Error;
 pub use function::{BlockLabel, Function};
 pub use module::{Module, ModuleGenerator, Registry};
 pub use types::{Dtype, StructType};
-pub use value::{GlobalVariable, LocalVariable, Value};
+pub use value::{GlobalVariable, LocalVariable, Operand};

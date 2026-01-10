@@ -27,4 +27,3 @@ pub struct TypeSepcifier {
 
 /// Shared optional type specifier (used for type inference).
 pub type SharedTypeSpec = Rc<Option<TypeSepcifier>>;
-

@@ -200,7 +200,11 @@ impl<W: Write> AsmPrinter<W> {
         let reg_s = self.reg_name(reg, size);
 
         // Choose scratch register that doesn't conflict with the data register.
-        let scratch = if matches!(reg, Reg::P(16)) { Reg::P(17) } else { Reg::P(16) };
+        let scratch = if matches!(reg, Reg::P(16)) {
+            Reg::P(17)
+        } else {
+            Reg::P(16)
+        };
         let scratch_s = self.reg_name(scratch, RegSize::X64);
 
         match addr {
@@ -240,7 +244,13 @@ impl<W: Write> AsmPrinter<W> {
     }
 
     /// dst = base + index * scale
-    fn emit_gep(&mut self, dst: Reg, base: Reg, index: IndexOperand, scale: i64) -> Result<(), Error> {
+    fn emit_gep(
+        &mut self,
+        dst: Reg,
+        base: Reg,
+        index: IndexOperand,
+        scale: i64,
+    ) -> Result<(), Error> {
         let dst_s = self.reg_name(dst, RegSize::X64);
         let base_s = self.reg_name(base, RegSize::X64);
 
@@ -258,7 +268,10 @@ impl<W: Write> AsmPrinter<W> {
 
                 // Optimize for power-of-two scales.
                 if let Some(shift) = self.scale_to_shift(scale) {
-                    writeln!(self.writer, "\tadd {dst_s}, {base_s}, {idx_s}, sxtw #{shift}")?;
+                    writeln!(
+                        self.writer,
+                        "\tadd {dst_s}, {base_s}, {idx_s}, sxtw #{shift}"
+                    )?;
                 } else {
                     // General case: sign-extend, multiply, add.
                     writeln!(self.writer, "\tsxtw x16, {idx_s}")?;
@@ -403,11 +416,22 @@ impl<W: Write> AsmPrint for AsmPrinter<W> {
         match inst {
             Inst::Label(name) => writeln!(self.writer, "{name}:")?,
             Inst::Mov { size, dst, src } => self.emit_mov(*size, *dst, *src)?,
-            Inst::BinOp { op, size, dst, lhs, rhs } => self.emit_binop(*op, *size, *dst, *lhs, *rhs)?,
+            Inst::BinOp {
+                op,
+                size,
+                dst,
+                lhs,
+                rhs,
+            } => self.emit_binop(*op, *size, *dst, *lhs, *rhs)?,
             Inst::Ldr { size, dst, addr } => self.emit_load(*size, *dst, addr)?,
             Inst::Str { size, src, addr } => self.emit_store(*size, *src, addr)?,
             Inst::Lea { dst, addr } => self.emit_lea(*dst, addr)?,
-            Inst::Gep { dst, base, index, scale } => self.emit_gep(*dst, *base, *index, *scale)?,
+            Inst::Gep {
+                dst,
+                base,
+                index,
+                scale,
+            } => self.emit_gep(*dst, *base, *index, *scale)?,
             Inst::Cmp { size, lhs, rhs } => self.emit_cmp(*size, *lhs, *rhs)?,
             Inst::B { label } => writeln!(self.writer, "\tb {label}")?,
             Inst::BCond { cond, label } => {

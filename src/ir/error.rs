@@ -35,14 +35,8 @@ pub enum Error {
     #[error("Invalid struct member expression {expr}")]
     InvalidStructMemberExpression { expr: ast::MemberExpr },
 
-    #[error("Invalid operand")]
-    InvalidOperand,
-
     #[error("Invalid expression unit: {expr_unit}")]
     InvalidExprUnit { expr_unit: ast::ExprUnit },
-
-    #[error("Unsupported type of local variable")]
-    LocalVarTypeUnsupported,
 
     #[error("Unsupported local variable definition")]
     LocalVarDefinitionUnsupported,
@@ -59,16 +53,9 @@ pub enum Error {
     #[error("Unsupported return type")]
     ReturnTypeUnsupported,
 
-    #[error("Invalid Bool Expression")]
-    InvalidBoolExpr,
-
-    #[error("Unsupported argument type")]
-    ArgumentTypeUnsupported,
-
     #[error("Struct type '{member_type}' used in struct '{struct_name}' is not defined")]
     UndefinedStructMemberType {
         struct_name: String,
         member_type: String,
     },
 }
-

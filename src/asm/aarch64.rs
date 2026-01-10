@@ -14,8 +14,8 @@ pub(crate) use inst::Inst;
 pub(crate) use types::{Addr, BinOp, Cond, Operand, Reg};
 
 use crate::asm::common::{
-    collect_alloca_ptrs, compute_struct_layouts, size_align_of_alloca,
-    size_align_of_dtype, StackFrame, StructLayouts, VReg, VRegKind,
+    collect_alloca_ptrs, compute_struct_layouts, size_align_of_alloca, size_align_of_dtype,
+    StackFrame, StructLayouts, VReg, VRegKind,
 };
 use crate::asm::error::Error;
 use crate::asm::AsmGenerator;

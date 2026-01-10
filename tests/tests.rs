@@ -13,7 +13,10 @@ fn is_macos() -> bool {
 
 /// Returns true if running on x86/x86_64 Linux (requires cross-compiler + QEMU).
 fn is_cross_linux() -> bool {
-    cfg!(all(target_os = "linux", any(target_arch = "x86", target_arch = "x86_64")))
+    cfg!(all(
+        target_os = "linux",
+        any(target_arch = "x86", target_arch = "x86_64")
+    ))
 }
 
 /// Checks if a command is available in PATH.

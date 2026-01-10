@@ -47,10 +47,7 @@ impl BaseDtype for ast::VarDef {
 // Named Trait Implementation for AST Types
 // =============================================================================
 
-/// Trait for types that may have an identifier.
-pub trait Named {
-    fn identifier(&self) -> Option<String>;
-}
+use super::value::Named;
 
 impl Named for ast::VarDecl {
     fn identifier(&self) -> Option<String> {
@@ -137,4 +134,3 @@ impl TryFrom<&ast::VarDeclStmt> for Dtype {
         }
     }
 }
-

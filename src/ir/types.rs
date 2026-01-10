@@ -34,12 +34,18 @@ pub enum Dtype {
 impl Dtype {
     /// Creates a scalar pointer type (points to a single element).
     pub fn ptr_to(inner: Self) -> Self {
-        Self::Pointer { inner: Box::new(inner), length: 0 }
+        Self::Pointer {
+            inner: Box::new(inner),
+            length: 0,
+        }
     }
 
     /// Creates an array type with the given number of elements.
     pub fn array_of(elem: Self, len: usize) -> Self {
-        Self::Pointer { inner: Box::new(elem), length: len }
+        Self::Pointer {
+            inner: Box::new(elem),
+            length: len,
+        }
     }
 
     /// Extracts the struct type name, looking through pointers if needed.
@@ -144,4 +150,3 @@ impl PartialEq<ast::FnDecl> for FunctionType {
         true
     }
 }
-

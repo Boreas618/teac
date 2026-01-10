@@ -10,7 +10,7 @@ use crate::ast;
 
 use super::function::BlockLabel;
 use super::types::Dtype;
-use super::value::{LocalVariable, Operand};
+use super::value::Operand;
 use std::fmt::{self, Display, Formatter};
 
 // =============================================================================
@@ -57,7 +57,7 @@ pub struct Stmt {
 
 impl Stmt {
     /// Creates a call statement.
-    pub fn as_call(func_name: String, res: Option<LocalVariable>, args: Vec<Operand>) -> Self {
+    pub fn as_call(func_name: String, res: Option<Operand>, args: Vec<Operand>) -> Self {
         Self {
             inner: StmtInner::Call(CallStmt {
                 func_name,
@@ -188,7 +188,7 @@ pub struct CallStmt {
     /// Function name.
     pub func_name: String,
     /// Optional result register.
-    pub res: Option<LocalVariable>,
+    pub res: Option<Operand>,
     /// Call arguments.
     pub args: Vec<Operand>,
 }
@@ -310,7 +310,10 @@ impl Display for CallStmt {
             write!(
                 f,
                 "{} = call {} @{}({})",
-                res, &res.dtype, self.func_name, args
+                res,
+                &res.dtype(),
+                self.func_name,
+                args
             )
         } else {
             write!(f, "call void @{}({})", self.func_name, args)

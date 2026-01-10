@@ -102,35 +102,17 @@ impl<'ir> FunctionGenerator<'ir> {
         self.basic_block_index - 1
     }
 
-    // =========================================================================
-    // Virtual Register Helpers
-    // =========================================================================
-
-    /// Creates a new integer virtual register.
-    pub fn new_int_reg(&mut self) -> Operand {
-        Operand::Local(LocalVariable::new(Dtype::I32, self.increment_virt_reg_index(), None))
-    }
-
-    /// Creates a new integer pointer virtual register.
-    /// `length == 0` for scalar pointer, `length > 0` for array
-    pub fn new_int_ptr_reg(&mut self, length: usize) -> Operand {
+    /// Allocates a anonymous virtual register with the given type.
+    pub fn alloc_temporary(&mut self, dtype: Dtype) -> Operand {
         Operand::Local(LocalVariable::new(
-            Dtype::Pointer {
-                inner: Box::new(Dtype::I32),
-                length,
-            },
+            dtype,
             self.increment_virt_reg_index(),
-            None
+            None,
         ))
     }
 
-    /// Creates a new virtual register with the given type.
-    pub fn new_ptr_reg(&mut self, dtype: Dtype) -> Operand {
-        Operand::Local(LocalVariable::new(dtype, self.increment_virt_reg_index(), None))
-    }
-
-    /// Creates a new block label.
-    pub fn new_block_label(&mut self) -> BlockLabel {
+    /// Allocates a new basic block label.
+    pub fn alloc_basic_block(&mut self) -> BlockLabel {
         BlockLabel::BasicBlock(self.increment_basic_block_index())
     }
 
@@ -200,7 +182,7 @@ impl FunctionGenerator<'_> {
     }
 
     /// Emits a call instruction.
-    pub fn emit_call(&mut self, func_name: String, result: Option<LocalVariable>, args: Vec<Operand>) {
+    pub fn emit_call(&mut self, func_name: String, result: Option<Operand>, args: Vec<Operand>) {
         self.irs.push(Stmt::as_call(func_name, result, args));
     }
 
@@ -209,4 +191,3 @@ impl FunctionGenerator<'_> {
         self.irs.push(Stmt::as_return(val));
     }
 }
-

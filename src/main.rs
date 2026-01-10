@@ -104,12 +104,10 @@ fn main() {
         _ => "ll",
     };
     let output_path = match cli.output {
-        None => {
-            Path::new(&input_path)
-                .with_extension(default_ext)
-                .to_string_lossy()
-                .into_owned()
-        }
+        None => Path::new(&input_path)
+            .with_extension(default_ext)
+            .to_string_lossy()
+            .into_owned(),
         Some(path) => path,
     };
 

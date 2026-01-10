@@ -197,4 +197,3 @@ pub struct RightVal {
 
 /// List of right-values (e.g., function arguments, array initializers).
 pub type RightValList = Vec<RightVal>;
-

@@ -139,11 +139,7 @@ impl ModuleGenerator {
                 writeln!(writer, "}}")?;
                 writeln!(writer)?;
             } else {
-                let func_type = self
-                    .registry
-                    .function_types
-                    .get(&func.identifier)
-                    .unwrap();
+                let func_type = self.registry.function_types.get(&func.identifier).unwrap();
 
                 let args = func_type
                     .arguments
@@ -155,9 +151,7 @@ impl ModuleGenerator {
                 writeln!(
                     writer,
                     "declare {} @{}({});",
-                    func_type.return_dtype,
-                    func.identifier,
-                    args
+                    func_type.return_dtype, func.identifier, args
                 )?;
                 writeln!(writer)?;
             }
@@ -172,4 +166,3 @@ impl Default for ModuleGenerator {
         Self::new()
     }
 }
-

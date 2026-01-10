@@ -96,4 +96,3 @@ pub struct CodeBlockStmt {
 
 /// List of statements in a code block.
 pub type CodeBlockStmtList = Vec<CodeBlockStmt>;
-
