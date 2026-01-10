@@ -128,16 +128,14 @@ pub fn compute_struct_layout(
 fn member_size_align(dtype: &ir::Dtype, layouts: &StructLayouts) -> Result<(i64, i64), Error> {
     match dtype {
         ir::Dtype::I32 => Ok((4, 4)),
-        ir::Dtype::Pointer { inner, length } => {
-            let len = if *length == usize::MAX { 0 } else { *length };
-            if len == 0 {
-                Ok((8, 8)) // Pointer value
-            } else {
+        ir::Dtype::Pointer { inner, length } => match length {
+            0 => Ok((8, 8)), // Pointer value
+            n => {
                 // Array of elements
                 let (s, a) = size_align_of_dtype(inner.as_ref(), layouts)?;
-                Ok(((len as i64) * s, a))
+                Ok(((*n as i64) * s, a))
             }
-        }
+        },
         ir::Dtype::Struct { type_name } => layouts
             .get(type_name)
             .map(|l| (l.size, l.align))

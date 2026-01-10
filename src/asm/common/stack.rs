@@ -98,13 +98,13 @@ pub fn size_align_of_alloca(
 ) -> Result<(i64, i64), Error> {
     match dtype {
         ir::Dtype::Pointer { inner, length } => {
-            let len = if *length == usize::MAX { 0 } else { *length };
             let (inner_size, inner_align) = size_align_of_dtype(inner.as_ref(), layouts)?;
-            Ok(if len == 0 {
-                (inner_size, inner_align)
-            } else {
-                ((len as i64) * inner_size, inner_align)
-            })
+            match length {
+                // Local scalar pointer: allocate space for one element
+                0 => Ok((inner_size, inner_align)),
+                // Array: allocate space for n elements
+                n => Ok(((*n as i64) * inner_size, inner_align)),
+            }
         }
         _ => Err(Error::UnsupportedDtype {
             dtype: dtype.clone(),

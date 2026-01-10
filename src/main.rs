@@ -1,5 +1,5 @@
-mod ast;
 mod asm;
+mod ast;
 mod ir;
 
 use asm::AsmGenerator;
@@ -16,7 +16,6 @@ use std::{
     path::{Path, PathBuf},
 };
 
-/// Dump mode: AST / IR / Assembly
 #[derive(Copy, Clone, Debug, PartialEq, ValueEnum)]
 enum DumpMode {
     AST,
@@ -24,26 +23,22 @@ enum DumpMode {
     S,
 }
 
-// Derive (auto-implement) the `Parser` trait from the `clap` crate so this struct can parse command-line arguments automatically.
 #[derive(Parser, Debug)]
-#[command(name = "teac")] // Provide metadata for the CLI: must be the same with the program’s name.
-#[command(about = "A compiler written in Rust for teapl")] // Provide metadata for the CLI: a short description shown in `--help`.
+#[command(name = "teac")]
+#[command(about = "A compiler written in Rust for teapl")]
 struct Cli {
     /// Input file (source code file with a .tea extension)
     #[clap(value_name = "FILE")]
     input: String,
 
     /// Dump mode (-d ast|ir|s)
-    #[arg(short = 'd', value_enum, ignore_case=true)]
+    #[arg(short = 'd', value_enum, ignore_case = true)]
     dump: Option<DumpMode>,
 
     #[clap(short, long, value_name = "FILE")]
     output: Option<String>,
 }
 
-/// Preprocess a source file: expand `#use name` with the contents of `name.h`.
-/// Includes are resolved relative to the file that contains the directive.
-/// Nested includes are supported. Cycles are detected and reported.
 fn preprocess_file(path: &Path, visited: &mut HashSet<PathBuf>) -> io::Result<String> {
     // Use canonical path for cycle detection
     let key = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
@@ -111,8 +106,8 @@ fn main() {
     let output_path = match cli.output {
         None => {
             Path::new(&input_path)
-                .with_extension(default_ext) // replaces whatever extension it had
-                .to_string_lossy() // convert PathBuf to String
+                .with_extension(default_ext)
+                .to_string_lossy()
                 .into_owned()
         }
         Some(path) => path,
@@ -149,13 +144,19 @@ fn main() {
     if let Some(parent) = out_path.parent() {
         if !parent.as_os_str().is_empty() {
             std::fs::create_dir_all(parent).unwrap_or_else(|e| {
-                eprintln!("Failed to create output directory {}: {e}", parent.to_string_lossy());
+                eprintln!(
+                    "Failed to create output directory {}: {e}",
+                    parent.to_string_lossy()
+                );
                 std::process::exit(1);
             });
         }
     }
     let mut writer = BufWriter::new(File::create(out_path).unwrap_or_else(|e| {
-        eprintln!("Failed to create output file {}: {e}", out_path.to_string_lossy());
+        eprintln!(
+            "Failed to create output file {}: {e}",
+            out_path.to_string_lossy()
+        );
         std::process::exit(1);
     }));
 
@@ -169,7 +170,8 @@ fn main() {
         }
         Some(DumpMode::S) => {
             // Lower IR to AArch64 assembly.
-            let asm_gen = asm::AArch64AsmGenerator::new(&module_generator.module, &module_generator.registry);
+            let asm_gen =
+                asm::AArch64AsmGenerator::new(&module_generator.module, &module_generator.registry);
             asm_gen.output(&mut writer).unwrap_or_else(|e| {
                 eprintln!("Encountered error while generating assembly: {e}");
                 std::process::exit(1);

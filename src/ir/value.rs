@@ -31,13 +31,12 @@ pub trait Named {
 }
 
 // =============================================================================
-// Value Enum
+// Operand Enum
 // =============================================================================
 
-/// A unified value type representing all possible IR operands.
-/// This replaces the previous `dyn Operand` pattern with type-safe enum dispatch.
+/// A unified type representing all possible IR operands.
 #[derive(Clone)]
-pub enum Value {
+pub enum Operand {
     /// Constant integer value.
     Integer(Integer),
     /// Local variable (virtual register).
@@ -46,29 +45,29 @@ pub enum Value {
     Global(GlobalVariable),
 }
 
-impl Value {
+impl Operand {
     /// Returns the data type of this value.
     pub fn dtype(&self) -> &Dtype {
         match self {
-            Value::Integer(i) => i.dtype(),
-            Value::Local(l) => l.dtype(),
-            Value::Global(g) => g.dtype(),
+            Operand::Integer(i) => i.dtype(),
+            Operand::Local(l) => l.dtype(),
+            Operand::Global(g) => g.dtype(),
         }
     }
 
     /// Returns the identifier if this value has one.
     pub fn identifier(&self) -> Option<String> {
         match self {
-            Value::Integer(i) => i.identifier(),
-            Value::Local(l) => l.identifier(),
-            Value::Global(g) => g.identifier(),
+            Operand::Integer(i) => i.identifier(),
+            Operand::Local(l) => l.identifier(),
+            Operand::Global(g) => g.identifier(),
         }
     }
 
     /// Attempts to get this value as a LocalVariable.
     pub fn as_local(&self) -> Option<&LocalVariable> {
         match self {
-            Value::Local(l) => Some(l),
+            Operand::Local(l) => Some(l),
             _ => None,
         }
     }
@@ -76,7 +75,7 @@ impl Value {
     /// Attempts to get this value as a GlobalVariable.
     pub fn as_global(&self) -> Option<&GlobalVariable> {
         match self {
-            Value::Global(g) => Some(g),
+            Operand::Global(g) => Some(g),
             _ => None,
         }
     }
@@ -84,14 +83,14 @@ impl Value {
     /// Attempts to get this value as an Integer.
     pub fn as_integer(&self) -> Option<&Integer> {
         match self {
-            Value::Integer(i) => Some(i),
+            Operand::Integer(i) => Some(i),
             _ => None,
         }
     }
 
     /// Returns true if this is an addressable value (local or global variable).
     pub fn is_addressable(&self) -> bool {
-        matches!(self, Value::Local(_) | Value::Global(_))
+        matches!(self, Operand::Local(_) | Operand::Global(_))
     }
 
     /// Returns the virtual register index if this is a local variable.
@@ -100,37 +99,37 @@ impl Value {
     }
 }
 
-impl Display for Value {
+impl Display for Operand {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Value::Integer(i) => write!(f, "{}", i),
-            Value::Local(l) => write!(f, "{}", l),
-            Value::Global(g) => write!(f, "{}", g),
+            Operand::Integer(i) => write!(f, "{}", i),
+            Operand::Local(l) => write!(f, "{}", l),
+            Operand::Global(g) => write!(f, "{}", g),
         }
     }
 }
 
-impl From<Integer> for Value {
+impl From<Integer> for Operand {
     fn from(i: Integer) -> Self {
-        Value::Integer(i)
+        Operand::Integer(i)
     }
 }
 
-impl From<LocalVariable> for Value {
+impl From<LocalVariable> for Operand {
     fn from(l: LocalVariable) -> Self {
-        Value::Local(l)
+        Operand::Local(l)
     }
 }
 
-impl From<GlobalVariable> for Value {
+impl From<GlobalVariable> for Operand {
     fn from(g: GlobalVariable) -> Self {
-        Value::Global(g)
+        Operand::Global(g)
     }
 }
 
-impl From<i32> for Value {
+impl From<i32> for Operand {
     fn from(v: i32) -> Self {
-        Value::Integer(Integer::from(v))
+        Operand::Integer(Integer::from(v))
     }
 }
 
@@ -207,45 +206,12 @@ impl Display for LocalVariable {
 }
 
 impl LocalVariable {
-    /// Creates a new builder for constructing a LocalVariable.
-    pub fn builder() -> LocalVariableBuilder {
-        LocalVariableBuilder::new()
-    }
-}
-
-
-#[derive(Default)]
-pub struct LocalVariableBuilder {
-    dtype: Option<Dtype>,
-    identifier: Option<String>,
-    index: Option<usize>,
-}
-
-impl LocalVariableBuilder {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn dtype(mut self, dtype: Dtype) -> Self {
-        self.dtype = Some(dtype);
-        self
-    }
-
-    pub fn identifier(mut self, identifier: impl Into<String>) -> Self {
-        self.identifier = Some(identifier.into());
-        self
-    }
-
-    pub fn index(mut self, index: usize) -> Self {
-        self.index = Some(index);
-        self
-    }
-
-    pub fn build(self) -> LocalVariable {
-        LocalVariable {
-            dtype: self.dtype.expect("dtype is required"),
-            identifier: self.identifier,
-            index: self.index.expect("index is required"),
+    /// Creates a new LocalVariable without an identifier.
+    pub fn new(dtype: Dtype, index: usize, identifier: Option<String>) -> Self {
+        Self {
+            dtype,
+            identifier,
+            index,
         }
     }
 }

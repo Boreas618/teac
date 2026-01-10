@@ -20,7 +20,7 @@ pub enum VRegKind {
 /// # Errors
 ///
 /// Returns [`Error::UnsupportedOperand`] if the value is not a local variable.
-pub fn vreg_from_value(val: &ir::Value) -> Result<VReg, Error> {
+pub fn vreg_from_value(val: &ir::Operand) -> Result<VReg, Error> {
     val.as_local()
         .map(|local| VReg(local.index as u32))
         .ok_or_else(|| Error::UnsupportedOperand {

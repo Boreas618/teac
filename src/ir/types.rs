@@ -23,8 +23,8 @@ pub enum Dtype {
     I32,
     /// Struct type with a named definition.
     Struct { type_name: String },
-    /// Pointer to an element type, with optional array length.
-    /// - `length == 0`: scalar pointer
+    /// Pointer to an element type, with array length.
+    /// - `length == 0`: scalar pointer (points to a single element)
     /// - `length > 0`: array of `length` elements
     Pointer { inner: Box<Dtype>, length: usize },
     /// Placeholder for type inference.
@@ -32,10 +32,12 @@ pub enum Dtype {
 }
 
 impl Dtype {
+    /// Creates a scalar pointer type (points to a single element).
     pub fn ptr_to(inner: Self) -> Self {
         Self::Pointer { inner: Box::new(inner), length: 0 }
     }
 
+    /// Creates an array type with the given number of elements.
     pub fn array_of(elem: Self, len: usize) -> Self {
         Self::Pointer { inner: Box::new(elem), length: len }
     }

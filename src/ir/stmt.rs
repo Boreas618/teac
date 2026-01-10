@@ -10,7 +10,7 @@ use crate::ast;
 
 use super::function::BlockLabel;
 use super::types::Dtype;
-use super::value::{LocalVariable, Value};
+use super::value::{LocalVariable, Operand};
 use std::fmt::{self, Display, Formatter};
 
 // =============================================================================
@@ -57,7 +57,7 @@ pub struct Stmt {
 
 impl Stmt {
     /// Creates a call statement.
-    pub fn as_call(func_name: String, res: Option<LocalVariable>, args: Vec<Value>) -> Self {
+    pub fn as_call(func_name: String, res: Option<LocalVariable>, args: Vec<Operand>) -> Self {
         Self {
             inner: StmtInner::Call(CallStmt {
                 func_name,
@@ -68,14 +68,14 @@ impl Stmt {
     }
 
     /// Creates a load statement.
-    pub fn as_load(dst: Value, ptr: Value) -> Self {
+    pub fn as_load(dst: Operand, ptr: Operand) -> Self {
         Self {
             inner: StmtInner::Load(LoadStmt { dst, ptr }),
         }
     }
 
     /// Creates a binary operation statement.
-    pub fn as_biop(kind: ast::ArithBiOp, left: Value, right: Value, dst: Value) -> Self {
+    pub fn as_biop(kind: ast::ArithBiOp, left: Operand, right: Operand, dst: Operand) -> Self {
         Self {
             inner: StmtInner::BiOp(BiOpStmt {
                 kind,
@@ -87,14 +87,14 @@ impl Stmt {
     }
 
     /// Creates an alloca statement.
-    pub fn as_alloca(dst: Value) -> Self {
+    pub fn as_alloca(dst: Operand) -> Self {
         Self {
             inner: StmtInner::Alloca(AllocaStmt { dst }),
         }
     }
 
     /// Creates a comparison statement.
-    pub fn as_cmp(kind: ast::ComOp, left: Value, right: Value, dst: Value) -> Self {
+    pub fn as_cmp(kind: ast::ComOp, left: Operand, right: Operand, dst: Operand) -> Self {
         Self {
             inner: StmtInner::Cmp(CmpStmt {
                 kind,
@@ -106,7 +106,7 @@ impl Stmt {
     }
 
     /// Creates a conditional jump statement.
-    pub fn as_cjump(dst: Value, true_label: BlockLabel, false_label: BlockLabel) -> Self {
+    pub fn as_cjump(dst: Operand, true_label: BlockLabel, false_label: BlockLabel) -> Self {
         Self {
             inner: StmtInner::CJump(CJumpStmt {
                 dst,
@@ -124,7 +124,7 @@ impl Stmt {
     }
 
     /// Creates a store statement.
-    pub fn as_store(src: Value, ptr: Value) -> Self {
+    pub fn as_store(src: Operand, ptr: Operand) -> Self {
         Self {
             inner: StmtInner::Store(StoreStmt { src, ptr }),
         }
@@ -138,14 +138,14 @@ impl Stmt {
     }
 
     /// Creates a return statement.
-    pub fn as_return(val: Option<Value>) -> Self {
+    pub fn as_return(val: Option<Operand>) -> Self {
         Self {
             inner: StmtInner::Return(ReturnStmt { val }),
         }
     }
 
     /// Creates a GEP statement.
-    pub fn as_gep(new_ptr: Value, base_ptr: Value, index: Value) -> Self {
+    pub fn as_gep(new_ptr: Operand, base_ptr: Operand, index: Operand) -> Self {
         Self {
             inner: StmtInner::Gep(GepStmt {
                 new_ptr,
@@ -190,16 +190,16 @@ pub struct CallStmt {
     /// Optional result register.
     pub res: Option<LocalVariable>,
     /// Call arguments.
-    pub args: Vec<Value>,
+    pub args: Vec<Operand>,
 }
 
 /// Load from memory statement.
 #[derive(Clone)]
 pub struct LoadStmt {
     /// Destination register.
-    pub dst: Value,
+    pub dst: Operand,
     /// Source pointer.
-    pub ptr: Value,
+    pub ptr: Operand,
 }
 
 /// Binary arithmetic operation statement.
@@ -208,18 +208,18 @@ pub struct BiOpStmt {
     /// Operation kind.
     pub kind: ast::ArithBiOp,
     /// Left operand.
-    pub left: Value,
+    pub left: Operand,
     /// Right operand.
-    pub right: Value,
+    pub right: Operand,
     /// Destination register.
-    pub dst: Value,
+    pub dst: Operand,
 }
 
 /// Stack allocation statement.
 #[derive(Clone)]
 pub struct AllocaStmt {
     /// Destination pointer register.
-    pub dst: Value,
+    pub dst: Operand,
 }
 
 /// Comparison statement.
@@ -228,18 +228,18 @@ pub struct CmpStmt {
     /// Comparison kind.
     pub kind: ast::ComOp,
     /// Left operand.
-    pub left: Value,
+    pub left: Operand,
     /// Right operand.
-    pub right: Value,
+    pub right: Operand,
     /// Destination register (boolean result).
-    pub dst: Value,
+    pub dst: Operand,
 }
 
 /// Conditional jump statement.
 #[derive(Clone)]
 pub struct CJumpStmt {
     /// Condition register.
-    pub dst: Value,
+    pub dst: Operand,
     /// Label to jump to if true.
     pub true_label: BlockLabel,
     /// Label to jump to if false.
@@ -257,9 +257,9 @@ pub struct LabelStmt {
 #[derive(Clone)]
 pub struct StoreStmt {
     /// Source value.
-    pub src: Value,
+    pub src: Operand,
     /// Destination pointer.
-    pub ptr: Value,
+    pub ptr: Operand,
 }
 
 /// Unconditional jump statement.
@@ -273,18 +273,18 @@ pub struct JumpStmt {
 #[derive(Clone)]
 pub struct GepStmt {
     /// Result pointer.
-    pub new_ptr: Value,
+    pub new_ptr: Operand,
     /// Base pointer.
-    pub base_ptr: Value,
+    pub base_ptr: Operand,
     /// Index value.
-    pub index: Value,
+    pub index: Operand,
 }
 
 /// Return statement.
 #[derive(Clone)]
 pub struct ReturnStmt {
     /// Optional return value.
-    pub val: Option<Value>,
+    pub val: Option<Operand>,
 }
 
 // =============================================================================
@@ -345,13 +345,10 @@ impl Display for StoreStmt {
 impl Display for AllocaStmt {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self.dst.dtype() {
-            Dtype::Pointer { inner, length } => {
-                if *length == 0 {
-                    write!(f, "{} = alloca {}, align 4", self.dst, inner)
-                } else {
-                    write!(f, "{} = alloca {}, align 4", self.dst, self.dst.dtype())
-                }
-            }
+            Dtype::Pointer { inner, length } => match length {
+                0 => write!(f, "{} = alloca {}, align 4", self.dst, inner),
+                _ => write!(f, "{} = alloca {}, align 4", self.dst, self.dst.dtype()),
+            },
             _ => write!(f, "{} = alloca {}, align 4", self.dst, self.dst.dtype()),
         }
     }
@@ -410,28 +407,25 @@ impl Display for LabelStmt {
 impl Display for GepStmt {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self.base_ptr.dtype() {
-            Dtype::Pointer { length, .. } => {
-                if *length == 0 {
-                    write!(
-                        f,
-                        "{} = getelementptr {}, ptr {}, i32 {}",
-                        self.new_ptr,
-                        self.base_ptr.dtype(),
-                        self.base_ptr,
-                        self.index,
-                    )
-                } else {
-                    write!(
-                        f,
-                        "{} = getelementptr {}, ptr {}, i32 {}, i32 {}",
-                        self.new_ptr,
-                        self.base_ptr.dtype(),
-                        self.base_ptr,
-                        0,
-                        self.index,
-                    )
-                }
-            }
+            Dtype::Pointer { length, .. } => match length {
+                0 => write!(
+                    f,
+                    "{} = getelementptr {}, ptr {}, i32 {}",
+                    self.new_ptr,
+                    self.base_ptr.dtype(),
+                    self.base_ptr,
+                    self.index,
+                ),
+                _ => write!(
+                    f,
+                    "{} = getelementptr {}, ptr {}, i32 {}, i32 {}",
+                    self.new_ptr,
+                    self.base_ptr.dtype(),
+                    self.base_ptr,
+                    0,
+                    self.index,
+                ),
+            },
             _ => Err(fmt::Error),
         }
     }

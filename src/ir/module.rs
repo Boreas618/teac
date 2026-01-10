@@ -139,21 +139,23 @@ impl ModuleGenerator {
                 writeln!(writer, "}}")?;
                 writeln!(writer)?;
             } else {
-                let args = func
+                let func_type = self
+                    .registry
+                    .function_types
+                    .get(&func.identifier)
+                    .unwrap();
+
+                let args = func_type
                     .arguments
                     .iter()
-                    .map(|var| format!("{}", var.dtype))
+                    .map(|(_, dtype)| format!("{}", dtype))
                     .collect::<Vec<_>>()
                     .join(", ");
 
                 writeln!(
                     writer,
                     "declare {} @{}({});",
-                    self.registry
-                        .function_types
-                        .get(&func.identifier)
-                        .unwrap()
-                        .return_dtype,
+                    func_type.return_dtype,
                     func.identifier,
                     args
                 )?;

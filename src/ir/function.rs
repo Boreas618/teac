@@ -10,7 +10,7 @@
 use super::error::Error;
 use super::stmt::Stmt;
 use super::types::Dtype;
-use super::value::{LocalVariable, Value};
+use super::value::{LocalVariable, Operand};
 use crate::ast;
 use indexmap::IndexMap;
 use std::fmt::{Display, Formatter};
@@ -107,53 +107,26 @@ impl<'ir> FunctionGenerator<'ir> {
     // =========================================================================
 
     /// Creates a new integer virtual register.
-    pub fn new_int_reg(&mut self) -> Value {
-        Value::Local(
-            LocalVariable::builder()
-                .dtype(Dtype::I32)
-                .index(self.increment_virt_reg_index())
-                .build(),
-        )
+    pub fn new_int_reg(&mut self) -> Operand {
+        Operand::Local(LocalVariable::new(Dtype::I32, self.increment_virt_reg_index(), None))
     }
 
     /// Creates a new integer pointer virtual register.
-    pub fn new_int_ptr_reg(&mut self, length: usize) -> Value {
-        Value::Local(
-            LocalVariable::builder()
-                .dtype(Dtype::Pointer {
-                    inner: Box::new(Dtype::I32),
-                    length,
-                })
-                .index(self.increment_virt_reg_index())
-                .build(),
-        )
+    /// `length == 0` for scalar pointer, `length > 0` for array
+    pub fn new_int_ptr_reg(&mut self, length: usize) -> Operand {
+        Operand::Local(LocalVariable::new(
+            Dtype::Pointer {
+                inner: Box::new(Dtype::I32),
+                length,
+            },
+            self.increment_virt_reg_index(),
+            None
+        ))
     }
 
-    /// Creates a new struct virtual register.
-    pub fn new_struct_reg(&mut self, type_name: &str) -> Value {
-        Value::Local(
-            LocalVariable::builder()
-                .dtype(Dtype::Struct {
-                    type_name: type_name.to_string(),
-                })
-                .index(self.increment_virt_reg_index())
-                .build(),
-        )
-    }
-
-    /// Creates a new struct pointer virtual register.
-    pub fn new_struct_ptr_reg(&mut self, type_name: &str, length: usize) -> Value {
-        Value::Local(
-            LocalVariable::builder()
-                .dtype(Dtype::Pointer {
-                    inner: Box::new(Dtype::Struct {
-                        type_name: type_name.to_string(),
-                    }),
-                    length,
-                })
-                .index(self.increment_virt_reg_index())
-                .build(),
-        )
+    /// Creates a new virtual register with the given type.
+    pub fn new_ptr_reg(&mut self, dtype: Dtype) -> Operand {
+        Operand::Local(LocalVariable::new(dtype, self.increment_virt_reg_index(), None))
     }
 
     /// Creates a new block label.
@@ -161,84 +134,16 @@ impl<'ir> FunctionGenerator<'ir> {
         BlockLabel::BasicBlock(self.increment_basic_block_index())
     }
 
-    // =========================================================================
-    // Variable Lookup
-    // =========================================================================
-
     /// Looks up a variable by name, checking local variables first, then globals.
-    pub fn lookup_variable(&self, id: &str) -> Result<Value, Error> {
+    pub fn lookup_variable(&self, id: &str) -> Result<Operand, Error> {
         if let Some(local) = self.local_variables.get(id) {
-            Ok(Value::Local(local.as_ref().clone()))
+            Ok(Operand::Local(local.as_ref().clone()))
         } else if let Some(global) = self.module_generator.module.global_list.get(id) {
-            Ok(Value::Global(global.clone()))
+            Ok(Operand::Global(global.clone()))
         } else {
             Err(Error::VariableNotDefined {
                 symbol: id.to_string(),
             })
-        }
-    }
-
-    // =========================================================================
-    // Type-based Variable Creation
-    // =========================================================================
-
-    /// Creates a pointer variable appropriate for the given dtype.
-    pub fn create_ptr_for_dtype(
-        &mut self,
-        dtype: &Dtype,
-        length: usize,
-    ) -> Result<LocalVariable, Error> {
-        let index = self.increment_virt_reg_index();
-        match dtype {
-            Dtype::I32 => Ok(LocalVariable::builder()
-                .dtype(Dtype::Pointer {
-                    inner: Box::new(Dtype::I32),
-                    length,
-                })
-                .index(index)
-                .build()),
-            Dtype::Struct { type_name } => Ok(LocalVariable::builder()
-                .dtype(Dtype::Pointer {
-                    inner: Box::new(Dtype::Struct {
-                        type_name: type_name.clone(),
-                    }),
-                    length,
-                })
-                .index(index)
-                .build()),
-            Dtype::Pointer {
-                inner,
-                length: ptr_len,
-            } => self.create_ptr_for_inner_dtype(inner, *ptr_len),
-            _ => Err(Error::LocalVarTypeUnsupported),
-        }
-    }
-
-    /// Creates a pointer variable for a pointer's inner type.
-    fn create_ptr_for_inner_dtype(
-        &mut self,
-        inner: &Dtype,
-        length: usize,
-    ) -> Result<LocalVariable, Error> {
-        let index = self.increment_virt_reg_index();
-        match inner {
-            Dtype::I32 => Ok(LocalVariable::builder()
-                .dtype(Dtype::Pointer {
-                    inner: Box::new(Dtype::I32),
-                    length,
-                })
-                .index(index)
-                .build()),
-            Dtype::Struct { type_name } => Ok(LocalVariable::builder()
-                .dtype(Dtype::Pointer {
-                    inner: Box::new(Dtype::Struct {
-                        type_name: type_name.clone(),
-                    }),
-                    length,
-                })
-                .index(index)
-                .build()),
-            _ => Err(Error::LocalVarTypeUnsupported),
         }
     }
 }
@@ -249,38 +154,38 @@ impl<'ir> FunctionGenerator<'ir> {
 
 impl FunctionGenerator<'_> {
     /// Emits an alloca instruction.
-    pub fn emit_alloca(&mut self, dst: Value) {
+    pub fn emit_alloca(&mut self, dst: Operand) {
         self.irs.push(Stmt::as_alloca(dst));
     }
 
     /// Emits a load instruction and returns the destination.
-    pub fn emit_load(&mut self, dst: Value, ptr: Value) -> Value {
+    pub fn emit_load(&mut self, dst: Operand, ptr: Operand) -> Operand {
         self.irs.push(Stmt::as_load(dst.clone(), ptr));
         dst
     }
 
     /// Emits a store instruction.
-    pub fn emit_store(&mut self, src: Value, ptr: Value) {
+    pub fn emit_store(&mut self, src: Operand, ptr: Operand) {
         self.irs.push(Stmt::as_store(src, ptr));
     }
 
     /// Emits a GEP instruction.
-    pub fn emit_gep(&mut self, new_ptr: Value, base_ptr: Value, index: Value) {
+    pub fn emit_gep(&mut self, new_ptr: Operand, base_ptr: Operand, index: Operand) {
         self.irs.push(Stmt::as_gep(new_ptr, base_ptr, index));
     }
 
     /// Emits a binary operation instruction.
-    pub fn emit_biop(&mut self, op: ast::ArithBiOp, left: Value, right: Value, dst: Value) {
+    pub fn emit_biop(&mut self, op: ast::ArithBiOp, left: Operand, right: Operand, dst: Operand) {
         self.irs.push(Stmt::as_biop(op, left, right, dst));
     }
 
     /// Emits a comparison instruction.
-    pub fn emit_cmp(&mut self, op: ast::ComOp, left: Value, right: Value, dst: Value) {
+    pub fn emit_cmp(&mut self, op: ast::ComOp, left: Operand, right: Operand, dst: Operand) {
         self.irs.push(Stmt::as_cmp(op, left, right, dst));
     }
 
     /// Emits a conditional jump instruction.
-    pub fn emit_cjump(&mut self, cond: Value, true_label: BlockLabel, false_label: BlockLabel) {
+    pub fn emit_cjump(&mut self, cond: Operand, true_label: BlockLabel, false_label: BlockLabel) {
         self.irs.push(Stmt::as_cjump(cond, true_label, false_label));
     }
 
@@ -295,12 +200,12 @@ impl FunctionGenerator<'_> {
     }
 
     /// Emits a call instruction.
-    pub fn emit_call(&mut self, func_name: String, result: Option<LocalVariable>, args: Vec<Value>) {
+    pub fn emit_call(&mut self, func_name: String, result: Option<LocalVariable>, args: Vec<Operand>) {
         self.irs.push(Stmt::as_call(func_name, result, args));
     }
 
     /// Emits a return instruction.
-    pub fn emit_return(&mut self, val: Option<Value>) {
+    pub fn emit_return(&mut self, val: Option<Operand>) {
         self.irs.push(Stmt::as_return(val));
     }
 }

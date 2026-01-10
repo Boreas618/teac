@@ -108,11 +108,18 @@ impl<'a> FunctionGenerator<'a> {
 
     pub fn gen_load(&mut self, s: &ir::stmt::LoadStmt) -> Result<(), Error> {
         let dst = vreg_from_value(&s.dst)?;
-        self.vreg_kinds.insert(dst, VRegKind::Int32);
+
+        // Determine register size based on destination type
+        let (kind, size) = match s.dst.dtype() {
+            ir::Dtype::I32 => (VRegKind::Int32, RegSize::W32),
+            ir::Dtype::Pointer { .. } => (VRegKind::Ptr64, RegSize::X64),
+            _ => (VRegKind::Int32, RegSize::W32),
+        };
+        self.vreg_kinds.insert(dst, kind);
 
         let addr = self.lower_ptr_as_addr(&s.ptr)?;
         self.insts.push(Inst::Ldr {
-            size: RegSize::W32,
+            size,
             dst: Reg::V(dst),
             addr,
         });
@@ -184,6 +191,7 @@ impl<'a> FunctionGenerator<'a> {
 
         match s.base_ptr.dtype() {
             ir::Dtype::Pointer { inner, length } => {
+                // For scalar pointer (length == 0): check if struct for member access
                 if *length == 0 {
                     if let ir::Dtype::Struct { type_name } = inner.as_ref() {
                         return self
@@ -249,7 +257,7 @@ impl<'a> FunctionGenerator<'a> {
     fn gen_gep_struct(
         &mut self,
         new_ptr: VReg,
-        idx: &ir::Value,
+        idx: &ir::Operand,
         type_name: &str,
         base_kind: PtrBase,
         base_slot: Option<StackSlot>,
@@ -277,7 +285,7 @@ impl<'a> FunctionGenerator<'a> {
     fn gen_gep_array(
         &mut self,
         new_ptr: VReg,
-        idx: &ir::Value,
+        idx: &ir::Operand,
         inner: &ir::Dtype,
         base_kind: PtrBase,
         base_slot: Option<StackSlot>,
@@ -380,7 +388,7 @@ impl<'a> FunctionGenerator<'a> {
         Ok(())
     }
 
-    fn gen_call_stack_arg(&mut self, arg: &ir::Value, stack_offset: i64) -> Result<(), Error> {
+    fn gen_call_stack_arg(&mut self, arg: &ir::Operand, stack_offset: i64) -> Result<(), Error> {
         if matches!(arg.dtype(), ir::Dtype::Pointer { .. }) {
             self.emit_ptr_to_reg(arg, Reg::P(16))?;
             self.insts.push(Inst::Str {
@@ -424,7 +432,7 @@ impl<'a> FunctionGenerator<'a> {
         Ok(())
     }
 
-    fn gen_call_reg_arg(&mut self, arg: &ir::Value, reg_idx: u8) -> Result<(), Error> {
+    fn gen_call_reg_arg(&mut self, arg: &ir::Operand, reg_idx: u8) -> Result<(), Error> {
         if matches!(arg.dtype(), ir::Dtype::Pointer { .. }) {
             self.emit_ptr_to_reg(arg, Reg::P(reg_idx))?;
         } else {
@@ -456,7 +464,7 @@ impl<'a> FunctionGenerator<'a> {
         }
     }
 
-    fn emit_ptr_to_reg(&mut self, arg: &ir::Value, dst: Reg) -> Result<(), Error> {
+    fn emit_ptr_to_reg(&mut self, arg: &ir::Operand, dst: Reg) -> Result<(), Error> {
         let (base_kind, slot) = self.lower_ptr(arg)?;
         match base_kind {
             PtrBase::Reg(v) => {
@@ -486,10 +494,10 @@ impl<'a> FunctionGenerator<'a> {
         Ok(())
     }
 
-    fn lower_int(&self, val: &ir::Value) -> Result<Operand, Error> {
+    fn lower_int(&self, val: &ir::Operand) -> Result<Operand, Error> {
         match val {
-            ir::Value::Integer(i) => Ok(Operand::Imm(i.value as i64)),
-            ir::Value::Local(l) => {
+            ir::Operand::Integer(i) => Ok(Operand::Imm(i.value as i64)),
+            ir::Operand::Local(l) => {
                 if !matches!(l.dtype, ir::Dtype::I32) {
                     return Err(Error::UnsupportedDtype {
                         dtype: l.dtype.clone(),
@@ -502,13 +510,13 @@ impl<'a> FunctionGenerator<'a> {
                 }
                 Ok(Operand::Reg(Reg::V(VReg(l.index as u32))))
             }
-            ir::Value::Global(_) => Err(Error::UnsupportedOperand {
+            ir::Operand::Global(_) => Err(Error::UnsupportedOperand {
                 what: format!("unsupported int operand: {}", val),
             }),
         }
     }
 
-    fn lower_int_to_reg(&mut self, val: &ir::Value) -> Result<Reg, Error> {
+    fn lower_int_to_reg(&mut self, val: &ir::Operand) -> Result<Reg, Error> {
         match self.lower_int(val)? {
             Operand::Reg(r) => Ok(r),
             Operand::Imm(imm) => {
@@ -523,10 +531,10 @@ impl<'a> FunctionGenerator<'a> {
         }
     }
 
-    fn lower_value(&self, val: &ir::Value) -> Result<(Operand, VRegKind), Error> {
+    fn lower_value(&self, val: &ir::Operand) -> Result<(Operand, VRegKind), Error> {
         match val {
-            ir::Value::Integer(i) => Ok((Operand::Imm(i.value as i64), VRegKind::Int32)),
-            ir::Value::Local(l) => {
+            ir::Operand::Integer(i) => Ok((Operand::Imm(i.value as i64), VRegKind::Int32)),
+            ir::Operand::Local(l) => {
                 let kind = match &l.dtype {
                     ir::Dtype::I32 => VRegKind::Int32,
                     ir::Dtype::Pointer { .. } => {
@@ -548,13 +556,13 @@ impl<'a> FunctionGenerator<'a> {
                 };
                 Ok((Operand::Reg(Reg::V(VReg(l.index as u32))), kind))
             }
-            ir::Value::Global(_) => Err(Error::UnsupportedOperand {
+            ir::Operand::Global(_) => Err(Error::UnsupportedOperand {
                 what: "unexpected global variable in value position".into(),
             }),
         }
     }
 
-    fn lower_ptr_as_addr(&self, val: &ir::Value) -> Result<Addr, Error> {
+    fn lower_ptr_as_addr(&self, val: &ir::Operand) -> Result<Addr, Error> {
         let (base_kind, slot) = self.lower_ptr(val)?;
         match base_kind {
             PtrBase::Stack => {
@@ -572,9 +580,9 @@ impl<'a> FunctionGenerator<'a> {
         }
     }
 
-    fn lower_ptr(&self, val: &ir::Value) -> Result<(PtrBase, Option<StackSlot>), Error> {
+    fn lower_ptr(&self, val: &ir::Operand) -> Result<(PtrBase, Option<StackSlot>), Error> {
         match val {
-            ir::Value::Local(l) => {
+            ir::Operand::Local(l) => {
                 let v = VReg(l.index as u32);
                 if let Some(slot) = self.frame.alloca_slot(v) {
                     return Ok((PtrBase::Stack, Some(slot)));
@@ -586,17 +594,17 @@ impl<'a> FunctionGenerator<'a> {
                     dtype: l.dtype.clone(),
                 })
             }
-            ir::Value::Global(g) => Ok((PtrBase::Global(g.identifier.clone()), None)),
-            ir::Value::Integer(_) => Err(Error::UnsupportedOperand {
+            ir::Operand::Global(g) => Ok((PtrBase::Global(g.identifier.clone()), None)),
+            ir::Operand::Integer(_) => Err(Error::UnsupportedOperand {
                 what: format!("unsupported pointer operand: {}", val),
             }),
         }
     }
 
-    fn lower_index(&self, val: &ir::Value) -> Result<IndexOperand, Error> {
+    fn lower_index(&self, val: &ir::Operand) -> Result<IndexOperand, Error> {
         match val {
-            ir::Value::Integer(i) => Ok(IndexOperand::Imm(i.value as i64)),
-            ir::Value::Local(l) => {
+            ir::Operand::Integer(i) => Ok(IndexOperand::Imm(i.value as i64)),
+            ir::Operand::Local(l) => {
                 if !matches!(l.dtype, ir::Dtype::I32) {
                     return Err(Error::UnsupportedDtype {
                         dtype: l.dtype.clone(),
@@ -609,15 +617,15 @@ impl<'a> FunctionGenerator<'a> {
                 }
                 Ok(IndexOperand::Reg(Reg::V(VReg(l.index as u32))))
             }
-            ir::Value::Global(_) => Err(Error::UnsupportedOperand {
+            ir::Operand::Global(_) => Err(Error::UnsupportedOperand {
                 what: format!("unsupported index operand: {}", val),
             }),
         }
     }
 
-    fn lower_index_imm(&self, val: &ir::Value) -> Result<i64, Error> {
+    fn lower_index_imm(&self, val: &ir::Operand) -> Result<i64, Error> {
         match val {
-            ir::Value::Integer(i) => Ok(i.value as i64),
+            ir::Operand::Integer(i) => Ok(i.value as i64),
             _ => Err(Error::UnsupportedOperand {
                 what: format!("expected immediate struct field index, got: {}", val),
             }),

@@ -119,12 +119,12 @@ impl<'a> AArch64AsmGenerator<'a> {
                 writeln!(w, "\t.word {init}")?;
             }
             ir::Dtype::Pointer { inner, length } => {
-                let len = if *length == usize::MAX { 0 } else { *length };
-                if len == 0 {
+                if *length == 0 {
                     return Err(Error::UnsupportedDtype {
                         dtype: g.dtype.clone(),
                     });
                 }
+                let len = *length;
 
                 let (elem_size, _) = size_align_of_dtype(inner.as_ref(), layouts)?;
                 let total_bytes = (len as i64) * elem_size;
