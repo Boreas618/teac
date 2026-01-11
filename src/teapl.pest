@@ -1,0 +1,242 @@
+// Pest grammar for Teapl language
+
+WHITESPACE = _{ " " | "\t" | "\n" | "\r" }
+
+// Keywords (using @ for atomic rules to prevent whitespace inside)
+kw_let = @{ "let" ~ !ASCII_ALPHANUMERIC }
+kw_fn = @{ "fn" ~ !ASCII_ALPHANUMERIC }
+kw_struct = @{ "struct" ~ !ASCII_ALPHANUMERIC }
+kw_if = @{ "if" ~ !ASCII_ALPHANUMERIC }
+kw_else = @{ "else" ~ !ASCII_ALPHANUMERIC }
+kw_while = @{ "while" ~ !ASCII_ALPHANUMERIC }
+kw_break = @{ "break" ~ !ASCII_ALPHANUMERIC }
+kw_continue = @{ "continue" ~ !ASCII_ALPHANUMERIC }
+kw_ret = @{ "ret" ~ !ASCII_ALPHANUMERIC }
+kw_int = @{ "int" ~ !ASCII_ALPHANUMERIC }
+
+// Operators
+op_arrow = { "->" }
+op_le = { "<=" }
+op_ge = { ">=" }
+op_eq = { "==" }
+op_ne = { "!=" }
+op_and = { "&&" }
+op_or = { "||" }
+op_add = { "+" }
+op_sub = { "-" }
+op_mul = { "*" }
+op_div = { "/" }
+op_assign = { "=" }
+op_not = { "!" }
+op_lt = { "<" }
+op_gt = { ">" }
+
+// Delimiters
+lparen = { "(" }
+rparen = { ")" }
+lbrace = { "{" }
+rbrace = { "}" }
+lbracket = { "[" }
+rbracket = { "]" }
+comma = { "," }
+semicolon = { ";" }
+colon = { ":" }
+dot = { "." }
+
+// Literals and identifiers
+num = @{
+    "0"
+    | (ASCII_NONZERO_DIGIT ~ ASCII_DIGIT*)
+}
+
+identifier = @{
+    !kw_let ~ !kw_fn ~ !kw_struct ~ !kw_if ~ !kw_else ~ !kw_while ~ 
+    !kw_break ~ !kw_continue ~ !kw_ret ~ !kw_int ~
+    (ASCII_ALPHA | "_") ~ (ASCII_ALPHA | ASCII_DIGIT | "_")*
+}
+
+// Types
+type_spec = {
+    kw_int
+    | identifier
+}
+
+// Program structure
+program = {
+    SOI ~ program_element* ~ EOI
+}
+
+program_element = {
+    var_decl_stmt
+    | struct_def
+    | fn_decl_stmt
+    | fn_def
+}
+
+// Struct definition
+struct_def = {
+    kw_struct ~ identifier ~ lbrace ~ var_decl_list ~ rbrace
+}
+
+// Variable declarations
+var_decl_list = {
+    var_decl ~ (comma ~ var_decl)*
+}
+
+var_decl = {
+    identifier ~ lbracket ~ num ~ rbracket ~ colon ~ type_spec  // array with type
+    | identifier ~ colon ~ type_spec  // scalar with type
+    | identifier ~ lbracket ~ num ~ rbracket  // array without type
+    | identifier  // scalar without type
+}
+
+var_decl_stmt = {
+    kw_let ~ var_def ~ semicolon
+    | kw_let ~ var_decl ~ semicolon
+}
+
+var_def = {
+    identifier ~ lbracket ~ num ~ rbracket ~ colon ~ type_spec ~ op_assign ~ lbrace ~ right_val_list ~ rbrace  // array with type
+    | identifier ~ colon ~ type_spec ~ op_assign ~ right_val  // scalar with type
+    | identifier ~ lbracket ~ num ~ rbracket ~ op_assign ~ lbrace ~ right_val_list ~ rbrace  // array without type
+    | identifier ~ op_assign ~ right_val  // scalar without type
+}
+
+// Function declarations and definitions
+fn_decl_stmt = {
+    fn_decl ~ semicolon
+}
+
+fn_decl = {
+    kw_fn ~ identifier ~ lparen ~ param_decl? ~ rparen ~ op_arrow ~ type_spec
+    | kw_fn ~ identifier ~ lparen ~ param_decl? ~ rparen
+}
+
+param_decl = {
+    var_decl_list
+}
+
+fn_def = {
+    fn_decl ~ lbrace ~ code_block_stmt* ~ rbrace
+}
+
+// Statements
+code_block_stmt = {
+    var_decl_stmt
+    | assignment_stmt
+    | call_stmt
+    | if_stmt
+    | while_stmt
+    | return_stmt
+    | continue_stmt
+    | break_stmt
+    | null_stmt
+}
+
+assignment_stmt = {
+    left_val ~ op_assign ~ right_val ~ semicolon
+}
+
+call_stmt = {
+    fn_call ~ semicolon
+}
+
+return_stmt = {
+    kw_ret ~ right_val ~ semicolon
+    | kw_ret ~ semicolon
+}
+
+if_stmt = {
+    kw_if ~ bool_unit_paren ~ lbrace ~ code_block_stmt* ~ rbrace ~ kw_else ~ lbrace ~ code_block_stmt* ~ rbrace
+    | kw_if ~ bool_unit_paren ~ lbrace ~ code_block_stmt* ~ rbrace
+}
+
+while_stmt = {
+    kw_while ~ bool_unit_paren ~ lbrace ~ code_block_stmt* ~ rbrace
+}
+
+break_stmt = {
+    kw_break ~ semicolon
+}
+
+continue_stmt = {
+    kw_continue ~ semicolon
+}
+
+null_stmt = {
+    semicolon
+}
+
+// Expressions
+right_val = {
+    bool_expr
+    | arith_expr
+}
+
+right_val_list = {
+    right_val ~ (comma ~ right_val)*
+}
+
+// Boolean expressions with precedence
+bool_expr = {
+    bool_and_term ~ (op_or ~ bool_and_term)*
+}
+
+bool_and_term = {
+    bool_unit_atom ~ (op_and ~ bool_unit_atom)*
+}
+
+bool_unit_atom = {
+    bool_unit_paren
+    | op_not ~ bool_unit_atom
+}
+
+bool_unit_paren = {
+    lparen ~ bool_expr ~ rparen
+    | lparen ~ expr_unit ~ comp_op ~ expr_unit ~ rparen
+}
+
+comp_op = {
+    op_le | op_ge | op_eq | op_ne | op_lt | op_gt
+}
+
+// Arithmetic expressions with precedence
+arith_expr = {
+    arith_term ~ (arith_add_op ~ arith_term)*
+}
+
+arith_term = {
+    expr_unit ~ (arith_mul_op ~ expr_unit)*
+}
+
+arith_add_op = { op_add | op_sub }
+arith_mul_op = { op_mul | op_div }
+
+// Expression units (primary expressions)
+expr_unit = {
+    lparen ~ arith_expr ~ rparen
+    | fn_call
+    | op_sub ~ num  // negative number
+    | num
+    | identifier ~ lbracket ~ index_expr ~ rbracket ~ dot ~ identifier  // array[idx].member
+    | identifier ~ lbracket ~ index_expr ~ rbracket  // array[idx]
+    | identifier ~ dot ~ identifier  // struct.member
+    | identifier
+}
+
+index_expr = {
+    num | identifier
+}
+
+// Left values (assignable expressions)
+left_val = {
+    identifier ~ lbracket ~ index_expr ~ rbracket ~ dot ~ identifier  // array[idx].member
+    | identifier ~ dot ~ identifier  // struct.member
+    | identifier ~ lbracket ~ index_expr ~ rbracket  // array[idx]
+    | identifier
+}
+
+// Function calls
+fn_call = {
+    identifier ~ lparen ~ right_val_list? ~ rparen
+}

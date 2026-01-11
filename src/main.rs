@@ -1,13 +1,10 @@
 mod asm;
 mod ast;
 mod ir;
+mod parser;
 
 use asm::AsmGenerator;
-
-lalrpop_mod!(pub teapl);
-
 use clap::{Parser, ValueEnum};
-use lalrpop_util::lalrpop_mod;
 use regex::Regex;
 use std::{
     collections::HashSet,
@@ -119,12 +116,10 @@ fn main() {
     });
 
     // Generate abstract syntax tree for the code.
-    let ast = teapl::ProgramParser::new()
-        .parse(&prog)
-        .unwrap_or_else(|e| {
-            eprintln!("Encountered error while parsing: {e}");
-            std::process::exit(1);
-        });
+    let ast = parser::parse(&prog).unwrap_or_else(|e| {
+        eprintln!("Encountered error while parsing: {e}");
+        std::process::exit(1);
+    });
 
     if cli.dump == Some(DumpMode::AST) {
         print!("{}", ast);
