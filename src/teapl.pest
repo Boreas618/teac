@@ -213,27 +213,32 @@ arith_add_op = { op_add | op_sub }
 arith_mul_op = { op_mul | op_div }
 
 // Expression units (primary expressions)
+// Using postfix syntax to handle chaining: id[0].member[1]
 expr_unit = {
     lparen ~ arith_expr ~ rparen
     | fn_call
     | op_sub ~ num  // negative number
     | num
-    | identifier ~ lbracket ~ index_expr ~ rbracket ~ dot ~ identifier  // array[idx].member
-    | identifier ~ lbracket ~ index_expr ~ rbracket  // array[idx]
-    | identifier ~ dot ~ identifier  // struct.member
-    | identifier
+    | identifier ~ expr_suffix*
+}
+
+expr_suffix = {
+    lbracket ~ index_expr ~ rbracket  // array indexing
+    | dot ~ identifier  // member access
 }
 
 index_expr = {
     num | identifier
 }
 
-// Left values (assignable expressions)
+// Left values (assignable expressions) - same pattern
 left_val = {
-    identifier ~ lbracket ~ index_expr ~ rbracket ~ dot ~ identifier  // array[idx].member
-    | identifier ~ dot ~ identifier  // struct.member
-    | identifier ~ lbracket ~ index_expr ~ rbracket  // array[idx]
-    | identifier
+    identifier ~ left_val_suffix*
+}
+
+left_val_suffix = {
+    lbracket ~ index_expr ~ rbracket  // array indexing
+    | dot ~ identifier  // member access
 }
 
 // Function calls

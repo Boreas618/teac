@@ -551,10 +551,9 @@ fn parse_expr_unit(pair: Pair) -> ParseResult<Box<ast::ExprUnit>> {
     let pos = get_pos(&pair);
     let inner_pairs: Vec<_> = pair.into_inner().collect();
     
-    // Filter out delimiters for easier pattern matching
+    // Filter out delimiters for parenthesized expressions
     let filtered: Vec<_> = inner_pairs.iter()
-        .filter(|p| !matches!(p.as_rule(), 
-            Rule::lparen | Rule::rparen | Rule::lbracket | Rule::rbracket | Rule::dot))
+        .filter(|p| !matches!(p.as_rule(), Rule::lparen | Rule::rparen))
         .cloned()
         .collect();
     
@@ -592,85 +591,97 @@ fn parse_expr_unit(pair: Pair) -> ParseResult<Box<ast::ExprUnit>> {
         }));
     }
     
-    // Handle identifier-based expressions (using original inner_pairs for structure)
+    // Handle identifier with optional suffixes
     if inner_pairs.len() >= 1 && inner_pairs[0].as_rule() == Rule::identifier {
         let id = inner_pairs[0].as_str().to_string();
         
-        // Need to look at the actual structure with delimiters
-        // Pattern: identifier ~ lbracket ~ index_expr ~ rbracket ~ dot ~ identifier
-        if inner_pairs.len() == 6 && inner_pairs[1].as_rule() == Rule::lbracket 
-            && inner_pairs[4].as_rule() == Rule::dot {
-            let idx_expr = parse_index_expr(inner_pairs[2].clone())?;
-            let member_id = inner_pairs[5].as_str().to_string();
-            
-            let array_expr = Box::new(ast::ArrayExpr {
-                pos,
-                arr: Box::new(ast::LeftVal {
-                    pos,
-                    inner: ast::LeftValInner::Id(id),
-                }),
-                idx: idx_expr,
-            });
-            
-            let left_val = Box::new(ast::LeftVal {
-                pos,
-                inner: ast::LeftValInner::ArrayExpr(array_expr),
-            });
-            
-            return Ok(Box::new(ast::ExprUnit {
-                pos,
-                inner: ast::ExprUnitInner::MemberExpr(Box::new(ast::MemberExpr {
-                    pos,
-                    struct_id: left_val,
-                    member_id,
-                })),
-            }));
+        // Build base left_val
+        let mut base = Box::new(ast::LeftVal {
+            pos,
+            inner: ast::LeftValInner::Id(id),
+        });
+        
+        // Process suffixes
+        let mut i = 1;
+        while i < inner_pairs.len() {
+            match inner_pairs[i].as_rule() {
+                Rule::expr_suffix => {
+                    base = parse_expr_suffix_to_left_val(base, inner_pairs[i].clone())?;
+                    i += 1;
+                }
+                _ => break,
+            }
         }
         
-        // Pattern: identifier ~ lbracket ~ index_expr ~ rbracket
-        if inner_pairs.len() == 4 && inner_pairs[1].as_rule() == Rule::lbracket {
-            let idx_expr = parse_index_expr(inner_pairs[2].clone())?;
-            
-            return Ok(Box::new(ast::ExprUnit {
-                pos,
-                inner: ast::ExprUnitInner::ArrayExpr(Box::new(ast::ArrayExpr {
-                    pos,
-                    arr: Box::new(ast::LeftVal {
-                        pos,
-                        inner: ast::LeftValInner::Id(id),
-                    }),
-                    idx: idx_expr,
-                })),
-            }));
-        }
-        
-        // Pattern: identifier ~ dot ~ identifier
-        if inner_pairs.len() == 3 && inner_pairs[1].as_rule() == Rule::dot {
-            let member_id = inner_pairs[2].as_str().to_string();
-            
-            return Ok(Box::new(ast::ExprUnit {
-                pos,
-                inner: ast::ExprUnitInner::MemberExpr(Box::new(ast::MemberExpr {
-                    pos,
-                    struct_id: Box::new(ast::LeftVal {
-                        pos,
-                        inner: ast::LeftValInner::Id(id),
-                    }),
-                    member_id,
-                })),
-            }));
-        }
-        
-        // Simple identifier
-        if inner_pairs.len() == 1 {
-            return Ok(Box::new(ast::ExprUnit {
-                pos,
-                inner: ast::ExprUnitInner::Id(id),
-            }));
-        }
+        // Convert final left_val to expr_unit
+        return left_val_to_expr_unit(base);
     }
     
     Err(format!("Invalid expr_unit with {} parts, filtered: {}", inner_pairs.len(), filtered.len()))
+}
+
+fn parse_expr_suffix_to_left_val(base: Box<ast::LeftVal>, suffix: Pair) -> ParseResult<Box<ast::LeftVal>> {
+    let pos = base.pos;
+    
+    for inner in suffix.into_inner() {
+        match inner.as_rule() {
+            Rule::lbracket => continue,
+            Rule::rbracket => continue,
+            Rule::dot => continue,
+            Rule::index_expr => {
+                // Array indexing
+                let idx = parse_index_expr(inner)?;
+                return Ok(Box::new(ast::LeftVal {
+                    pos,
+                    inner: ast::LeftValInner::ArrayExpr(Box::new(ast::ArrayExpr {
+                        pos,
+                        arr: base,
+                        idx,
+                    })),
+                }));
+            }
+            Rule::identifier => {
+                // Member access
+                let member_id = inner.as_str().to_string();
+                return Ok(Box::new(ast::LeftVal {
+                    pos,
+                    inner: ast::LeftValInner::MemberExpr(Box::new(ast::MemberExpr {
+                        pos,
+                        struct_id: base,
+                        member_id,
+                    })),
+                }));
+            }
+            _ => {}
+        }
+    }
+    
+    Ok(base)
+}
+
+fn left_val_to_expr_unit(lval: Box<ast::LeftVal>) -> ParseResult<Box<ast::ExprUnit>> {
+    let pos = lval.pos;
+    
+    match &lval.inner {
+        ast::LeftValInner::Id(id) => {
+            Ok(Box::new(ast::ExprUnit {
+                pos,
+                inner: ast::ExprUnitInner::Id(id.clone()),
+            }))
+        }
+        ast::LeftValInner::ArrayExpr(arr_expr) => {
+            Ok(Box::new(ast::ExprUnit {
+                pos,
+                inner: ast::ExprUnitInner::ArrayExpr(arr_expr.clone()),
+            }))
+        }
+        ast::LeftValInner::MemberExpr(mem_expr) => {
+            Ok(Box::new(ast::ExprUnit {
+                pos,
+                inner: ast::ExprUnitInner::MemberExpr(mem_expr.clone()),
+            }))
+        }
+    }
 }
 
 fn parse_index_expr(pair: Pair) -> ParseResult<Box<ast::IndexExpr>> {
@@ -721,79 +732,64 @@ fn parse_left_val(pair: Pair) -> ParseResult<Box<ast::LeftVal>> {
     
     let id = inner_pairs[0].as_str().to_string();
     
-    // Pattern: identifier ~ lbracket ~ index_expr ~ rbracket ~ dot ~ identifier
-    if inner_pairs.len() == 6 && inner_pairs[1].as_rule() == Rule::lbracket 
-        && inner_pairs[4].as_rule() == Rule::dot {
-        let idx_expr = parse_index_expr(inner_pairs[2].clone())?;
-        let member_id = inner_pairs[5].as_str().to_string();
-        
-        let array_expr = Box::new(ast::ArrayExpr {
-            pos,
-            arr: Box::new(ast::LeftVal {
-                pos,
-                inner: ast::LeftValInner::Id(id),
-            }),
-            idx: idx_expr,
-        });
-        
-        return Ok(Box::new(ast::LeftVal {
-            pos,
-            inner: ast::LeftValInner::MemberExpr(Box::new(ast::MemberExpr {
-                pos,
-                struct_id: Box::new(ast::LeftVal {
+    // Build base left_val
+    let mut base = Box::new(ast::LeftVal {
+        pos,
+        inner: ast::LeftValInner::Id(id),
+    });
+    
+    // Process suffixes
+    let mut i = 1;
+    while i < inner_pairs.len() {
+        match inner_pairs[i].as_rule() {
+            Rule::left_val_suffix => {
+                base = parse_left_val_suffix(base, inner_pairs[i].clone())?;
+                i += 1;
+            }
+            _ => break,
+        }
+    }
+    
+    Ok(base)
+}
+
+fn parse_left_val_suffix(base: Box<ast::LeftVal>, suffix: Pair) -> ParseResult<Box<ast::LeftVal>> {
+    let pos = base.pos;
+    
+    for inner in suffix.into_inner() {
+        match inner.as_rule() {
+            Rule::lbracket => continue,
+            Rule::rbracket => continue,
+            Rule::dot => continue,
+            Rule::index_expr => {
+                // Array indexing
+                let idx = parse_index_expr(inner)?;
+                return Ok(Box::new(ast::LeftVal {
                     pos,
-                    inner: ast::LeftValInner::ArrayExpr(array_expr),
-                }),
-                member_id,
-            })),
-        }));
-    }
-    
-    // Pattern: identifier ~ dot ~ identifier
-    if inner_pairs.len() == 3 && inner_pairs[1].as_rule() == Rule::dot {
-        let member_id = inner_pairs[2].as_str().to_string();
-        
-        return Ok(Box::new(ast::LeftVal {
-            pos,
-            inner: ast::LeftValInner::MemberExpr(Box::new(ast::MemberExpr {
-                pos,
-                struct_id: Box::new(ast::LeftVal {
+                    inner: ast::LeftValInner::ArrayExpr(Box::new(ast::ArrayExpr {
+                        pos,
+                        arr: base,
+                        idx,
+                    })),
+                }));
+            }
+            Rule::identifier => {
+                // Member access
+                let member_id = inner.as_str().to_string();
+                return Ok(Box::new(ast::LeftVal {
                     pos,
-                    inner: ast::LeftValInner::Id(id),
-                }),
-                member_id,
-            })),
-        }));
+                    inner: ast::LeftValInner::MemberExpr(Box::new(ast::MemberExpr {
+                        pos,
+                        struct_id: base,
+                        member_id,
+                    })),
+                }));
+            }
+            _ => {}
+        }
     }
     
-    // Pattern: identifier ~ lbracket ~ index_expr ~ rbracket
-    if inner_pairs.len() == 4 && inner_pairs[1].as_rule() == Rule::lbracket {
-        let idx_expr = parse_index_expr(inner_pairs[2].clone())?;
-        
-        return Ok(Box::new(ast::LeftVal {
-            pos,
-            inner: ast::LeftValInner::ArrayExpr(Box::new(ast::ArrayExpr {
-                pos,
-                arr: Box::new(ast::LeftVal {
-                    pos,
-                    inner: ast::LeftValInner::Id(id),
-                }),
-                idx: idx_expr,
-            })),
-        }));
-    }
-    
-    // Simple identifier
-    if inner_pairs.len() == 1 {
-        return Ok(Box::new(ast::LeftVal {
-            pos,
-            inner: ast::LeftValInner::Id(id),
-        }));
-    }
-    
-    Err(format!("Invalid left_val with {} parts - rules: {:?}", 
-        inner_pairs.len(),
-        inner_pairs.iter().map(|p| p.as_rule()).collect::<Vec<_>>()))
+    Ok(base)
 }
 
 // Function declarations and definitions
