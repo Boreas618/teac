@@ -4,7 +4,7 @@ A Rust-based compiler for the [Teapl language](https://github.com/hxuhack/compil
 
 ## Features
 
-- **LALRPOP-based parser** with preprocessor support (`#use` directives)
+- **Pest-based parser** with preprocessor support (`#use` directives)
 - **SSA-style intermediate representation** compatible with LLVM IR
 - **Native AArch64 backend** with register allocation
 - **Cross-platform testing** via Docker on macOS
@@ -66,8 +66,9 @@ src/
 ├── asm/          # Assembly backends
 │   ├── aarch64/  # AArch64 code generation & register allocation
 │   └── common/   # Shared backend utilities
+├── parser.rs     # Pest-based parser implementation
 ├── main.rs       # CLI entry point
-└── teapl.lalrpop # Grammar definition
+└── teapl.pest    # Grammar definition
 ```
 
 ## Testing
@@ -99,6 +100,6 @@ cargo test
 
 ## Resources
 
-- [LALRPOP Repository](https://github.com/lalrpop/lalrpop)
-- [LALRPOP Documentation](https://lalrpop.github.io/lalrpop/)
+- [Pest Parser Repository](https://github.com/pest-parser/pest)
+- [Pest Book (Documentation)](https://pest.rs/book/)
 - [Teaplc in C++ (Yi Sun's Fall 2024 Implementation)](https://github.com/Boreas618/Compilers-24Fall)
