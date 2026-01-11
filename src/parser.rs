@@ -287,8 +287,6 @@ fn parse_right_val(pair: Pair) -> ParseResult<Box<ast::RightVal>> {
     Err("Invalid right_val".to_string())
 }
 
-// Continue in next part...
-
 fn parse_bool_expr(pair: Pair) -> ParseResult<Box<ast::BoolExpr>> {
     let pos = get_pos(&pair);
     let inner_pairs: Vec<_> = pair.into_inner().collect();
@@ -370,9 +368,9 @@ fn parse_bool_unit_atom(pair: Pair) -> ParseResult<Box<ast::BoolUnit>> {
     let pos = get_pos(&pair);
     let inner_pairs: Vec<_> = pair.into_inner().collect();
     
-    // Check for NOT operation
-    if inner_pairs.len() == 1 && inner_pairs[0].as_rule() == Rule::bool_unit_atom {
-        let cond = parse_bool_unit_atom(inner_pairs[0].clone())?;
+    // Check for NOT operation: op_not ~ bool_unit_atom
+    if inner_pairs.len() == 2 && inner_pairs[0].as_rule() == Rule::op_not {
+        let cond = parse_bool_unit_atom(inner_pairs[1].clone())?;
         return Ok(Box::new(ast::BoolUnit {
             pos,
             inner: ast::BoolUnitInner::BoolUOpExpr(Box::new(ast::BoolUOpExpr {
