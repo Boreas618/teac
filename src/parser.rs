@@ -232,7 +232,7 @@ fn parse_var_def(pair: Pair) -> ParseResult<Box<ast::VarDef>> {
             pos,
             identifier,
             type_specifier,
-            inner: ast::VarDefInner::Array(Box::new(ast::VarDefArray { pos, len, vals })),
+            inner: ast::VarDefInner::Array(Box::new(ast::VarDefArray { len, vals })),
         }))
     } else {
         // Scalar definition
@@ -250,7 +250,7 @@ fn parse_var_def(pair: Pair) -> ParseResult<Box<ast::VarDef>> {
             pos,
             identifier,
             type_specifier,
-            inner: ast::VarDefInner::Scalar(Box::new(ast::VarDefScalar { pos, val })),
+            inner: ast::VarDefInner::Scalar(Box::new(ast::VarDefScalar { val })),
         }))
     }
 }
@@ -266,19 +266,15 @@ fn parse_right_val_list(pair: Pair) -> ParseResult<Vec<ast::RightVal>> {
 }
 
 fn parse_right_val(pair: Pair) -> ParseResult<Box<ast::RightVal>> {
-    let pos = get_pos(&pair);
-    
     for inner in pair.into_inner() {
         match inner.as_rule() {
             Rule::bool_expr => {
                 return Ok(Box::new(ast::RightVal {
-                    pos,
                     inner: ast::RightValInner::BoolExpr(parse_bool_expr(inner)?),
                 }));
             }
             Rule::arith_expr => {
                 return Ok(Box::new(ast::RightVal {
-                    pos,
                     inner: ast::RightValInner::ArithExpr(parse_arith_expr(inner)?),
                 }));
             }
@@ -290,7 +286,6 @@ fn parse_right_val(pair: Pair) -> ParseResult<Box<ast::RightVal>> {
 }
 
 fn parse_bool_expr(pair: Pair) -> ParseResult<Box<ast::BoolExpr>> {
-    let pos = get_pos(&pair);
     let inner_pairs: Vec<_> = pair.into_inner().collect();
     
     if inner_pairs.is_empty() {
@@ -308,7 +303,6 @@ fn parse_bool_expr(pair: Pair) -> ParseResult<Box<ast::BoolExpr>> {
             expr = Box::new(ast::BoolExpr {
                 pos: expr.pos,
                 inner: ast::BoolExprInner::BoolBiOpExpr(Box::new(ast::BoolBiOpExpr {
-                    pos: expr.pos,
                     op: ast::BoolBiOp::Or,
                     left: expr,
                     right,
@@ -324,7 +318,6 @@ fn parse_bool_expr(pair: Pair) -> ParseResult<Box<ast::BoolExpr>> {
 }
 
 fn parse_bool_and_term(pair: Pair) -> ParseResult<Box<ast::BoolExpr>> {
-    let pos = get_pos(&pair);
     let inner_pairs: Vec<_> = pair.into_inner().collect();
     
     if inner_pairs.is_empty() {
@@ -351,7 +344,6 @@ fn parse_bool_and_term(pair: Pair) -> ParseResult<Box<ast::BoolExpr>> {
             expr = Box::new(ast::BoolExpr {
                 pos: expr.pos,
                 inner: ast::BoolExprInner::BoolBiOpExpr(Box::new(ast::BoolBiOpExpr {
-                    pos: expr.pos,
                     op: ast::BoolBiOp::And,
                     left: expr,
                     right: right_expr,
@@ -376,7 +368,6 @@ fn parse_bool_unit_atom(pair: Pair) -> ParseResult<Box<ast::BoolUnit>> {
         return Ok(Box::new(ast::BoolUnit {
             pos,
             inner: ast::BoolUnitInner::BoolUOpExpr(Box::new(ast::BoolUOpExpr {
-                pos,
                 op: ast::BoolUOp::Not,
                 cond,
             })),
@@ -419,7 +410,6 @@ fn parse_bool_unit_paren(pair: Pair) -> ParseResult<Box<ast::BoolUnit>> {
         return Ok(Box::new(ast::BoolUnit {
             pos,
             inner: ast::BoolUnitInner::ComExpr(Box::new(ast::ComExpr {
-                pos,
                 op,
                 left,
                 right,
@@ -446,7 +436,6 @@ fn parse_comp_op(pair: Pair) -> ParseResult<ast::ComOp> {
 }
 
 fn parse_arith_expr(pair: Pair) -> ParseResult<Box<ast::ArithExpr>> {
-    let pos = get_pos(&pair);
     let inner_pairs: Vec<_> = pair.into_inner().collect();
     
     if inner_pairs.is_empty() {
@@ -466,7 +455,6 @@ fn parse_arith_expr(pair: Pair) -> ParseResult<Box<ast::ArithExpr>> {
             expr = Box::new(ast::ArithExpr {
                 pos: expr.pos,
                 inner: ast::ArithExprInner::ArithBiOpExpr(Box::new(ast::ArithBiOpExpr {
-                    pos: expr.pos,
                     op,
                     left: expr,
                     right,
@@ -482,7 +470,6 @@ fn parse_arith_expr(pair: Pair) -> ParseResult<Box<ast::ArithExpr>> {
 }
 
 fn parse_arith_term(pair: Pair) -> ParseResult<Box<ast::ArithExpr>> {
-    let pos = get_pos(&pair);
     let inner_pairs: Vec<_> = pair.into_inner().collect();
     
     if inner_pairs.is_empty() {
@@ -510,7 +497,6 @@ fn parse_arith_term(pair: Pair) -> ParseResult<Box<ast::ArithExpr>> {
             expr = Box::new(ast::ArithExpr {
                 pos: expr.pos,
                 inner: ast::ArithExprInner::ArithBiOpExpr(Box::new(ast::ArithBiOpExpr {
-                    pos: expr.pos,
                     op,
                     left: expr,
                     right,
@@ -795,12 +781,9 @@ fn parse_left_val_suffix(base: Box<ast::LeftVal>, suffix: Pair) -> ParseResult<B
 // Function declarations and definitions
 
 fn parse_fn_decl_stmt(pair: Pair) -> ParseResult<Box<ast::FnDeclStmt>> {
-    let pos = get_pos(&pair);
-    
     for inner in pair.into_inner() {
         if inner.as_rule() == Rule::fn_decl {
             return Ok(Box::new(ast::FnDeclStmt {
-                pos,
                 fn_decl: parse_fn_decl(inner)?,
             }));
         }
@@ -932,7 +915,6 @@ fn parse_code_block_stmt(pair: Pair) -> ParseResult<Box<ast::CodeBlockStmt>> {
 }
 
 fn parse_assignment_stmt(pair: Pair) -> ParseResult<Box<ast::AssignmentStmt>> {
-    let pos = get_pos(&pair);
     let mut left_val = None;
     let mut right_val = None;
     
@@ -945,19 +927,15 @@ fn parse_assignment_stmt(pair: Pair) -> ParseResult<Box<ast::AssignmentStmt>> {
     }
     
     Ok(Box::new(ast::AssignmentStmt {
-        pos,
         left_val: left_val.ok_or("Missing left_val")?,
         right_val: right_val.ok_or("Missing right_val")?,
     }))
 }
 
 fn parse_call_stmt(pair: Pair) -> ParseResult<Box<ast::CallStmt>> {
-    let pos = get_pos(&pair);
-    
     for inner in pair.into_inner() {
         if inner.as_rule() == Rule::fn_call {
             return Ok(Box::new(ast::CallStmt {
-                pos,
                 fn_call: parse_fn_call(inner)?,
             }));
         }
@@ -967,7 +945,6 @@ fn parse_call_stmt(pair: Pair) -> ParseResult<Box<ast::CallStmt>> {
 }
 
 fn parse_return_stmt(pair: Pair) -> ParseResult<Box<ast::ReturnStmt>> {
-    let pos = get_pos(&pair);
     let mut val = None;
     
     for inner in pair.into_inner() {
@@ -976,7 +953,7 @@ fn parse_return_stmt(pair: Pair) -> ParseResult<Box<ast::ReturnStmt>> {
         }
     }
     
-    Ok(Box::new(ast::ReturnStmt { pos, val }))
+    Ok(Box::new(ast::ReturnStmt { val }))
 }
 
 fn parse_if_stmt(pair: Pair) -> ParseResult<Box<ast::IfStmt>> {

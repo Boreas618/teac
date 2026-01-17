@@ -63,7 +63,6 @@ pub struct MemberExpr {
 /// Unary arithmetic expression.
 #[derive(Debug, Clone)]
 pub struct ArithUExpr {
-    pub pos: Pos,
     pub op: ArithUOp,
     pub expr: Box<ExprUnit>,
 }
@@ -71,7 +70,6 @@ pub struct ArithUExpr {
 /// Binary arithmetic expression.
 #[derive(Debug, Clone)]
 pub struct ArithBiOpExpr {
-    pub pos: Pos,
     pub op: ArithBiOp,
     pub left: Box<ArithExpr>,
     pub right: Box<ArithExpr>,
@@ -98,7 +96,6 @@ pub struct ArithExpr {
 /// Comparison expression.
 #[derive(Debug, Clone)]
 pub struct ComExpr {
-    pub pos: Pos,
     pub op: ComOp,
     pub left: Box<ExprUnit>,
     pub right: Box<ExprUnit>,
@@ -107,7 +104,6 @@ pub struct ComExpr {
 /// Unary boolean expression.
 #[derive(Debug, Clone)]
 pub struct BoolUOpExpr {
-    pub pos: Pos,
     pub op: BoolUOp,
     pub cond: Box<BoolUnit>,
 }
@@ -115,7 +111,6 @@ pub struct BoolUOpExpr {
 /// Binary boolean expression.
 #[derive(Debug, Clone)]
 pub struct BoolBiOpExpr {
-    pub pos: Pos,
     pub op: BoolBiOp,
     pub left: Box<BoolExpr>,
     pub right: Box<BoolExpr>,
@@ -191,7 +186,6 @@ pub enum RightValInner {
 /// A right-value expression.
 #[derive(Debug, Clone)]
 pub struct RightVal {
-    pub pos: Pos,
     pub inner: RightValInner,
 }
 

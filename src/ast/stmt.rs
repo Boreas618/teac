@@ -11,7 +11,6 @@ use super::types::Pos;
 /// An assignment statement.
 #[derive(Debug, Clone)]
 pub struct AssignmentStmt {
-    pub pos: Pos,
     pub left_val: Box<LeftVal>,
     pub right_val: Box<RightVal>,
 }
@@ -19,14 +18,12 @@ pub struct AssignmentStmt {
 /// A function call statement.
 #[derive(Debug, Clone)]
 pub struct CallStmt {
-    pub pos: Pos,
     pub fn_call: Box<FnCall>,
 }
 
 /// A return statement.
 #[derive(Debug, Clone)]
 pub struct ReturnStmt {
-    pub pos: Pos,
     pub val: Option<Box<RightVal>>,
 }
 
