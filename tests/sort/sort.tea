@@ -5,8 +5,8 @@ let base:i32 = 16;
 fn getMaxNum( n:i32, arr: [i32; 0])->i32{
     let return_:i32 = 0;
     let i:i32 = 0;
-    while (i < n){
-        if (arr[i] > return_) {return_ = arr[i];}
+    while i < n{
+        if arr[i] > return_ {return_ = arr[i];}
         i = i + 1;
     }
     ret return_;
@@ -15,7 +15,7 @@ fn getMaxNum( n:i32, arr: [i32; 0])->i32{
 fn getNumPos(num:i32, pos:i32)->i32{
     let tmp:i32 = 1;
     let i:i32 = 0;
-    while (i < pos){
+    while i < pos{
         num = num / base;
         i = i + 1;
     }
@@ -29,20 +29,20 @@ fn radixSort( bitround:i32, a: [i32; 0], l:i32, r:i32){
     
     let iii:i32=0;
 
-    while(iii<base){
+    while iii<base{
         head[iii]=0;
         tail[iii]=0;
         cnt[iii]=0;
         iii=iii+1;
     }
 
-    if ((bitround == -1) || ((l + 1) >= r)) {
+    if (bitround == -1) || ((l + 1) >= r) {
         ret;
     }
 
     let i :i32=l;
     
-    while (i < r){
+    while i < r{
         let tmp_1:i32=getNumPos(a[i], bitround);
         let tmp_2:i32=getNumPos(a[i], bitround);
         cnt[tmp_2]
@@ -53,18 +53,18 @@ fn radixSort( bitround:i32, a: [i32; 0], l:i32, r:i32){
     tail[0] = l + cnt[0];
 
     i = 1;
-    while (i < base){
+    while i < base{
         let tmp:i32=i-1;
         head[i] = tail[tmp];
         tail[i] = head[i] + cnt[i];
         i = i + 1;
     }
     i = 0;
-    while (i < base){
-        while (head[i] < tail[i]){
+    while i < base{
+        while head[i] < tail[i]{
             let tmp:i32 =head[i];
             let  v:i32 = a[tmp];
-            while (getNumPos(v, bitround) != i){
+            while getNumPos(v, bitround) != i{
                 let t:i32 = v;
                 let tmp_1:i32=getNumPos(t, bitround);
                 tmp_1=head[tmp_1];
@@ -89,8 +89,8 @@ fn radixSort( bitround:i32, a: [i32; 0], l:i32, r:i32){
     tail[0] = l + cnt[0];
 
     i = 0;
-    while (i < base){
-        if (i > 0){
+    while i < base{
+        if i > 0{
             let tmp_1:i32=i-1;
             head[i] = tail[tmp_1];
             tail[i] = head[i] + cnt[i];
@@ -109,7 +109,7 @@ fn main()->i32{
     let n:i32 = std::getint();
 
     let i_:i32=0;
-    while(i_<n){
+    while i_<n{
         a[i_]=std::getint();
         i_=i_+1;
     }
@@ -119,12 +119,12 @@ fn main()->i32{
     radixSort(8, a, 0, n);
 
     let i:i32 = 0;
-    while (i < n){
+    while i < n{
         ans = ans + i * (a[i]-(a[i] / (2 + i))*(2+i));
         i = i + 1;
     }
 
-    if (ans < 0){
+    if ans < 0{
         ans = 0-ans;
     }
     std::timer_stop(117);

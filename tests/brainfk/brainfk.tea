@@ -9,7 +9,7 @@ let ptr:i32 = 0;
 fn read_program() {
   let i:i32 = 0;
   let len:i32 = std::getint();
-  while (i < len) {
+  while i < len {
     program[i] = std::getch();
     i = i + 1;
   }
@@ -20,35 +20,35 @@ fn interpret(input: [i32; 65536]) {
   let cur_char:i32;
   let loop:i32;
   let i:i32 = 0;
-  while (input[i]!=0) {
+  while input[i]!=0 {
     cur_char = input[i];
-    if (cur_char == 62) {
+    if cur_char == 62 {
       ptr = ptr + 1;
     }
-    if (cur_char == 60) {
+    if cur_char == 60 {
       ptr = ptr - 1;
     }
-    if (cur_char == 43) {
+    if cur_char == 43 {
       tape[ptr] = tape[ptr] + 1;
     }
-    if (cur_char == 45) {
+    if cur_char == 45 {
       tape[ptr] = tape[ptr] - 1;
     }
-    if (cur_char == 46) {
+    if cur_char == 46 {
       std::putch(tape[ptr]);
     }
-    if (cur_char == 44) {
+    if cur_char == 44 {
       tape[ptr] = std::getch();
     }
-    if ((cur_char == 93) && (tape[ptr]!=0)) {
+    if (cur_char == 93) && (tape[ptr]!=0) {
       loop = 1;
-      while (loop > 0) {
+      while loop > 0 {
         i = i - 1;
         cur_char = input[i];
-        if (cur_char == 91) {
+        if cur_char == 91 {
           loop = loop - 1;
         }
-        if (cur_char == 93) {
+        if cur_char == 93 {
           loop = loop + 1;
         }
       }

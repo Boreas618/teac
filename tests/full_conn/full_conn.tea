@@ -2,11 +2,11 @@ use std;
 
 fn relu_reg(a:i32)->i32
 {
-    if (a > 127)
+    if a > 127
     {
         ret 127;
     }
-    if (a < 0)
+    if a < 0
     {
         ret 0;
     }
@@ -39,17 +39,17 @@ fn main()->i32
     std::timer_start(37);
     let N:i32 = std::getint();
     let a: [array2D; 5];
-    while (N > 0) {
+    while N > 0 {
         let i:i32 = 0;
-        while (i < 5) {
+        while i < 5 {
             let j:i32 = 0;
-            while (j < 5) {
+            while j < 5 {
                 a[i].a[j] = std::getint();
                 j = j + 1;
             }
             i = i + 1;
         }
-        if (model(a)!=0) {
+        if model(a)!=0 {
             std::putch(99); std::putch(97); std::putch(116); std::putch(10);
         } else {
             std::putch(100); std::putch(111); std::putch(103); std::putch(10);

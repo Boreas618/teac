@@ -14,11 +14,11 @@ fn heap_ajust(arr: [i32; 10], start:i32, end:i32)->i32 {
     dad = start;  
     let son:i32;
     son = dad * 2 + 1;  
-    while (son < (end + 1)) {
+    while son < (end + 1) {
         let temp:i32 = son + 1;
-        if ((son < end) && (arr[son] < arr[temp]))
+        if (son < end) && (arr[son] < arr[temp])
             {son = son + 1;  }
-        if (arr[dad] > arr[son])
+        if arr[dad] > arr[son]
             {ret 0;}  
         else {
             dad = swap(arr,dad,son);  
@@ -33,13 +33,13 @@ fn heap_sort(arr: [i32; 10], len:i32)->i32 {
     let i:i32;  
     let tmp:i32;
     i = len / 2 - 1;
-    while ( i > -1) {
+    while  i > -1 {
         tmp = len - 1;
         tmp = heap_ajust(arr, i, tmp);  
         i = i - 1;
     }    
     i = len - 1;   
-    while ( i > 0) {  
+    while  i > 0 {  
         let tmp0:i32;
         tmp0 = 0;
         tmp = swap(arr,tmp0,i);
@@ -59,7 +59,7 @@ fn main()->i32{
     let i:i32;
     i = 0;
     i = heap_sort(a, n);
-    while (i < n) {
+    while i < n {
         let tmp:i32;
         tmp = a[i];
         std::putint(tmp);

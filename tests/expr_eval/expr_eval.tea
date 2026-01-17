@@ -15,7 +15,7 @@ fn next_char()->i32
 
 fn is_space(c:i32)->i32
 {
-    if ((c == 32) || (c == 10))
+    if (c == 32) || (c == 10)
     {
         ret 1;
     }
@@ -27,7 +27,7 @@ fn is_space(c:i32)->i32
 
 fn is_num(c:i32)->i32
 {
-    if ((c >= 48) && (c <= 57))
+    if (c >= 48) && (c <= 57)
     {
         ret 1;
     }
@@ -39,14 +39,14 @@ fn is_num(c:i32)->i32
 
 fn next_token()->i32
 {
-    while (is_space(last_char)!=0)
+    while is_space(last_char)!=0
     {
         next_char();
     }
-    if (is_num(last_char)!=0)
+    if is_num(last_char)!=0
     {
         num = last_char - 48;
-        while (is_num(next_char())!=0)
+        while is_num(next_char())!=0
         {
             num = num * 10 + last_char - 48;
         }
@@ -75,9 +75,9 @@ fn panic()->i32
 
 fn get_op_prec(op:i32)->i32
 {
-    if ((op == 43) || (op == 45))
+    if (op == 43) || (op == 45)
         {ret 10;}
-    if ((op == 42) || (op == 47) || (op == 37))
+    if (op == 42) || (op == 47) || (op == 37)
         {ret 20;}
     ret 0;
 }
@@ -115,23 +115,23 @@ fn mod(x:i32,y:i32)->i32
 
 fn eval_op(op:i32, lhs:i32, rhs:i32)->i32
 {
-    if (op == 43)
+    if op == 43
     {
         ret lhs + rhs;
     }
-    if (op == 45)
+    if op == 45
     {
         ret lhs - rhs;
     }
-    if (op == 42)
+    if op == 42
     {
         ret lhs * rhs;
     }
-    if (op == 47)
+    if op == 47
     {
         ret lhs / rhs;
     }
-    if (op == 37)
+    if op == 37
     {
         ret mod(lhs,rhs);
     }
@@ -143,25 +143,25 @@ fn eval()->i32
     let oprs: [i32; 256];
     let ops: [i32; 256];
     let i:i32 = 0;
-    while(i < 256)
+    while i < 256
     {
         oprs[i] = 0;
         ops[i] = 0;
         i = i + 1;
     }
-    if (cur_token != TOKEN_NUM)
+    if cur_token != TOKEN_NUM
     {
         ret panic();
     }
     stack_push(oprs, num);
     next_token();
-    while (cur_token == TOKEN_OTHER)
+    while cur_token == TOKEN_OTHER
     {
         let op:i32 = other;
-        if (get_op_prec(op) == 0)
+        if get_op_prec(op) == 0
         {    break;}
         next_token();
-        while ((stack_size(ops)!=0) && (get_op_prec(stack_peek(ops)) >= get_op_prec(op)))
+        while (stack_size(ops)!=0) && (get_op_prec(stack_peek(ops)) >= get_op_prec(op))
         {
             let cur_op:i32 = stack_pop(ops);
             let rhs:i32 = stack_pop(oprs);
@@ -169,13 +169,13 @@ fn eval()->i32
             stack_push(oprs, eval_op(cur_op, lhs, rhs));
         }
         stack_push(ops, op);
-        if (cur_token != TOKEN_NUM)
+        if cur_token != TOKEN_NUM
         {    ret panic();}
         stack_push(oprs, num);
         next_token();
     }
     next_token();
-    while (stack_size(ops)!=0)
+    while stack_size(ops)!=0
     {
         let cur_op:i32 = stack_pop(ops);
         let rhs:i32 = stack_pop(oprs);
@@ -191,7 +191,7 @@ fn main()->i32
     let count:i32 = std::getint();
     std::getch();
     next_token();
-    while (count!=0) {
+    while count!=0 {
         std::putint(eval());
         std::putch(10);
         count = count - 1;

@@ -1,36 +1,36 @@
 use std;
 
 fn canJump(nums: [i32; 10], n:i32)->i32 {
-    if(n == 1)
+    if n == 1
     {
         ret 1;
     }
-    if(nums[0] > (n - 2))
+    if nums[0] > (n - 2)
     {
         ret 1;
     }
     let dp: [i32; 10];
     let i:i32;
     i = 0;
-    while(i<(n-1)){
+    while i<(n-1){
         dp[i] = 0;
         i = i+1;
     }
     let temp:i32 = n - 1;
     dp[temp] = 1;
     i = n - 2;
-    while(i > -1){
+    while i > -1{
         let j:i32;
-        if(nums[i] < (n - 1 - i)){
+        if nums[i] < (n - 1 - i){
             j = nums[i];
         }
         else
         {
             j = n - 1 - i;
         }
-        while(j > -1){
+        while j > -1{
             temp = i+j;
-            if(dp[temp] != 0){
+            if dp[temp] != 0{
                 dp[i] = 1;
             }
             j = j - 1;

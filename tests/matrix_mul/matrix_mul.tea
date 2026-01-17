@@ -34,7 +34,7 @@ fn main()->i32
     let c0: [i32; 6];let c1: [i32; 3];let c2: [i32; 3];
     let i:i32;
     i=0;
-    while(i<M)
+    while i<M
     {
         a0[i]=i;
         a1[i]=i;
@@ -46,7 +46,7 @@ fn main()->i32
     }
     i=mul( a0, a1,  a2, b0, b1, b2, c0, c1, c2);
     let x:i32;
-    while(i<N)
+    while i<N
     {
         x = c0[i];
         std::putint(x);
@@ -55,7 +55,7 @@ fn main()->i32
     x = 10;
     i=0;
     std::putch(x);
-    while(i<N)
+    while i<N
     {
         x = c1[i];
         std::putint(x);
@@ -65,7 +65,7 @@ fn main()->i32
     x = 10;
     i=0;
     std::putch(x);
-    while(i<N)
+    while i<N
     {
         x = c2[i];
         std::putint(x);

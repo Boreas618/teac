@@ -32,19 +32,19 @@ fn loop1(x:i32, y:i32)->i32 {
   let  f:i32;
   let  g:i32;
   a = 0;
-  while ((a < x) && (a < y)) {
+  while (a < x) && (a < y) {
     b = 0;
-    while (b < 2) {
+    while b < 2 {
       c = 0;
-      while (c < 3) {
+      while c < 3 {
         d = 0;
-        while (d < 4) {
+        while d < 4 {
           e = 0;
-          while (e < 5) {
+          while e < 5 {
             f = 0;
-            while (f < 6) {
+            while f < 6 {
               g = 0;
-              while (g < 2) {
+              while g < 2 {
                 arr1[a].array[b].array[c].array[d].array[e].array[f].array[g]= a + b + c + d + e + f + g + x + y;
                 g = g + 1;
               }
@@ -71,19 +71,19 @@ fn loop2()->i32 {
   let  f:i32;
   let  g:i32;
   a = 0;
-  while (a < 10) {
+  while a < 10 {
     b = 0;
-    while (b < 2) {
+    while b < 2 {
       c = 0;
-      while (c < 3) {
+      while c < 3 {
         d = 0;
-        while (d < 2) {
+        while d < 2 {
           e = 0;
-          while (e < 4) {
+          while e < 4 {
             f = 0;
-            while (f < 8) {
+            while f < 8 {
               g = 0;
-              while (g < 7) {
+              while g < 7 {
                 arr2[a].array[b].array[c].array[d].array[e].array[f].array[g] = a + b + d + g;
                 g = g + 1;
               }
@@ -111,40 +111,40 @@ fn loop3( h:i32,  i:i32,  j:i32,  k:i32, l:i32,  m:i32,  n:i32)->i32 {
   let  g:i32;
   let  ans:i32 = 0;
   a = 0;
-  while (a < 10) {
+  while a < 10 {
     b = 0;
-    while (b < 100) {
+    while b < 100 {
       c = 0;
-      while (c < 1000) {
+      while c < 1000 {
         d = 0;
-        while (d < 10000) {
+        while d < 10000 {
           e = 0;
-          while (e < 100000) {
+          while e < 100000 {
             f = 0;
-            while (f < 1000000) {
+            while f < 1000000 {
               g = 0;
-              while (g < 10000000) {
+              while g < 10000000 {
                 ans = ans-(ans/ 817)*817 + arr1[a].array[b].array[c].array[d].array[e].array[f].array[g] + arr2[a].array[b].array[c].array[d].array[e].array[f].array[g];
                 g = g + 1;
-                if (g >= n) {break;}
+                if g >= n {break;}
               }
               f = f + 1;
-              if (f >= m) {break;}
+              if f >= m {break;}
             }
             e = e + 1;
-            if (e >= l) {break;}
+            if e >= l {break;}
           }
           d = d + 1;
-          if (d >= k) {break;}
+          if d >= k {break;}
         }
         c = c + 1;
-        if (c >= j) {break;}
+        if c >= j {break;}
       }
       b = b + 1;
-      if (b >= i) {break;}
+      if b >= i {break;}
     }
     a = a + 1;
-    if (a >= h) {break;}
+    if a >= h {break;}
   }
   ret ans;
 }
