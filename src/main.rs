@@ -93,6 +93,34 @@ fn preprocess_file(path: &Path, visited: &mut HashSet<PathBuf>) -> io::Result<St
     Ok(out)
 }
 
+fn write_output<W: Write>(
+    dump_mode: DumpMode,
+    module_generator: &ir::ModuleGenerator,
+    writer: &mut W,
+) {
+    match dump_mode {
+        DumpMode::IR => {
+            // Save the generated LLVM IR.
+            module_generator.output(writer).unwrap_or_else(|e| {
+                eprintln!("Encountered error outputting: {e}");
+                std::process::exit(1);
+            });
+        }
+        DumpMode::S => {
+            // Lower IR to AArch64 assembly.
+            let asm_gen = asm::AArch64AsmGenerator::new(
+                &module_generator.module,
+                &module_generator.registry,
+            );
+            asm_gen.output(writer).unwrap_or_else(|e| {
+                eprintln!("Encountered error while generating assembly: {e}");
+                std::process::exit(1);
+            });
+        }
+        DumpMode::AST => unreachable!("handled above"),
+    }
+}
+
 fn main() {
     // Parse the command.
     let cli = Cli::parse();
@@ -145,53 +173,11 @@ fn main() {
                 );
                 std::process::exit(1);
             }));
-
-            match cli.dump {
-                DumpMode::IR => {
-                    // Save the generated LLVM IR.
-                    module_generator.output(&mut writer).unwrap_or_else(|e| {
-                        eprintln!("Encountered error outputing: {e}");
-                        std::process::exit(1);
-                    });
-                }
-                DumpMode::S => {
-                    // Lower IR to AArch64 assembly.
-                    let asm_gen = asm::AArch64AsmGenerator::new(
-                        &module_generator.module,
-                        &module_generator.registry,
-                    );
-                    asm_gen.output(&mut writer).unwrap_or_else(|e| {
-                        eprintln!("Encountered error while generating assembly: {e}");
-                        std::process::exit(1);
-                    });
-                }
-                DumpMode::AST => unreachable!("handled above"),
-            }
+            write_output(cli.dump, &module_generator, &mut writer);
         }
         None => {
             let mut writer = BufWriter::new(io::stdout());
-
-            match cli.dump {
-                DumpMode::IR => {
-                    // Save the generated LLVM IR.
-                    module_generator.output(&mut writer).unwrap_or_else(|e| {
-                        eprintln!("Encountered error outputing: {e}");
-                        std::process::exit(1);
-                    });
-                }
-                DumpMode::S => {
-                    // Lower IR to AArch64 assembly.
-                    let asm_gen = asm::AArch64AsmGenerator::new(
-                        &module_generator.module,
-                        &module_generator.registry,
-                    );
-                    asm_gen.output(&mut writer).unwrap_or_else(|e| {
-                        eprintln!("Encountered error while generating assembly: {e}");
-                        std::process::exit(1);
-                    });
-                }
-                DumpMode::AST => unreachable!("handled above"),
-            }
+            write_output(cli.dump, &module_generator, &mut writer);
         }
     }
 }
