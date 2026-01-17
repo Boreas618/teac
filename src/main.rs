@@ -30,7 +30,7 @@ enum DumpMode {
 /// Command-line interface structure for the TeaLang compiler.
 /// 
 /// This compiler translates TeaLang source code through multiple stages:
-/// 1. Preprocessing (handle #use directives)
+/// 1. Preprocessing (handle use directives)
 /// 2. Parsing (source → AST)
 /// 3. IR generation (AST → LLVM-style IR)
 /// 4. Code generation (IR → AArch64 assembly)
@@ -51,10 +51,10 @@ struct Cli {
     output: Option<String>,
 }
 
-/// Preprocesses a TeaLang source file by recursively expanding `#use` directives.
+/// Preprocesses a TeaLang source file by recursively expanding `use` directives.
 /// 
 /// This function implements a simple preprocessor that handles module inclusion:
-/// - Detects `#use module_name` directives in the source code
+/// - Detects `use module_name` directives in the source code
 /// - Recursively loads and expands the corresponding `.teah` header files
 /// - Prevents infinite loops by detecting include cycles
 /// 
@@ -63,7 +63,7 @@ struct Cli {
 /// * `visited` - Set of already-visited files for cycle detection
 /// 
 /// # Returns
-/// The fully expanded source code with all `#use` directives replaced by their content
+/// The fully expanded source code with all `use` directives replaced by their content
 /// 
 /// # Errors
 /// Returns an error if:
@@ -84,17 +84,17 @@ fn preprocess_file(path: &Path, visited: &mut HashSet<PathBuf>) -> io::Result<St
     let mut src = String::new();
     File::open(path)?.read_to_string(&mut src)?;
 
-    // Regular expression to match `#use` directives
-    // Matches full line: `#use name` (with optional whitespace, optional semicolon)
+    // Regular expression to match `use` directives
+    // Matches full line: `use name` (with optional whitespace, optional semicolon)
     // Examples:
-    //   #use math
-    //   #use   std   ;
-    let re = Regex::new(r#"(?m)^\s*#use\s+([A-Za-z0-9_]+)\s*;?\s*$"#).unwrap();
+    //   use math
+    //   use   std   ;
+    let re = Regex::new(r#"(?m)^\s*use\s+([A-Za-z0-9_]+)\s*;?\s*$"#).unwrap();
 
     let mut out = String::with_capacity(src.len());
     let mut last = 0usize;
 
-    // Process each `#use` directive found in the file
+    // Process each `use` directive found in the file
     for caps in re.captures_iter(&src) {
         let m = caps.get(0).unwrap();
         let module = caps.get(1).unwrap().as_str();
@@ -111,7 +111,7 @@ fn preprocess_file(path: &Path, visited: &mut HashSet<PathBuf>) -> io::Result<St
             io::Error::new(
                 e.kind(),
                 format!(
-                    "while expanding #use {} in {}: {}",
+                    "while expanding use {} in {}: {}",
                     module,
                     path.to_string_lossy(),
                     e
@@ -119,7 +119,7 @@ fn preprocess_file(path: &Path, visited: &mut HashSet<PathBuf>) -> io::Result<St
             )
         })?;
 
-        // Replace the `#use` directive with the expanded header content
+        // Replace the `use` directive with the expanded header content
         out.push_str(&header_expanded);
         last = m.end();
     }
@@ -187,7 +187,7 @@ fn main() {
     let input_path = cli.input;
 
     // Stage 1: Preprocess the input file
-    // Recursively expands #use directives and checks for include cycles
+    // Recursively expands use directives and checks for include cycles
     let mut visited = HashSet::new();
     let prog = preprocess_file(Path::new(&input_path), &mut visited).unwrap_or_else(|e| {
         eprintln!("Error: Failed to preprocess input file '{input_path}': {e}");

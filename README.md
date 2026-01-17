@@ -4,7 +4,7 @@ A Rust-based compiler for the [TeaLang language](https://github.com/hxuhack/comp
 
 ## Features
 
-- **Pest-based parser** with preprocessor support (`#use` directives)
+- **Pest-based parser** with preprocessor support (`use` directives)
 - **SSA-style intermediate representation** compatible with LLVM IR
 - **Native AArch64 backend** with register allocation
 - **Cross-platform testing** via Docker on macOS
