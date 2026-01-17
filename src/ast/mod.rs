@@ -48,8 +48,7 @@ pub use stmt::{
 // Declarations
 pub use decl::{
     FnDecl, FnDeclStmt, FnDef, ParamDecl, StructDef, VarDecl, VarDeclArray, VarDeclInner,
-    VarDeclList, VarDeclScalar, VarDeclStmt, VarDeclStmtInner, VarDef, VarDefArray, VarDefInner,
-    VarDefScalar,
+    VarDeclStmt, VarDeclStmtInner, VarDef, VarDefArray, VarDefInner, VarDefScalar,
 };
 
 // Program

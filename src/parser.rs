@@ -108,7 +108,7 @@ fn parse_var_decl(pair: Pair) -> ParseResult<Box<ast::VarDecl>> {
             Ok(Box::new(ast::VarDecl {
                 identifier,
                 type_specifier: Rc::new(None),
-                inner: ast::VarDeclInner::Scalar(Box::new(ast::VarDeclScalar {})),
+                inner: ast::VarDeclInner::Scalar(()),
             }))
         }
         3 => {
@@ -117,7 +117,7 @@ fn parse_var_decl(pair: Pair) -> ParseResult<Box<ast::VarDecl>> {
             Ok(Box::new(ast::VarDecl {
                 identifier,
                 type_specifier,
-                inner: ast::VarDeclInner::Scalar(Box::new(ast::VarDeclScalar {})),
+                inner: ast::VarDeclInner::Scalar(()),
             }))
         }
         4 => {

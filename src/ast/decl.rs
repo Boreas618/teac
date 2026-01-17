@@ -9,10 +9,6 @@ use std::ops::Deref;
 // Variable Declarations
 // =============================================================================
 
-/// Scalar variable declaration marker.
-#[derive(Debug, Clone)]
-pub struct VarDeclScalar {}
-
 /// Array variable declaration.
 #[derive(Debug, Clone)]
 pub struct VarDeclArray {
@@ -22,7 +18,7 @@ pub struct VarDeclArray {
 /// Variable declaration variants.
 #[derive(Debug, Clone)]
 pub enum VarDeclInner {
-    Scalar(Box<VarDeclScalar>),
+    Scalar(()),
     Array(Box<VarDeclArray>),
 }
 
