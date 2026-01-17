@@ -1,22 +1,22 @@
 #use std;
 
-let len:int = 20;
+let len:i32 = 20;
 
-fn main()->int
+fn main()->i32
 {	
 	timer_start(97);
-	let i:int;
-	let j:int;
-	let t:int;
-	let n:int;
-	let temp:int;
-	let mult1[20]:int = {1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0};
-	let mult2[20]:int = {2, 3, 4, 2, 5, 7 ,9 ,9, 0, 1, 9, 8, 7, 6, 4, 3, 2, 1, 2, 2};
-	let len1:int = len;
-	let len2:int = len;
-	let c1[25]:int;
-	let c2[25]:int;
-	let result[40]:int = {0};
+	let i:i32;
+	let j:i32;
+	let t:i32;
+	let n:i32;
+	let temp:i32;
+	let mult1[20]:i32 = {1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0};
+	let mult2[20]:i32 = {2, 3, 4, 2, 5, 7 ,9 ,9, 0, 1, 9, 8, 7, 6, 4, 3, 2, 1, 2, 2};
+	let len1:i32 = len;
+	let len2:i32 = len;
+	let c1[25]:i32;
+	let c2[25]:i32;
+	let result[40]:i32 = {0};
 
 	i = 0;
 	while (i < len1) {
@@ -48,7 +48,7 @@ fn main()->int
 			temp = result[n] + t * c1[j];
 			if(temp >= 10) {
 				result[n] = (temp);
-				let tmp:int=n-1;
+				let tmp:i32=n-1;
 				result[tmp] = result[tmp] + temp / 10;
 			}
 			else{

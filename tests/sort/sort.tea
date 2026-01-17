@@ -1,10 +1,10 @@
 #use std;
 
-let base:int = 16;
+let base:i32 = 16;
 
-fn getMaxNum( n:int, arr[0]:int)->int{
-    let return_:int = 0;
-    let i:int = 0;
+fn getMaxNum( n:i32, arr[0]:i32)->i32{
+    let return_:i32 = 0;
+    let i:i32 = 0;
     while (i < n){
         if (arr[i] > return_) {return_ = arr[i];}
         i = i + 1;
@@ -12,9 +12,9 @@ fn getMaxNum( n:int, arr[0]:int)->int{
     ret return_;
 }
 
-fn getNumPos(num:int, pos:int)->int{
-    let tmp:int = 1;
-    let i:int = 0;
+fn getNumPos(num:i32, pos:i32)->i32{
+    let tmp:i32 = 1;
+    let i:i32 = 0;
     while (i < pos){
         num = num / base;
         i = i + 1;
@@ -22,12 +22,12 @@ fn getNumPos(num:int, pos:int)->int{
     ret num -(num/ base)*base;
 }
 
-fn radixSort( bitround:int, a[0]:int, l:int, r:int){
-    let head[16]:int;
-    let tail[16]:int;
-    let cnt[16] :int;
+fn radixSort( bitround:i32, a[0]:i32, l:i32, r:i32){
+    let head[16]:i32;
+    let tail[16]:i32;
+    let cnt[16] :i32;
     
-    let iii:int=0;
+    let iii:i32=0;
 
     while(iii<base){
         head[iii]=0;
@@ -40,11 +40,11 @@ fn radixSort( bitround:int, a[0]:int, l:int, r:int){
         ret;
     }
 
-    let i :int=l;
+    let i :i32=l;
     
     while (i < r){
-        let tmp_1:int=getNumPos(a[i], bitround);
-        let tmp_2:int=getNumPos(a[i], bitround);
+        let tmp_1:i32=getNumPos(a[i], bitround);
+        let tmp_2:i32=getNumPos(a[i], bitround);
         cnt[tmp_2]
             = cnt[tmp_1] + 1;
         i = i + 1;
@@ -54,7 +54,7 @@ fn radixSort( bitround:int, a[0]:int, l:int, r:int){
 
     i = 1;
     while (i < base){
-        let tmp:int=i-1;
+        let tmp:i32=i-1;
         head[i] = tail[tmp];
         tail[i] = head[i] + cnt[i];
         i = i + 1;
@@ -62,21 +62,21 @@ fn radixSort( bitround:int, a[0]:int, l:int, r:int){
     i = 0;
     while (i < base){
         while (head[i] < tail[i]){
-            let tmp:int =head[i];
-            let  v:int = a[tmp];
+            let tmp:i32 =head[i];
+            let  v:i32 = a[tmp];
             while (getNumPos(v, bitround) != i){
-                let t:int = v;
-                let tmp_1:int=getNumPos(t, bitround);
+                let t:i32 = v;
+                let tmp_1:i32=getNumPos(t, bitround);
                 tmp_1=head[tmp_1];
                 v = a[tmp_1];
                 tmp_1=getNumPos(t, bitround);
                 tmp_1=head[tmp_1];
                 a[tmp_1] = t;
                 tmp_1=getNumPos(t, bitround);
-                let tmp_2:int=getNumPos(t, bitround);
+                let tmp_2:i32=getNumPos(t, bitround);
                 head[tmp_2] = head[tmp_1] + 1;
             }
-            let tmp_1:int=head[i];
+            let tmp_1:i32=head[i];
             a[tmp_1] = v;
             head[i] = head[i] + 1;
         }
@@ -91,7 +91,7 @@ fn radixSort( bitround:int, a[0]:int, l:int, r:int){
     i = 0;
     while (i < base){
         if (i > 0){
-            let tmp_1:int=i-1;
+            let tmp_1:i32=i-1;
             head[i] = tail[tmp_1];
             tail[i] = head[i] + cnt[i];
         }
@@ -102,13 +102,13 @@ fn radixSort( bitround:int, a[0]:int, l:int, r:int){
     ret;
 }
 
-let a[30000010]:int;
-let ans:int;
+let a[30000010]:i32;
+let ans:i32;
 
-fn main()->int{
-    let n:int = getint();
+fn main()->i32{
+    let n:i32 = getint();
 
-    let i_:int=0;
+    let i_:i32=0;
     while(i_<n){
         a[i_]=getint();
         i_=i_+1;
@@ -118,7 +118,7 @@ fn main()->int{
    
     radixSort(8, a, 0, n);
 
-    let i:int = 0;
+    let i:i32 = 0;
     while (i < n){
         ans = ans + i * (a[i]-(a[i] / (2 + i))*(2+i));
         i = i + 1;

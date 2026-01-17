@@ -1,23 +1,23 @@
 #use std;
 
-let max:int = 1073741824;
-fn checkrange(num: int)->int{
+let max:i32 = 1073741824;
+fn checkrange(num:i32)->i32{
     while (num > max) {num = num - max;}
     while (num < 0) {num = num + max;}
     ret num;
 }
 
-fn mod(x:int,y:int)->int{
+fn mod(x:i32,y:i32)->i32{
     ret x-(x/y)*y;
 }
 
-fn reduce( kernelid:int, x:int, y:int)->int{
+fn reduce( kernelid:i32, x:i32, y:i32)->i32{
     if (kernelid == 0) {
         ret checkrange(x+y);
     }
     if (kernelid == 1) {
-        let return_:int = 0;
-        let i:int = 1;
+        let return_:i32 = 0;
+        let i:i32 = 1;
         while (i < max){
             if (mod(x/i,2) == mod(y/i,2)) {
                 return_ = return_ * 2;
@@ -34,8 +34,8 @@ fn reduce( kernelid:int, x:int, y:int)->int{
         else {ret y;}
     }
     if (kernelid == 3){
-        let return_:int = 0;
-        let i:int = 1;
+        let return_:i32 = 0;
+        let i:i32 = 1;
         while (i < max){
             if ((mod(x/i,2) == 1) ||( mod(y/i,2) == 1)){
                 return_ = return_ * 2 + 1;
@@ -48,8 +48,8 @@ fn reduce( kernelid:int, x:int, y:int)->int{
         ret return_;
     }
     if (kernelid == 4){
-        let return_:int = 0;
-        let i:int = 1;
+        let return_:i32 = 0;
+        let i:i32 = 1;
         while (i < max){
             if ((mod(x/i,2) == 1) &&( mod(y/i,2) == 1)){
                 return_ = return_ * 2 + 1;
@@ -64,19 +64,19 @@ fn reduce( kernelid:int, x:int, y:int)->int{
     ret 0;
 }
 
-fn getvalue(array[0]:int,  n:int,  m:int,  x:int,  y:int)->int{
+fn getvalue(array[0]:i32,  n:i32,  m:i32,  x:i32,  y:i32)->i32{
     if ((x < 0) || (y < 0) || (x >= n) ||( y >= m)){ ret 0;}
-    let tmp:int = x * m + y;
+    let tmp:i32 = x * m + y;
     ret array[tmp];
 }
 
-fn convn( kernelid:int, input[0]:int, output[0]:int, n:int, m:int, c:int)->int{
-    let i:int = 0;
-    let j:int= 0;
-    let x:int;
-    let y:int;
-    let curr:int;
-    let true:int = 1;
+fn convn( kernelid:i32, input[0]:i32, output[0]:i32, n:i32, m:i32, c:i32)->i32{
+    let i:i32 = 0;
+    let j:i32= 0;
+    let x:i32;
+    let y:i32;
+    let curr:i32;
+    let true:i32 = 1;
     while (true == true){
         j = 0;
         while (true == true){
@@ -92,7 +92,7 @@ fn convn( kernelid:int, input[0]:int, output[0]:int, n:int, m:int, c:int)->int{
                 x = x + 1;
                 if (x >= (i + c / 2)) {break;}
             }
-            let tmp:int=i * m + j;
+            let tmp:i32=i * m + j;
             output[tmp] = curr;
             j = j + 1;
             if (j >= m) {break;}
@@ -103,25 +103,25 @@ fn convn( kernelid:int, input[0]:int, output[0]:int, n:int, m:int, c:int)->int{
     ret 0;
 }
 
-let a[10000000]:int;
-let  b[10000000]:int;
-let  kernelid[10000]:int;
+let a[10000000]:i32;
+let  b[10000000]:i32;
+let  kernelid[10000]:i32;
 
-fn memmove( dst[0]:int,  src[0]:int,  n:int){
-    let i:int = 0;
+fn memmove( dst[0]:i32,  src[0]:i32,  n:i32){
+    let i:i32 = 0;
     while (i < n){
         dst[i] = src[i];
         i = i + 1;
     }
 }
 
-fn main()->int{
-    let c:int = getint();
-    let n:int = getint();
-    let m:int = getint();
-    let len:int;
+fn main()->i32{
+    let c:i32 = getint();
+    let n:i32 = getint();
+    let m:i32 = getint();
+    let len:i32;
     len=getint();
-    let ii:int=0;
+    let ii:i32=0;
     while(ii<len){
         a[ii]=getint();
         ii=ii+1;
@@ -132,10 +132,10 @@ fn main()->int{
         kernelid[ii]=getint();
         ii=ii+1;
     }
-    let task:int =len;
+    let task:i32 =len;
     
     timer_start(209);
-    let i:int = 0;
+    let i:i32 = 0;
     while (i < task){
         convn(kernelid[i], a, b, n, m, c);
         memmove(a, b, n * m);

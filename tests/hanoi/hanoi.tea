@@ -1,11 +1,11 @@
 #use std;
 
-fn move(x:int, y:int)
+fn move(x:i32, y:i32)
 {
     putint(x); putch(32); putint(y); putch(44); putch(32);
 }
 
-fn hanoi(n:int, one:int, two:int, three:int)
+fn hanoi(n:i32, one:i32, two:i32, three:i32)
 {
     if (n == 1)
     {
@@ -18,10 +18,10 @@ fn hanoi(n:int, one:int, two:int, three:int)
     }
 }
 
-fn main()->int
+fn main()->i32
 {   
     timer_start(21);
-    let n:int = getint();
+    let n:i32 = getint();
     while (n > 0) {
         hanoi(getint(), 1, 2, 3);
         putch(10);

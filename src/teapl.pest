@@ -12,7 +12,7 @@ kw_while = @{ "while" ~ !ASCII_ALPHANUMERIC }
 kw_break = @{ "break" ~ !ASCII_ALPHANUMERIC }
 kw_continue = @{ "continue" ~ !ASCII_ALPHANUMERIC }
 kw_ret = @{ "ret" ~ !ASCII_ALPHANUMERIC }
-kw_int = @{ "int" ~ !ASCII_ALPHANUMERIC }
+kw_int = @{ "i32" ~ !ASCII_ALPHANUMERIC }
 
 // Operators
 op_arrow = { "->" }

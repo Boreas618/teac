@@ -1,18 +1,18 @@
 #use std;
 
-fn uniquePaths(m:int, n:int)->int {
+fn uniquePaths(m:i32, n:i32)->i32 {
     if((m == 1) || (n == 1))
     {
         ret 1;
     }
 
-    let dp[9]:int;
-    let i:int;
-    let j:int;
+    let dp[9]:i32;
+    let i:i32;
+    let j:i32;
     i = 0;
-    let temp1:int;
-    let temp2:int;
-    let temp3:int;
+    let temp1:i32;
+    let temp2:i32;
+    let temp3:i32;
     while(i<m){
         temp1 = i*3+n-1;
         dp[temp1]=1;
@@ -38,10 +38,10 @@ fn uniquePaths(m:int, n:int)->int {
     }
     ret dp[0];
 }
-fn main()->int{
+fn main()->i32{
     timer_start(40);
-    let res:int;
-    let n:int;
+    let res:i32;
+    let n:i32;
     n=3;
     res = uniquePaths(n, n);
     timer_stop(45);

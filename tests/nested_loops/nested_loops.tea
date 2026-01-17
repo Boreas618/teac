@@ -1,7 +1,7 @@
 #use std;
 
 struct my_struct_1{
-  array[7]:int
+  array[7]:i32
 }
 struct my_struct_2{
   array[8]:my_struct_1
@@ -23,14 +23,14 @@ struct my_struct_6{
 let arr1[10]:my_struct_6;
 let arr2[10]:my_struct_6;
 
-fn loop1(x:int, y:int)->int {
-  let  a:int;
-  let  b:int;
-  let  c:int;
-  let  d:int;
-  let  e:int;
-  let  f:int;
-  let  g:int;
+fn loop1(x:i32, y:i32)->i32 {
+  let  a:i32;
+  let  b:i32;
+  let  c:i32;
+  let  d:i32;
+  let  e:i32;
+  let  f:i32;
+  let  g:i32;
   a = 0;
   while ((a < x) && (a < y)) {
     b = 0;
@@ -62,14 +62,14 @@ fn loop1(x:int, y:int)->int {
   }
 }
 
-fn loop2()->int {
-  let  a:int;
-  let  b:int;
-  let  c:int;
-  let  d:int;
-  let  e:int;
-  let  f:int;
-  let  g:int;
+fn loop2()->i32 {
+  let  a:i32;
+  let  b:i32;
+  let  c:i32;
+  let  d:i32;
+  let  e:i32;
+  let  f:i32;
+  let  g:i32;
   a = 0;
   while (a < 10) {
     b = 0;
@@ -101,15 +101,15 @@ fn loop2()->int {
   }
 }
 
-fn loop3( h:int,  i:int,  j:int,  k:int, l:int,  m:int,  n:int)->int {
-  let  a:int;
-  let  b:int;
-  let  c:int;
-  let  d:int;
-  let  e:int;
-  let  f:int;
-  let  g:int;
-  let  ans:int = 0;
+fn loop3( h:i32,  i:i32,  j:i32,  k:i32, l:i32,  m:i32,  n:i32)->i32 {
+  let  a:i32;
+  let  b:i32;
+  let  c:i32;
+  let  d:i32;
+  let  e:i32;
+  let  f:i32;
+  let  g:i32;
+  let  ans:i32 = 0;
   a = 0;
   while (a < 10) {
     b = 0;
@@ -149,17 +149,17 @@ fn loop3( h:int,  i:int,  j:int,  k:int, l:int,  m:int,  n:int)->int {
   ret ans;
 }
 
-fn main()->int {
+fn main()->i32 {
   timer_start(97);
-  let x:int = getint();
-  let y:int = getint();
-  let h:int = getint();
-  let i:int = getint();
-  let j:int = getint();
-  let k:int = getint();
-  let l:int = getint();
-  let m:int = getint();
-  let n:int = getint();
+  let x:i32 = getint();
+  let y:i32 = getint();
+  let h:i32 = getint();
+  let i:i32 = getint();
+  let j:i32 = getint();
+  let k:i32 = getint();
+  let l:i32 = getint();
+  let m:i32 = getint();
+  let n:i32 = getint();
   loop1(x, y);
   loop2();
   n=loop3(h, i, j, k, l, m, n);

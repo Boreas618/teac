@@ -1,18 +1,18 @@
 #use std;
 
-let n:int;
+let n:i32;
 
-fn bubblesort(arr[0]:int)->int {
-    let i:int;
-    let j:int;
+fn bubblesort(arr[0]:i32)->i32 {
+    let i:i32;
+    let j:i32;
     i =0; 
     while(i < (n-1)){
         j = 0;
         while(j < (n-i-1)){
-            let tmp_i:int=j+1;
+            let tmp_i:i32=j+1;
             if (arr[j] > arr[tmp_i]) {
-                let tmp:int;
-                let tmp2:int=j+1;
+                let tmp:i32;
+                let tmp2:i32=j+1;
                 tmp = arr[tmp2];
                 arr[tmp2] = arr[j];
                 arr[j] = tmp;       
@@ -24,37 +24,37 @@ fn bubblesort(arr[0]:int)->int {
     ret 0;
 }
 
-fn insertsort(a[0]:int)-> int{
-    let i:int;
+fn insertsort(a[0]:i32)->i32{
+    let i:i32;
     i = 1;
     while(i<n)     
     {
-        let temp:int;
+        let temp:i32;
         temp=a[i]; 
-        let j:int;
+        let j:i32;
         j=i-1;
         while((j>-1)&&(temp<a[j]))
         {   
-            let tmp:int=j+1;
+            let tmp:i32=j+1;
             a[tmp]=a[j];  
             j = j - 1;
         }
-        let tmp:int=j+1;
+        let tmp:i32=j+1;
         a[tmp]=temp; 
         i = i + 1;
     }
     ret 0;
 }
 
-fn QuickSort(arr[0]:int, low:int,  high:int)->int
+fn QuickSort(arr[0]:i32, low:i32,  high:i32)->i32
 {
     if (low < high)
     {
-        let i:int;
+        let i:i32;
         i = low;
-        let j:int;
+        let j:i32;
         j = high;
-        let k:int;
+        let k:i32;
         k = arr[low];
         while (i < j)
         {
@@ -82,7 +82,7 @@ fn QuickSort(arr[0]:int, low:int,  high:int)->int
         }
  
         arr[i] = k;
-        let tmp:int;
+        let tmp:i32;
         tmp = i - 1;
         tmp = QuickSort(arr, low, tmp);
         tmp = i + 1;
@@ -92,11 +92,11 @@ fn QuickSort(arr[0]:int, low:int,  high:int)->int
 }
 
 
-fn getMid(arr[0]:int) ->int{
-    let mid:int;
+fn getMid(arr[0]:i32) ->i32{
+    let mid:i32;
     if (((n /2)*2) == n) {
         mid = n / 2;
-        let tmp:int=mid-1;
+        let tmp:i32=mid-1;
         ret (arr[mid] + arr[tmp]) / 2;
     } else {
         mid = n / 2;
@@ -104,20 +104,20 @@ fn getMid(arr[0]:int) ->int{
     }
 }
 
-fn getMost(arr[0]:int)->int {
-    let count[1000]:int;
-    let i:int;
+fn getMost(arr[0]:i32)->i32 {
+    let count[1000]:i32;
+    let i:i32;
     i = 0;
     while (i < 1000) {
         count[i] = 0;
         i = i + 1;
     }
     i = 0;
-    let max:int;
-    let number:int;
+    let max:i32;
+    let number:i32;
     max = 0;
     while (i < n) {
-        let num:int;
+        let num:i32;
         num = arr[i];
         count[num] = count[num] + 1;
         if (count[num] > max) {
@@ -129,10 +129,10 @@ fn getMost(arr[0]:int)->int {
     ret number;
 }
 
-fn revert(arr[0]:int)->int {
-    let temp:int;
-    let i:int;
-    let j:int;
+fn revert(arr[0]:i32)->i32 {
+    let temp:i32;
+    let i:i32;
+    let j:i32;
     i = 0;
     j = 0;
     while (i < j) {
@@ -145,8 +145,8 @@ fn revert(arr[0]:int)->int {
     ret 0;
 }
 
-fn arrCopy(src[0]:int, target[0]:int)->int {
-    let i:int;
+fn arrCopy(src[0]:i32, target[0]:i32)->i32 {
+    let i:i32;
     i = 0;
     while (i < n) {
         target[i] = src[i];
@@ -155,10 +155,10 @@ fn arrCopy(src[0]:int, target[0]:int)->int {
     ret 0;
 }
 
-fn calSum(arr[0]:int, stride:int)->int {
-    let sum:int;
+fn calSum(arr[0]:i32, stride:i32)->i32 {
+    let sum:i32;
     sum = 0;
-    let i:int;
+    let i:i32;
     i = 0;
     while (i < n) {
         sum = sum + arr[i];
@@ -173,12 +173,12 @@ fn calSum(arr[0]:int, stride:int)->int {
     ret 0;
 }
 
-fn avgPooling(arr[0]:int, stride:int)->int {
-    let sum:int;
-    let i:int;
+fn avgPooling(arr[0]:i32, stride:i32)->i32 {
+    let sum:i32;
+    let i:i32;
     i = 0;
     sum = 0;
-    let lastnum:int;
+    let lastnum:i32;
     while (i < n) {
         if (i < (stride - 1)) {
             sum = sum + arr[i];
@@ -188,7 +188,7 @@ fn avgPooling(arr[0]:int, stride:int)->int {
             arr[0] = sum / stride;
         } else {
             sum = sum + arr[i] - lastnum;
-            let tmp:int;
+            let tmp:i32;
             tmp=i - stride + 1;
             lastnum = arr[tmp];
             arr[tmp] = sum / stride;
@@ -204,11 +204,11 @@ fn avgPooling(arr[0]:int, stride:int)->int {
     ret 0;
 }
 
-fn main()->int {
+fn main()->i32 {
     timer_start(209);
     n = 32;
-    let arr[32]:int;
-    let result[32]:int;
+    let arr[32]:i32;
+    let result[32]:i32;
     arr[0] = 7;
     arr[1] = 23;
     arr[2] = 89;
@@ -241,10 +241,10 @@ fn main()->int {
     arr[29] = 28;
     arr[30] = 1;
     arr[31] = 290;
-    let t:int;
+    let t:i32;
     t = arrCopy(arr, result);
     t = revert(result);
-    let i:int;
+    let i:i32;
     i = 0;
     while (i < 32) {
         t = result[i];
