@@ -1,7 +1,7 @@
 #use std;
 
 let max:i32 = 1073741824;
-fn checkrange(num: int)->i32{
+fn checkrange(num:i32)->i32{
     while (num > max) {num = num - max;}
     while (num < 0) {num = num + max;}
     ret num;
