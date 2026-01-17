@@ -48,14 +48,12 @@ pub type VarDeclList = Vec<VarDecl>;
 /// Scalar variable definition.
 #[derive(Debug, Clone)]
 pub struct VarDefScalar {
-    pub pos: Pos,
     pub val: Box<RightVal>,
 }
 
 /// Array variable definition.
 #[derive(Debug, Clone)]
 pub struct VarDefArray {
-    pub pos: Pos,
     pub len: usize,
     pub vals: RightValList,
 }
@@ -136,7 +134,6 @@ pub struct FnDef {
 /// A function declaration statement.
 #[derive(Debug, Clone)]
 pub struct FnDeclStmt {
-    pub pos: Pos,
     pub fn_decl: Box<FnDecl>,
 }
 
