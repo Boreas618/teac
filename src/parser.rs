@@ -5,7 +5,7 @@ use std::rc::Rc;
 use crate::ast;
 
 /// Parser for the TeaLang programming language.
-/// Uses Pest parser generator with grammar defined in teapl.pest
+/// Uses Pest parser generator with grammar defined in the teapl.pest file
 #[derive(Parser)]
 #[grammar = "teapl.pest"]
 pub struct TeaLangParser;
