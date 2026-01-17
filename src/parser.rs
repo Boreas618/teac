@@ -129,10 +129,11 @@ fn parse_var_decl(pair: Pair) -> ParseResult<Box<ast::VarDecl>> {
                 inner: ast::VarDeclInner::Array(Box::new(ast::VarDeclArray { len })),
             }))
         }
-        6 => {
-            // identifier [ num ] : type_spec - array with type
-            let len = parse_num(inner_pairs[2].clone())? as usize;
-            let type_specifier = parse_type_spec(inner_pairs[5].clone())?;
+        7 => {
+            // identifier : [ type_spec ; num ] - array with type (Rust style)
+            // Pattern: identifier colon lbracket type_spec semicolon num rbracket
+            let type_specifier = parse_type_spec(inner_pairs[3].clone())?;
+            let len = parse_num(inner_pairs[5].clone())? as usize;
             Ok(Box::new(ast::VarDecl {
                 identifier,
                 type_specifier,

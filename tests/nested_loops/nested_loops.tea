@@ -1,27 +1,27 @@
 #use std;
 
 struct my_struct_1{
-  array[7]:i32
+  array: [i32; 7]
 }
 struct my_struct_2{
-  array[8]:my_struct_1
+  array: [my_struct_1; 8]
 }
 struct my_struct_3{
-  array[5]:my_struct_2
+  array: [my_struct_2; 5]
 }
 struct my_struct_4{
-  array[4]:my_struct_3
+  array: [my_struct_3; 4]
 }
 struct my_struct_5{
-  array[3]:my_struct_4
+  array: [my_struct_4; 3]
 }
 struct my_struct_6{
-  array[2]:my_struct_5
+  array: [my_struct_5; 2]
 }
 
 
-let arr1[10]:my_struct_6;
-let arr2[10]:my_struct_6;
+let arr1: [my_struct_6; 10];
+let arr2: [my_struct_6; 10];
 
 fn loop1(x:i32, y:i32)->i32 {
   let  a:i32;

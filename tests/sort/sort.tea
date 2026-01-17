@@ -2,7 +2,7 @@
 
 let base:i32 = 16;
 
-fn getMaxNum( n:i32, arr[0]:i32)->i32{
+fn getMaxNum( n:i32, arr: [i32; 0])->i32{
     let return_:i32 = 0;
     let i:i32 = 0;
     while (i < n){
@@ -22,9 +22,9 @@ fn getNumPos(num:i32, pos:i32)->i32{
     ret num -(num/ base)*base;
 }
 
-fn radixSort( bitround:i32, a[0]:i32, l:i32, r:i32){
-    let head[16]:i32;
-    let tail[16]:i32;
+fn radixSort( bitround:i32, a: [i32; 0], l:i32, r:i32){
+    let head: [i32; 16];
+    let tail: [i32; 16];
     let cnt[16] :i32;
     
     let iii:i32=0;
@@ -102,7 +102,7 @@ fn radixSort( bitround:i32, a[0]:i32, l:i32, r:i32){
     ret;
 }
 
-let a[30000010]:i32;
+let a: [i32; 30000010];
 let ans:i32;
 
 fn main()->i32{

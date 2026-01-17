@@ -23,14 +23,14 @@ fn quickread()->i32{
 
 let n:i32;
 let m:i32;
-let to[5005]:i32;
-let next[5005]:i32;
-let head[1005]:i32;
+let to: [i32; 5005];
+let next: [i32; 5005];
+let head: [i32; 1005];
 let cnt:i32 = 0;
-let que[1005]:i32;
+let que: [i32; 1005];
 let h:i32;
 let tail:i32;
-let inq[1005]:i32;
+let inq: [i32; 1005];
 
 fn addedge(from:i32, To:i32){
 	to[cnt] = To;

@@ -1,6 +1,6 @@
 #use std;
 
-fn canJump(nums[10]:i32, n:i32)->i32 {
+fn canJump(nums: [i32; 10], n:i32)->i32 {
     if(n == 1)
     {
         ret 1;
@@ -9,7 +9,7 @@ fn canJump(nums[10]:i32, n:i32)->i32 {
     {
         ret 1;
     }
-    let dp[10]:i32;
+    let dp: [i32; 10];
     let i:i32;
     i = 0;
     while(i<(n-1)){
@@ -44,7 +44,7 @@ fn canJump(nums[10]:i32, n:i32)->i32 {
 fn main()->i32{
     timer_start(42);
     let res:i32;
-    let a[10]:i32;
+    let a: [i32; 10];
     a[0]=3;a[1]=3;a[2]=9;a[3]=0;a[4]=0;
     a[5]=1;a[6]=1;a[7]=5;a[8]=7;a[9]=8;
     res = 10;
