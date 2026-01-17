@@ -1,6 +1,6 @@
 # Teac
 
-A Rust-based compiler for the [Teapl language](https://github.com/hxuhack/compiler_project.git), featuring LLVM IR generation and native AArch64 code generation.
+A Rust-based compiler for the [TeaLang language](https://github.com/hxuhack/compiler_project.git), featuring LLVM IR generation and native AArch64 code generation.
 
 ## Features
 
@@ -17,7 +17,7 @@ Build the compiler:
 cargo build --release
 ```
 
-Compile a Teapl program to LLVM IR:
+Compile a TeaLang program to LLVM IR:
 
 ```bash
 cargo run -- tests/dfs/dfs.tea
