@@ -10,39 +10,39 @@ fn set_d(val:i32)->i32 { d = val; ret d; }
 
 fn main()->i32
 {   
-    timer_start(97);
+    std::timer_start(97);
     a = 2; b = 3;
     if ((set_a(0)!=0) && (set_b(1)!=0)) {;}
-    putint(a); putch(32);
-    putint(b); putch(32);
+    std::putint(a); std::putch(32);
+    std::putint(b); std::putch(32);
 
     a = 2; b = 3;
     if ((set_a(0)!=0) && (set_b(1)!=0)){;} 
-    putint(a); putch(32);
-    putint(b); putch(10);
+    std::putint(a); std::putch(32);
+    std::putint(b); std::putch(10);
 
      let c:i32 = 1;
     d = 2;
     if ((c >= 1) && (set_d(3)!=0)) {;}
-    putint(d); putch(32);
+    std::putint(d); std::putch(32);
     if ((c <= 1) || (set_d(4)!=0)) {;}
-    putint(d); putch(10);
+    std::putint(d); std::putch(10);
 
  
-    putch(10);
+    std::putch(10);
 
     let i0:i32 = 0;
     let i1:i32 = 1;
     let i2:i32 = 2;
     let i3:i32 = 3;
     let i4:i32 = 4;
-    while ((i0!=0) && (i1!=0)) {putch(32);}
-    if ((i0!=0) || (i1!=0)) {putch(67);}
-    if ((i0 >= i1) || (i1 <= i0)) {putch(72);}
-    if ((i2 >= i1) && (i4 != i3)) { putch(73); }
-    if ((!(i1!=0)) && (i3 < i3) || (i4 >= i4)) { putch(74); }
-    if ((!(i1!=0)) || (i3 < i3) && (i4 >= i4)) {putch(75);}
-    putch(10);
-    timer_stop(117);
+    while ((i0!=0) && (i1!=0)) {std::putch(32);}
+    if ((i0!=0) || (i1!=0)) {std::putch(67);}
+    if ((i0 >= i1) || (i1 <= i0)) {std::putch(72);}
+    if ((i2 >= i1) && (i4 != i3)) { std::putch(73); }
+    if ((!(i1!=0)) && (i3 < i3) || (i4 >= i4)) { std::putch(74); }
+    if ((!(i1!=0)) || (i3 < i3) && (i4 >= i4)) {std::putch(75);}
+    std::putch(10);
+    std::timer_stop(117);
     ret 0;
 }

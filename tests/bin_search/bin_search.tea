@@ -2,7 +2,7 @@ use std;
 
 fn main()->i32
 {   
-    timer_start(3);
+    std::timer_start(3);
     let i:i32;
     let sum:i32;
     let a: [i32; 10];
@@ -19,7 +19,7 @@ fn main()->i32
     let mid:i32;
     let n:i32;
     n=10;
-    x=getint();
+    x=std::getint();
     high=n-1;
     low=0;
     mid=(high+low)/2;
@@ -38,16 +38,16 @@ fn main()->i32
 
     if x==a[mid]
     {
-        putint(x);
+        std::putint(x);
     }
     else
     {
         x = 0;
-        putint(x);
+        std::putint(x);
     }
     
     x = 10;
-    putch(x);
-    timer_stop(49);
+    std::putch(x);
+    std::timer_stop(49);
     ret 0;
 }

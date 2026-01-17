@@ -2,7 +2,7 @@ use std;
 
 fn move(x:i32, y:i32)
 {
-    putint(x); putch(32); putint(y); putch(44); putch(32);
+    std::putint(x); std::putch(32); std::putint(y); std::putch(44); std::putch(32);
 }
 
 fn hanoi(n:i32, one:i32, two:i32, three:i32)
@@ -20,13 +20,13 @@ fn hanoi(n:i32, one:i32, two:i32, three:i32)
 
 fn main()->i32
 {   
-    timer_start(21);
-    let n:i32 = getint();
+    std::timer_start(21);
+    let n:i32 = std::getint();
     while (n > 0) {
-        hanoi(getint(), 1, 2, 3);
-        putch(10);
+        hanoi(std::getint(), 1, 2, 3);
+        std::putch(10);
         n = n - 1;
     }
-    timer_stop(28);
+    std::timer_stop(28);
     ret 0;
 }

@@ -205,7 +205,7 @@ fn avgPooling(arr: [i32; 0], stride:i32)->i32 {
 }
 
 fn main()->i32 {
-    timer_start(209);
+    std::timer_start(209);
     n = 32;
     let arr: [i32; 32];
     let result: [i32; 32];
@@ -248,27 +248,27 @@ fn main()->i32 {
     i = 0;
     while (i < 32) {
         t = result[i];
-        putint(t);
+        std::putint(t);
         i = i + 1;
     }
     t = bubblesort(result);
     i = 0;
     while (i < 32) {
         t = result[i];
-        putint(t);
+        std::putint(t);
         i = i + 1;
     }
     t = getMid(result);
-    putint(t);
+    std::putint(t);
     t = getMost(result);
-    putint(t);
+    std::putint(t);
 
     t = arrCopy(arr, result);
     t = bubblesort(result);
     i = 0;
     while (i < 32) {
         t = result[i];
-        putint(t);
+        std::putint(t);
         i = i + 1;
     }
     
@@ -277,7 +277,7 @@ fn main()->i32 {
     i = 0;
     while (i < 32) {
         t = result[i];
-        putint(t);
+        std::putint(t);
         i = i + 1;
     }
     
@@ -287,7 +287,7 @@ fn main()->i32 {
     t = QuickSort(result, i, t);
     while (i < 32) {
         t = result[i];
-        putint(t);
+        std::putint(t);
         i = i + 1;
     }
 
@@ -296,7 +296,7 @@ fn main()->i32 {
     i = 0;
     while (i < 32) {
         t = result[i];
-        putint(t);
+        std::putint(t);
         i = i + 1;
     }
     
@@ -305,9 +305,9 @@ fn main()->i32 {
     i = 0;
     while (i < 32) {
         t = result[i];
-        putint(t);
+        std::putint(t);
         i = i + 1;
     }
-    timer_stop(312);
+    std::timer_stop(312);
     ret 0;
 }

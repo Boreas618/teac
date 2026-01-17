@@ -4,7 +4,7 @@ let len:i32 = 20;
 
 fn main()->i32
 {	
-	timer_start(97);
+	std::timer_start(97);
 	let i:i32;
 	let j:i32;
 	let t:i32;
@@ -62,14 +62,14 @@ fn main()->i32
 	}
 
 	if(result[0] != 0){
-		putint(result[0]); 
+		std::putint(result[0]); 
 	}
 
 	i = 1;
 	while (i <= (len1 + len2 - 1)) {
-		putint(result[i]); 
+		std::putint(result[i]); 
 		i = i + 1;
 	}
-	timer_stop(117);
+	std::timer_stop(117);
 	ret 0;
 }

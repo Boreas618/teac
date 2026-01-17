@@ -25,7 +25,7 @@ fn split(n:i32,a: [i32; 4])->i32
 
 fn main()->i32
 {   
-    timer_start(26);
+    std::timer_start(26);
     N=4;
     newline=10;
     let i:i32;
@@ -38,10 +38,10 @@ fn main()->i32
     while(i<4)
     {
         t=b[i];
-        putint(t);
-        putch(newline);
+        std::putint(t);
+        std::putch(newline);
         i=i+1;
     }
-    timer_stop(42);
+    std::timer_stop(42);
     ret 0;
 }

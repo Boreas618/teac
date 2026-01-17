@@ -223,9 +223,14 @@ impl<'a> FunctionGenerator<'a> {
             self.gen_call_reg_arg(arg, i as u8)?;
         }
 
-        self.insts.push(Inst::Bl {
-            func: s.func_name.clone(),
-        });
+        // Strip module prefix from function name for external calls
+        let func_name = if let Some(pos) = s.func_name.rfind("::") {
+            s.func_name[pos + 2..].to_string()
+        } else {
+            s.func_name.clone()
+        };
+
+        self.insts.push(Inst::Bl { func: func_name });
 
         if nargs > 8 {
             let stack_bytes = align_up(((nargs - 8) as i64) * 8, 16);

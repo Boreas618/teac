@@ -7,7 +7,7 @@ fn my_getint()->i32
     let sum:i32 = 0;
     let c:i32;
     while 1>0 {
-        c = getch() - ascii_0;
+        c = std::getch() - ascii_0;
         if (c < 0) || (c > 9) {
             continue;
         } else {
@@ -17,7 +17,7 @@ fn my_getint()->i32
     sum = c;
 
     while 1>0 {
-        c = getch() - ascii_0;
+        c = std::getch() - ascii_0;
         if (c >= 0) && (c <= 9) {
             sum = sum * 10 + c;
         } else {
@@ -44,19 +44,19 @@ fn my_putint(a:i32)
     }
     while i > 0 {
         i = i - 1;
-        putch(b[i]);
+        std::putch(b[i]);
     }
 }
 
 fn main()->i32
 {   
-    timer_start(51);
+    std::timer_start(51);
     let n:i32 = my_getint();
     while n > 0 {
         let m:i32 = my_getint();
-        my_putint(m); putch(10);
+        my_putint(m); std::putch(10);
         n = n - 1;
     }
-    timer_stop(58);
+    std::timer_stop(58);
     ret 0;
 }

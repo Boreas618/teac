@@ -36,26 +36,26 @@ fn model(a: [array2D; 5])->i32
 
 fn main()->i32
 {   
-    timer_start(37);
-    let N:i32 = getint();
+    std::timer_start(37);
+    let N:i32 = std::getint();
     let a: [array2D; 5];
     while (N > 0) {
         let i:i32 = 0;
         while (i < 5) {
             let j:i32 = 0;
             while (j < 5) {
-                a[i].a[j] = getint();
+                a[i].a[j] = std::getint();
                 j = j + 1;
             }
             i = i + 1;
         }
         if (model(a)!=0) {
-            putch(99); putch(97); putch(116); putch(10);
+            std::putch(99); std::putch(97); std::putch(116); std::putch(10);
         } else {
-            putch(100); putch(111); putch(103); putch(10);
+            std::putch(100); std::putch(111); std::putch(103); std::putch(10);
         }
         N = N - 1;
     }
-    timer_stop(58);
+    std::timer_stop(58);
     ret 0;
 }

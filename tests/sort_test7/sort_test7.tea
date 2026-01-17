@@ -70,7 +70,7 @@ fn MergeSort(array: [i32; 10], p:i32, q:i32)->i32
 }
 
 fn main()->i32{
-    timer_start(71);
+    std::timer_start(71);
     n = 10;
     let a: [i32; 10];
     a[0]=4;a[1]=3;a[2]=9;a[3]=2;a[4]=0;
@@ -82,11 +82,11 @@ fn main()->i32{
     i = MergeSort(a, i, tmp);
     while (i < n) {
         tmp = a[i];
-        putint(tmp);
+        std::putint(tmp);
         tmp = 10;
-        putch(tmp);
+        std::putch(tmp);
         i = i + 1;
     }
-    timer_stop(97);
+    std::timer_stop(97);
     ret 0;
 }

@@ -18,6 +18,11 @@ use crate::ir::value::Named;
 impl ModuleGenerator {
     /// Generates IR for an entire program.
     pub fn gen(&mut self, from: &ast::Program) -> Result<(), Error> {
+        // Handle use statements - register external std library functions
+        for use_stmt in from.use_stmts.iter() {
+            self.handle_use_stmt(use_stmt)?;
+        }
+        
         // First pass: collect declarations
         for elem in from.elements.iter() {
             use ast::ProgramElementInner::*;
@@ -57,6 +62,40 @@ impl ModuleGenerator {
             }
         }
 
+        Ok(())
+    }
+    
+    /// Handles a use statement by registering external library functions.
+    fn handle_use_stmt(&mut self, use_stmt: &ast::UseStmt) -> Result<(), Error> {
+        // For now, we only support the "std" module
+        if use_stmt.module_name == "std" {
+            self.register_std_functions()?;
+        }
+        Ok(())
+    }
+    
+    /// Registers standard library functions with std:: prefix.
+    fn register_std_functions(&mut self) -> Result<(), Error> {
+        let std_functions = vec![
+            ("std::getint", vec![], Dtype::I32),
+            ("std::getch", vec![], Dtype::I32),
+            ("std::putint", vec![("a".to_string(), Dtype::I32)], Dtype::Void),
+            ("std::putch", vec![("a".to_string(), Dtype::I32)], Dtype::Void),
+            ("std::timer_start", vec![("lineno".to_string(), Dtype::I32)], Dtype::Void),
+            ("std::timer_stop", vec![("lineno".to_string(), Dtype::I32)], Dtype::Void),
+            ("std::putarray", vec![
+                ("n".to_string(), Dtype::I32), 
+                ("a".to_string(), Dtype::Pointer { inner: Box::new(Dtype::I32), length: 0 })
+            ], Dtype::Void),
+        ];
+        
+        for (name, arguments, return_dtype) in std_functions {
+            self.registry.function_types.insert(
+                name.to_string(),
+                FunctionType { return_dtype, arguments }
+            );
+        }
+        
         Ok(())
     }
 

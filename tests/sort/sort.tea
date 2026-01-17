@@ -106,15 +106,15 @@ let a: [i32; 30000010];
 let ans:i32;
 
 fn main()->i32{
-    let n:i32 = getint();
+    let n:i32 = std::getint();
 
     let i_:i32=0;
     while(i_<n){
-        a[i_]=getint();
+        a[i_]=std::getint();
         i_=i_+1;
     }
 
-    timer_start(97);
+    std::timer_start(97);
    
     radixSort(8, a, 0, n);
 
@@ -127,8 +127,8 @@ fn main()->i32{
     if (ans < 0){
         ans = 0-ans;
     }
-    timer_stop(117);
-    putint(ans);
-    putch(10);
+    std::timer_stop(117);
+    std::putint(ans);
+    std::putch(10);
     ret 0;
 }
