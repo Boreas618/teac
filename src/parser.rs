@@ -396,18 +396,7 @@ fn parse_bool_unit_paren(pair: Pair) -> ParseResult<Box<ast::BoolUnit>> {
     
     // Otherwise it's expr_unit ~ comp_op ~ expr_unit
     if filtered.len() == 3 {
-        let left = parse_expr_unit(filtered[0].clone())?;
-        let op = parse_comp_op(filtered[1].clone())?;
-        let right = parse_expr_unit(filtered[2].clone())?;
-        
-        return Ok(Box::new(ast::BoolUnit {
-            pos,
-            inner: ast::BoolUnitInner::ComExpr(Box::new(ast::ComExpr {
-                op,
-                left,
-                right,
-            })),
-        }));
+        return parse_comparison_to_bool_unit(pos, filtered[0].clone(), filtered[1].clone(), filtered[2].clone());
     }
     
     Err(format!("Invalid bool_unit_paren with {} filtered elements", filtered.len()))
@@ -419,21 +408,25 @@ fn parse_bool_comparison(pair: Pair) -> ParseResult<Box<ast::BoolUnit>> {
     
     // Should be expr_unit ~ comp_op ~ expr_unit
     if inner_pairs.len() == 3 {
-        let left = parse_expr_unit(inner_pairs[0].clone())?;
-        let op = parse_comp_op(inner_pairs[1].clone())?;
-        let right = parse_expr_unit(inner_pairs[2].clone())?;
-        
-        return Ok(Box::new(ast::BoolUnit {
-            pos,
-            inner: ast::BoolUnitInner::ComExpr(Box::new(ast::ComExpr {
-                op,
-                left,
-                right,
-            })),
-        }));
+        return parse_comparison_to_bool_unit(pos, inner_pairs[0].clone(), inner_pairs[1].clone(), inner_pairs[2].clone());
     }
     
     Err(format!("Invalid bool_comparison with {} elements", inner_pairs.len()))
+}
+
+fn parse_comparison_to_bool_unit(pos: usize, left_pair: Pair, op_pair: Pair, right_pair: Pair) -> ParseResult<Box<ast::BoolUnit>> {
+    let left = parse_expr_unit(left_pair)?;
+    let op = parse_comp_op(op_pair)?;
+    let right = parse_expr_unit(right_pair)?;
+    
+    Ok(Box::new(ast::BoolUnit {
+        pos,
+        inner: ast::BoolUnitInner::ComExpr(Box::new(ast::ComExpr {
+            op,
+            left,
+            right,
+        })),
+    }))
 }
 
 fn parse_comp_op(pair: Pair) -> ParseResult<ast::ComOp> {
