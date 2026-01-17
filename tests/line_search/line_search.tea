@@ -1,11 +1,11 @@
 #use std;
 
-fn main()->int
+fn main()->i32
 {   
     timer_start(3);
     let i;
-    let sum:int;
-    let a[10]:int;
+    let sum:i32;
+    let a[10]:i32;
     sum=0;
     i=0;
     while(i<10)
@@ -13,20 +13,20 @@ fn main()->int
         a[i]=i+1;
         i=i+1;
     }
-    let x:int;
-    let high:int;
-    let low:int;
-    let mid:int;
-    let n:int;
+    let x:i32;
+    let high:i32;
+    let low:i32;
+    let mid:i32;
+    let n:i32;
     n=10;
     x=getint();
     high=n-1;
     low=0;
     mid=(high+low)/2;
-    let flag:int;
+    let flag:i32;
     flag=0;
     i=0;
-    let j:int;
+    let j:i32;
     j=0;
     while((i<10) && (flag==0))
     {

@@ -1,14 +1,14 @@
 #use std;
 
-let TAPE_LEN:int = 65536;
-let BUFFER_LEN:int = 32768;
-let tape[65536]:int;
-let program[32768]:int;
-let ptr:int = 0;
+let TAPE_LEN:i32 = 65536;
+let BUFFER_LEN:i32 = 32768;
+let tape[65536]:i32;
+let program[32768]:i32;
+let ptr:i32 = 0;
 
 fn read_program() {
-  let i:int = 0;
-  let len:int = getint();
+  let i:i32 = 0;
+  let len:i32 = getint();
   while (i < len) {
     program[i] = getch();
     i = i + 1;
@@ -16,10 +16,10 @@ fn read_program() {
   program[i] = 0;
 }
 
-fn interpret(input[65536]:int) {
-  let cur_char:int;
-  let loop:int;
-  let i:int = 0;
+fn interpret(input[65536]:i32) {
+  let cur_char:i32;
+  let loop:i32;
+  let i:i32 = 0;
   while (input[i]!=0) {
     cur_char = input[i];
     if (cur_char == 62) {
@@ -57,7 +57,7 @@ fn interpret(input[65536]:int) {
   }
 }
 
-fn main()->int {
+fn main()->i32 {
   timer_start(76);
   read_program();
   interpret(program);

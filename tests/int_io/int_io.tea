@@ -1,11 +1,11 @@
 #use std;
 
-let ascii_0:int = 48;
+let ascii_0:i32 = 48;
 
-fn my_getint()->int
+fn my_getint()->i32
 {
-    let sum:int = 0;
-    let c:int;
+    let sum:i32 = 0;
+    let c:i32;
     while 1>0 {
         c = getch() - ascii_0;
         if (c < 0) || (c > 9) {
@@ -28,15 +28,15 @@ fn my_getint()->int
     ret sum;
 }
 
-fn mod(x:int,y:int)->int
+fn mod(x:i32,y:i32)->i32
 {
     ret x-(x/y)*y;
 }
 
-fn my_putint(a:int)
+fn my_putint(a:i32)
 {
-    let b[16]:int;
-    let i:int = 0;
+    let b[16]:i32;
+    let i:i32 = 0;
     while a > 0 {
         b[i] = mod(a,10) + ascii_0;
         a = a / 10;
@@ -48,12 +48,12 @@ fn my_putint(a:int)
     }
 }
 
-fn main()->int
+fn main()->i32
 {   
     timer_start(51);
-    let n:int = my_getint();
+    let n:i32 = my_getint();
     while n > 0 {
-        let m:int = my_getint();
+        let m:i32 = my_getint();
         my_putint(m); putch(10);
         n = n - 1;
     }

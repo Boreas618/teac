@@ -1,21 +1,21 @@
 #use std;
 
-let INF:int = 65535;
+let INF:i32 = 65535;
 struct array2D {
-    a[16]:int
+    a[16]:i32
 }
 let e[16]:array2D;
-let book[16]:int;
-let dis[16]:int;
-let n:int;
-let m:int;
-let v1:int;
-let v2:int;
-let w:int;
+let book[16]:i32;
+let dis[16]:i32;
+let n:i32;
+let m:i32;
+let v1:i32;
+let v2:i32;
+let w:i32;
 
 fn Dijkstra()
 {
-    let i:int;
+    let i:i32;
     i = 1;
     while (i <= n) {
         dis[i] = e[1].a[i];
@@ -26,9 +26,9 @@ fn Dijkstra()
 
     i = 1;
     while (i <= (n - 1)) {
-        let min_num:int = INF;
-        let min_index:int = 0;
-        let k:int = 1;
+        let min_num:i32 = INF;
+        let min_index:i32 = 0;
+        let k:i32 = 1;
         while (k <= n) {
             if ((min_num > dis[k]) && (book[k] == 0)) {
                 min_num = dis[k];
@@ -37,7 +37,7 @@ fn Dijkstra()
             k = k + 1;
         }
         book[min_index] = 1;
-        let j:int = 1;
+        let j:i32 = 1;
         while (j <= n) {
             if (e[min_index].a[j] < INF) {
                 if (dis[j] > (dis[min_index] + e[min_index].a[j])) {
@@ -50,16 +50,16 @@ fn Dijkstra()
     }
 }
 
-fn main()->int
+fn main()->i32
 {   
     timer_start(53);
-    let i:int;
+    let i:i32;
     n = getint();
     m = getint();
 
     i = 1;
     while (i <= n) {
-        let j:int = 1;
+        let j:i32 = 1;
         while (j <= n) {
             if (i == j)
             {
@@ -76,8 +76,8 @@ fn main()->int
 
     i = 1;
     while (i <= m) {
-        let u:int = getint();
-        let v:int = getint();
+        let u:i32 = getint();
+        let v:i32 = getint();
         e[u].a[v] = getint();
         i = i + 1;
     }
