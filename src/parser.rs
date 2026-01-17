@@ -4,15 +4,17 @@ use std::rc::Rc;
 
 use crate::ast;
 
+/// Parser for the TeaLang programming language.
+/// Uses Pest parser generator with grammar defined in the teapl.pest file
 #[derive(Parser)]
 #[grammar = "teapl.pest"]
-pub struct TeaplParser;
+pub struct TeaLangParser;
 
 type ParseResult<T> = Result<T, String>;
 type Pair<'a> = pest::iterators::Pair<'a, Rule>;
 
 pub fn parse(input: &str) -> ParseResult<Box<ast::Program>> {
-    let pairs = TeaplParser::parse(Rule::program, input)
+    let pairs = TeaLangParser::parse(Rule::program, input)
         .map_err(|e| format!("Parse error: {}", e))?;
     
     let mut elements = Vec::new();

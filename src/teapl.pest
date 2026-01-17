@@ -1,4 +1,4 @@
-// Pest grammar for Teapl language
+// Pest grammar for TeaLang programming language
 
 WHITESPACE = _{ " " | "\t" | "\n" | "\r" }
 
