@@ -13,6 +13,7 @@ kw_break = @{ "break" ~ !ASCII_ALPHANUMERIC }
 kw_continue = @{ "continue" ~ !ASCII_ALPHANUMERIC }
 kw_ret = @{ "ret" ~ !ASCII_ALPHANUMERIC }
 kw_int = @{ "i32" ~ !ASCII_ALPHANUMERIC }
+kw_use = @{ "use" ~ !ASCII_ALPHANUMERIC }
 
 // Operators
 op_arrow = { "->" }
@@ -42,6 +43,7 @@ comma = { "," }
 semicolon = { ";" }
 colon = { ":" }
 dot = { "." }
+double_colon = { "::" }
 
 // Literals and identifiers
 num = @{
@@ -51,7 +53,7 @@ num = @{
 
 identifier = @{
     !kw_let ~ !kw_fn ~ !kw_struct ~ !kw_if ~ !kw_else ~ !kw_while ~ 
-    !kw_break ~ !kw_continue ~ !kw_ret ~ !kw_int ~
+    !kw_break ~ !kw_continue ~ !kw_ret ~ !kw_int ~ !kw_use ~
     (ASCII_ALPHA | "_") ~ (ASCII_ALPHA | ASCII_DIGIT | "_")*
 }
 
@@ -63,7 +65,12 @@ type_spec = {
 
 // Program structure
 program = {
-    SOI ~ program_element* ~ EOI
+    SOI ~ use_stmt* ~ program_element* ~ EOI
+}
+
+// Use statement
+use_stmt = {
+    kw_use ~ identifier ~ semicolon
 }
 
 program_element = {
@@ -248,5 +255,16 @@ left_val_suffix = {
 
 // Function calls
 fn_call = {
+    module_prefixed_call
+    | local_call
+}
+
+// Function call with module prefix (e.g., std::getint())
+module_prefixed_call = {
+    identifier ~ double_colon ~ identifier ~ lparen ~ right_val_list? ~ rparen
+}
+
+// Local function call (no module prefix)
+local_call = {
     identifier ~ lparen ~ right_val_list? ~ rparen
 }

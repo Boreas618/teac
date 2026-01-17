@@ -235,7 +235,11 @@ impl Display for MemberExpr {
 impl Display for FnCall {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         let args: Vec<String> = self.vals.iter().map(|v| format!("{}", v)).collect();
-        write!(f, "{}({})", self.name, args.join(", "))
+        if let Some(module) = &self.module_prefix {
+            write!(f, "{}::{}({})", module, self.name, args.join(", "))
+        } else {
+            write!(f, "{}({})", self.name, args.join(", "))
+        }
     }
 }
 

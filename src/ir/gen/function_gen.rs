@@ -265,7 +265,11 @@ impl<'ir> FunctionGenerator<'ir> {
     }
 
     pub fn handle_call_stmt(&mut self, stmt: &ast::CallStmt) -> Result<(), Error> {
-        let function_name = stmt.fn_call.name.clone();
+        let function_name = if let Some(module) = &stmt.fn_call.module_prefix {
+            format!("{}::{}", module, stmt.fn_call.name)
+        } else {
+            stmt.fn_call.name.clone()
+        };
         let mut args = Vec::new();
         for arg in stmt.fn_call.vals.iter() {
             let right_val = self.handle_right_val(arg)?;
@@ -413,7 +417,11 @@ impl<'ir> FunctionGenerator<'ir> {
             ast::ExprUnitInner::Id(id) => self.lookup_variable(id),
             ast::ExprUnitInner::ArithExpr(expr) => self.handle_arith_expr(expr),
             ast::ExprUnitInner::FnCall(fn_call) => {
-                let name = fn_call.name.clone();
+                let name = if let Some(module) = &fn_call.module_prefix {
+                    format!("{}::{}", module, fn_call.name)
+                } else {
+                    fn_call.name.clone()
+                };
                 let return_dtype = &self
                     .module_generator
                     .registry

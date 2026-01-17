@@ -2,6 +2,12 @@
 
 use super::decl::{FnDeclStmt, FnDef, StructDef, VarDeclStmt};
 
+/// Use statement for importing modules.
+#[derive(Debug, Clone)]
+pub struct UseStmt {
+    pub module_name: String,
+}
+
 /// Program element variants.
 #[derive(Debug, Clone)]
 pub enum ProgramElementInner {
@@ -23,5 +29,6 @@ pub type ProgramElementList = Vec<ProgramElement>;
 /// The root AST node representing an entire program.
 #[derive(Debug, Clone)]
 pub struct Program {
+    pub use_stmts: Vec<UseStmt>,
     pub elements: ProgramElementList,
 }

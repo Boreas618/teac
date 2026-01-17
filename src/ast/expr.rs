@@ -149,6 +149,7 @@ pub struct BoolUnit {
 /// Function call expression.
 #[derive(Debug, Clone)]
 pub struct FnCall {
+    pub module_prefix: Option<String>,
     pub name: String,
     pub vals: RightValList,
 }
