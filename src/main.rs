@@ -177,7 +177,7 @@ fn write_output<W: Write>(
 /// 
 /// Compilation pipeline:
 /// 1. Parse command-line arguments
-/// 2. Preprocess source file (expand #use directives)
+/// 2. Preprocess source file (expand use directives)
 /// 3. Parse source code into AST
 /// 4. Generate IR from AST (if not dumping AST)
 /// 5. Output result in requested format (AST/IR/assembly)
