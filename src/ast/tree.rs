@@ -647,11 +647,16 @@ impl DisplayAsTree for FnCall {
         indent_levels: &Vec<bool>,
         is_last: bool,
     ) -> Result<(), Error> {
+        let fn_name = if let Some(module) = &self.module_prefix {
+            format!("{}::{}", module, self.name)
+        } else {
+            self.name.clone()
+        };
         writeln!(
             f,
             "{}FnCall: {}",
             tree_indent(indent_levels, is_last),
-            self.name
+            fn_name
         )?;
         let mut new_indent = indent_levels.clone();
         new_indent.push(is_last);

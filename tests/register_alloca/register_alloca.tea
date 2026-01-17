@@ -46,7 +46,7 @@ fn func(a:i32, b:i32)->i32{
     let i1:i32;let i2:i32;let i3:i32;let i4:i32;
     let j1:i32;let j2:i32;let j3:i32;let j4:i32;
     let k1:i32;let k2:i32;let k3:i32;let k4:i32;    
-    c1 = getint();c2 = getint();c3 = getint();c4 = getint();
+    c1 = std::getint();c2 = std::getint();c3 = std::getint();c4 = std::getint();
     d1 = 1 + c1 + a1;d2 = 2 + c2 + a2;d3 = 3 + c3 + a3;d4 = 4 + c4 + a4;
     e1 = 1 + d1 + a5;e2 = 2 + d2 + a6;e3 = 3 + d3 + a7;e4 = 4 + d4 + a8;
     f1 = 1 + e1 + a9;f2 = 2 + e2 + a10;f3 = 3 + e3 + a11;f4 = 4 + e4 + a12;
@@ -86,13 +86,13 @@ fn func(a:i32, b:i32)->i32{
 }
 
 fn main()->i32{
-    timer_start(87);
+    std::timer_start(87);
     let a:i32;
     let b:i32;
-    a = getint();
+    a = std::getint();
     b = a + 2 * 9;
     a = func(a, b);
-    putint(a);
-    timer_stop(93);
+    std::putint(a);
+    std::timer_stop(93);
     ret a;
 }

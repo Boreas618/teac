@@ -116,33 +116,33 @@ fn memmove( dst: [i32; 0],  src: [i32; 0],  n:i32){
 }
 
 fn main()->i32{
-    let c:i32 = getint();
-    let n:i32 = getint();
-    let m:i32 = getint();
+    let c:i32 = std::getint();
+    let n:i32 = std::getint();
+    let m:i32 = std::getint();
     let len:i32;
-    len=getint();
+    len=std::getint();
     let ii:i32=0;
     while(ii<len){
-        a[ii]=getint();
+        a[ii]=std::getint();
         ii=ii+1;
     }
-    len=getint();
+    len=std::getint();
     ii=0;
     while(ii<len){
-        kernelid[ii]=getint();
+        kernelid[ii]=std::getint();
         ii=ii+1;
     }
     let task:i32 =len;
     
-    timer_start(209);
+    std::timer_start(209);
     let i:i32 = 0;
     while (i < task){
         convn(kernelid[i], a, b, n, m, c);
         memmove(a, b, n * m);
         i = i + 1;
     }
-    timer_stop(312);
-    putarray(n * m, a);
+    std::timer_stop(312);
+    std::putarray(n * m, a);
     
     ret 0;
 }

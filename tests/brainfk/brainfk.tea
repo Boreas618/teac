@@ -8,9 +8,9 @@ let ptr:i32 = 0;
 
 fn read_program() {
   let i:i32 = 0;
-  let len:i32 = getint();
+  let len:i32 = std::getint();
   while (i < len) {
-    program[i] = getch();
+    program[i] = std::getch();
     i = i + 1;
   }
   program[i] = 0;
@@ -35,10 +35,10 @@ fn interpret(input: [i32; 65536]) {
       tape[ptr] = tape[ptr] - 1;
     }
     if (cur_char == 46) {
-      putch(tape[ptr]);
+      std::putch(tape[ptr]);
     }
     if (cur_char == 44) {
-      tape[ptr] = getch();
+      tape[ptr] = std::getch();
     }
     if ((cur_char == 93) && (tape[ptr]!=0)) {
       loop = 1;
@@ -58,10 +58,10 @@ fn interpret(input: [i32; 65536]) {
 }
 
 fn main()->i32 {
-  timer_start(76);
+  std::timer_start(76);
   read_program();
   interpret(program);
-  putch(10);
-  timer_stop(80);
+  std::putch(10);
+  std::timer_stop(80);
   ret 0;
 }

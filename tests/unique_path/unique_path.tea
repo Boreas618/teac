@@ -39,11 +39,11 @@ fn uniquePaths(m:i32, n:i32)->i32 {
     ret dp[0];
 }
 fn main()->i32{
-    timer_start(40);
+    std::timer_start(40);
     let res:i32;
     let n:i32;
     n=3;
     res = uniquePaths(n, n);
-    timer_stop(45);
+    std::timer_stop(45);
     ret res;
 }

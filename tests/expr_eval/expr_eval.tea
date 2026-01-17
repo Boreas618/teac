@@ -9,7 +9,7 @@ let cur_token:i32;
 
 fn next_char()->i32
 {
-    last_char = getch();
+    last_char = std::getch();
     ret last_char;
 }
 
@@ -63,13 +63,13 @@ fn next_token()->i32
 
 fn panic()->i32
 {
-    putch(112);
-    putch(97);
-    putch(110);
-    putch(105);
-    putch(99);
-    putch(33);
-    putch(10);
+    std::putch(112);
+    std::putch(97);
+    std::putch(110);
+    std::putch(105);
+    std::putch(99);
+    std::putch(33);
+    std::putch(10);
     ret -1;
 }
 
@@ -187,15 +187,15 @@ fn eval()->i32
 
 fn main()->i32
 {   
-    timer_start(205);
-    let count:i32 = getint();
-    getch();
+    std::timer_start(205);
+    let count:i32 = std::getint();
+    std::getch();
     next_token();
     while (count!=0) {
-        putint(eval());
-        putch(10);
+        std::putint(eval());
+        std::putch(10);
         count = count - 1;
     }
-    timer_stop(214);
+    std::timer_stop(214);
     ret 0;
 }

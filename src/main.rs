@@ -102,6 +102,13 @@ fn preprocess_file(path: &Path, visited: &mut HashSet<PathBuf>) -> io::Result<St
         // Append text before this directive to output
         out.push_str(&src[last..m.start()]);
 
+        // Special handling for "std" module - it's external (C library), keep the use statement
+        if module == "std" {
+            out.push_str(m.as_str());
+            last = m.end();
+            continue;
+        }
+
         // Resolve header file path: `module_name` → `module_name.teah` in same directory
         let base_dir = path.parent().unwrap_or(Path::new("."));
         let header_path = base_dir.join(format!("{module}.teah"));

@@ -25,7 +25,7 @@ fn mul( a0: [i32; 0], a1: [i32; 0],  a2: [i32; 0], b0: [i32; 0], b1: [i32; 0], b
 
 fn main()->i32
 {   
-    timer_start(97);
+    std::timer_start(97);
     N=3;
     M=3;
     L=3;
@@ -49,31 +49,31 @@ fn main()->i32
     while(i<N)
     {
         x = c0[i];
-        putint(x);
+        std::putint(x);
         i=i+1;
     }
     x = 10;
     i=0;
-    putch(x);
+    std::putch(x);
     while(i<N)
     {
         x = c1[i];
-        putint(x);
+        std::putint(x);
        
         i=i+1;
     }
     x = 10;
     i=0;
-    putch(x);
+    std::putch(x);
     while(i<N)
     {
         x = c2[i];
-        putint(x);
+        std::putint(x);
        
         i=i+1;
     }
     x = 10;
-    putch(x);
-    timer_stop(117);
+    std::putch(x);
+    std::timer_stop(117);
     ret 0;
 }

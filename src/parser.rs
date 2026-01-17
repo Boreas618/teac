@@ -17,12 +17,16 @@ pub fn parse(input: &str) -> ParseResult<Box<ast::Program>> {
     let pairs = TeaLangParser::parse(Rule::program, input)
         .map_err(|e| format!("Parse error: {}", e))?;
     
+    let mut use_stmts = Vec::new();
     let mut elements = Vec::new();
     
     for pair in pairs {
         if pair.as_rule() == Rule::program {
             for inner in pair.into_inner() {
                 match inner.as_rule() {
+                    Rule::use_stmt => {
+                        use_stmts.push(parse_use_stmt(inner)?);
+                    }
                     Rule::program_element => {
                         if let Some(elem) = parse_program_element(inner)? {
                             elements.push(*elem);
@@ -35,11 +39,22 @@ pub fn parse(input: &str) -> ParseResult<Box<ast::Program>> {
         }
     }
     
-    Ok(Box::new(ast::Program { elements }))
+    Ok(Box::new(ast::Program { use_stmts, elements }))
 }
 
 fn get_pos(pair: &Pair) -> usize {
     pair.as_span().start()
+}
+
+fn parse_use_stmt(pair: Pair) -> ParseResult<ast::UseStmt> {
+    for inner in pair.into_inner() {
+        if inner.as_rule() == Rule::identifier {
+            return Ok(ast::UseStmt {
+                module_name: inner.as_str().to_string(),
+            });
+        }
+    }
+    Err("Invalid use_stmt".to_string())
 }
 
 fn parse_program_element(pair: Pair) -> ParseResult<Option<Box<ast::ProgramElement>>> {
@@ -699,6 +714,49 @@ fn parse_index_expr(pair: Pair) -> ParseResult<Box<ast::IndexExpr>> {
 }
 
 fn parse_fn_call(pair: Pair) -> ParseResult<Box<ast::FnCall>> {
+    for inner in pair.into_inner() {
+        match inner.as_rule() {
+            Rule::module_prefixed_call => {
+                return parse_module_prefixed_call(inner);
+            }
+            Rule::local_call => {
+                return parse_local_call(inner);
+            }
+            _ => {}
+        }
+    }
+    Err("Invalid fn_call".to_string())
+}
+
+fn parse_module_prefixed_call(pair: Pair) -> ParseResult<Box<ast::FnCall>> {
+    let inner_pairs: Vec<_> = pair.into_inner().collect();
+    let mut module_prefix = None;
+    let mut name = String::new();
+    let mut vals = Vec::new();
+    
+    // Expected pattern: identifier ~ double_colon ~ identifier ~ lparen ~ right_val_list? ~ rparen
+    for inner in inner_pairs {
+        match inner.as_rule() {
+            Rule::identifier => {
+                if module_prefix.is_none() {
+                    module_prefix = Some(inner.as_str().to_string());
+                } else {
+                    name = inner.as_str().to_string();
+                }
+            }
+            Rule::right_val_list => vals = parse_right_val_list(inner)?,
+            _ => {}
+        }
+    }
+    
+    Ok(Box::new(ast::FnCall {
+        module_prefix,
+        name,
+        vals,
+    }))
+}
+
+fn parse_local_call(pair: Pair) -> ParseResult<Box<ast::FnCall>> {
     let mut name = String::new();
     let mut vals = Vec::new();
     
@@ -710,7 +768,11 @@ fn parse_fn_call(pair: Pair) -> ParseResult<Box<ast::FnCall>> {
         }
     }
     
-    Ok(Box::new(ast::FnCall { name, vals }))
+    Ok(Box::new(ast::FnCall {
+        module_prefix: None,
+        name,
+        vals,
+    }))
 }
 
 fn parse_left_val(pair: Pair) -> ParseResult<Box<ast::LeftVal>> {

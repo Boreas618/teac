@@ -1,18 +1,18 @@
 use std;
 
 fn quickread()->i32{
-	let ch:i32 = getch();
+	let ch:i32 = std::getch();
 	let x:i32 = 0;
 	let f:i32 = 0;
 	while ((ch < 48) || (ch > 57)){
 		if((ch == 45)){
 			f = 1;
 		} 
-		ch = getch();
+		ch = std::getch();
 	}
 	while ((ch >= 48) && (ch <=57)){
 		x = x * 10 + ch - 48;
-		ch = getch();
+		ch = std::getch();
 	}
 	if ((f != 0)){
 		ret 0-x;
@@ -96,26 +96,26 @@ fn same(s:i32, t:i32)->i32{
 
 fn main()->i32{
 	n = quickread(); m = quickread();
-	timer_start(97);
+	std::timer_start(97);
 	init();
 	let ch:i32 = 0;
 	let x:i32 = 0;
 	let y:i32 = 0;
 	while ((m != 0)){
-		ch = getch();
+		ch = std::getch();
 		while ((ch != 81) && (ch != 85)){
-			ch = getch();
+			ch = std::getch();
 		}
 		if ((ch == 81)){
 			x = quickread(); y = quickread();
-			putint(same(x, y));
-			putch(10);
+			std::putint(same(x, y));
+			std::putch(10);
 		}else{
 			x = quickread(); y = quickread();
 			addedge(x, y);
 		}
 		m = m - 1;
 	}
-	timer_stop(117);
+	std::timer_stop(117);
 	ret 0;
 }

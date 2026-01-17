@@ -29,24 +29,24 @@ fn palindrome(n:i32)->i32
 
 fn main()->i32
 {   
-    timer_start(30);
+    std::timer_start(30);
     let test:i32;
     test=1221;
     let flag:i32;
     flag=palindrome(test);
     if flag==1
     {
-        putint(test);
+        std::putint(test);
     }
     else
     {
         flag = 0;
-        putint(flag);
+        std::putint(flag);
     }
 
     flag = 10;
-    putch(flag);
-    timer_stop(47);
+    std::putch(flag);
+    std::timer_stop(47);
     ret 0;
     
 }

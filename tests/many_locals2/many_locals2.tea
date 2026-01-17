@@ -3,7 +3,7 @@ use std;
 let n:i32;
 
 fn main()->i32{
-    timer_start(4);
+    std::timer_start(4);
     let a0:i32;
     let a1:i32;
     let a2:i32;
@@ -36,7 +36,7 @@ fn main()->i32{
     let a29:i32;
 
     let b:i32;
-    b = getint();
+    b = std::getint();
     while(b == 5){
         b = b + 1;
     }
@@ -71,19 +71,19 @@ fn main()->i32{
     a28=a27+1;
     a29=a28+1;
     let t:i32;
-    putint(a0);putint(a1);putint(a2);putint(a3);
-    putint(a4);putint(a5);putint(a6);putint(a7);
-    putint(a8);putint(a9);putint(a10);putint(a11);
-    putint(a12);putint(a13);putint(a14);putint(a15);
-    putint(a16);putint(a17);putint(a18);putint(a19);
-    putint(a20);putint(a21);putint(a22);putint(a23);
-    putint(a24);putint(a25);putint(a26);putint(a27);
-    putint(a28);putint(a29);
+    std::putint(a0);std::putint(a1);std::putint(a2);std::putint(a3);
+    std::putint(a4);std::putint(a5);std::putint(a6);std::putint(a7);
+    std::putint(a8);std::putint(a9);std::putint(a10);std::putint(a11);
+    std::putint(a12);std::putint(a13);std::putint(a14);std::putint(a15);
+    std::putint(a16);std::putint(a17);std::putint(a18);std::putint(a19);
+    std::putint(a20);std::putint(a21);std::putint(a22);std::putint(a23);
+    std::putint(a24);std::putint(a25);std::putint(a26);std::putint(a27);
+    std::putint(a28);std::putint(a29);
     let newline:i32;
     newline = 10;
-    putch(newline);
-    putint(b);
-    putch(newline);
-    timer_stop(312);
+    std::putch(newline);
+    std::putint(b);
+    std::putch(newline);
+    std::timer_stop(312);
     ret a25;
 }

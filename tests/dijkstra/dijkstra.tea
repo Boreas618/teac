@@ -52,10 +52,10 @@ fn Dijkstra()
 
 fn main()->i32
 {   
-    timer_start(53);
+    std::timer_start(53);
     let i:i32;
-    n = getint();
-    m = getint();
+    n = std::getint();
+    m = std::getint();
 
     i = 1;
     while (i <= n) {
@@ -76,9 +76,9 @@ fn main()->i32
 
     i = 1;
     while (i <= m) {
-        let u:i32 = getint();
-        let v:i32 = getint();
-        e[u].a[v] = getint();
+        let u:i32 = std::getint();
+        let v:i32 = std::getint();
+        e[u].a[v] = std::getint();
         i = i + 1;
     }
 
@@ -86,11 +86,11 @@ fn main()->i32
 
     i = 1;
     while (i <= n) {
-        putint(dis[i]);
-        putch(32);
+        std::putint(dis[i]);
+        std::putch(32);
         i = i + 1;
     }
-    putch(10);
-    timer_stop(91);
+    std::putch(10);
+    std::timer_stop(91);
     ret 0;
 }

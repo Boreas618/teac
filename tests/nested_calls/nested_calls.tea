@@ -59,15 +59,15 @@ fn func7(x:i32)->i32 {
 }
 
 fn main()->i32 {
-  timer_start(97);
-  let i1:i32 = getint();
-  let i2:i32 = getint();
-  let i3:i32 = getint();
-  let i4:i32 = getint();
+  std::timer_start(97);
+  let i1:i32 = std::getint();
+  let i2:i32 = std::getint();
+  let i3:i32 = std::getint();
+  let i4:i32 = std::getint();
   let arr: [i32; 10];
   let i:i32 = 0;
   while (i < 10) {
-    arr[i] = getint();
+    arr[i] = std::getint();
     i = i + 1;
   }
   let a:i32 = func1(
@@ -90,6 +90,6 @@ fn main()->i32 {
                         arr[7], func7(arr[8])),
                   func5(arr[9])),
             i1));
-  timer_stop(117);
+  std::timer_stop(117);
   ret a;
 }

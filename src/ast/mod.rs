@@ -52,4 +52,4 @@ pub use decl::{
 };
 
 // Program
-pub use program::{Program, ProgramElement, ProgramElementInner, ProgramElementList};
+pub use program::{Program, ProgramElement, ProgramElementInner, ProgramElementList, UseStmt};
