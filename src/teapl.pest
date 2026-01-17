@@ -147,12 +147,12 @@ return_stmt = {
 }
 
 if_stmt = {
-    kw_if ~ bool_unit_paren ~ lbrace ~ code_block_stmt* ~ rbrace ~ kw_else ~ lbrace ~ code_block_stmt* ~ rbrace
-    | kw_if ~ bool_unit_paren ~ lbrace ~ code_block_stmt* ~ rbrace
+    kw_if ~ bool_expr ~ lbrace ~ code_block_stmt* ~ rbrace ~ kw_else ~ lbrace ~ code_block_stmt* ~ rbrace
+    | kw_if ~ bool_expr ~ lbrace ~ code_block_stmt* ~ rbrace
 }
 
 while_stmt = {
-    kw_while ~ bool_unit_paren ~ lbrace ~ code_block_stmt* ~ rbrace
+    kw_while ~ bool_expr ~ lbrace ~ code_block_stmt* ~ rbrace
 }
 
 break_stmt = {
@@ -188,12 +188,17 @@ bool_and_term = {
 
 bool_unit_atom = {
     bool_unit_paren
+    | bool_comparison
     | op_not ~ bool_unit_atom
 }
 
 bool_unit_paren = {
     lparen ~ bool_expr ~ rparen
     | lparen ~ expr_unit ~ comp_op ~ expr_unit ~ rparen
+}
+
+bool_comparison = {
+    expr_unit ~ comp_op ~ expr_unit
 }
 
 comp_op = {

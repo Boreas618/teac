@@ -361,10 +361,16 @@ fn parse_bool_unit_atom(pair: Pair) -> ParseResult<Box<ast::BoolUnit>> {
         }));
     }
     
-    // Otherwise, it's a bool_unit_paren
+    // Check for bool_unit_paren or bool_comparison
     for inner in inner_pairs {
-        if inner.as_rule() == Rule::bool_unit_paren {
-            return parse_bool_unit_paren(inner);
+        match inner.as_rule() {
+            Rule::bool_unit_paren => {
+                return parse_bool_unit_paren(inner);
+            }
+            Rule::bool_comparison => {
+                return parse_bool_comparison(inner);
+            }
+            _ => {}
         }
     }
     
@@ -405,6 +411,29 @@ fn parse_bool_unit_paren(pair: Pair) -> ParseResult<Box<ast::BoolUnit>> {
     }
     
     Err(format!("Invalid bool_unit_paren with {} filtered elements", filtered.len()))
+}
+
+fn parse_bool_comparison(pair: Pair) -> ParseResult<Box<ast::BoolUnit>> {
+    let pos = get_pos(&pair);
+    let inner_pairs: Vec<_> = pair.into_inner().collect();
+    
+    // Should be expr_unit ~ comp_op ~ expr_unit
+    if inner_pairs.len() == 3 {
+        let left = parse_expr_unit(inner_pairs[0].clone())?;
+        let op = parse_comp_op(inner_pairs[1].clone())?;
+        let right = parse_expr_unit(inner_pairs[2].clone())?;
+        
+        return Ok(Box::new(ast::BoolUnit {
+            pos,
+            inner: ast::BoolUnitInner::ComExpr(Box::new(ast::ComExpr {
+                op,
+                left,
+                right,
+            })),
+        }));
+    }
+    
+    Err(format!("Invalid bool_comparison with {} elements", inner_pairs.len()))
 }
 
 fn parse_comp_op(pair: Pair) -> ParseResult<ast::ComOp> {
@@ -929,8 +958,13 @@ fn parse_if_stmt(pair: Pair) -> ParseResult<Box<ast::IfStmt>> {
     
     for inner in pair.into_inner() {
         match inner.as_rule() {
-            Rule::bool_unit_paren => {
-                bool_unit = Some(parse_bool_unit_paren(inner)?);
+            Rule::bool_expr => {
+                let pos = get_pos(&inner);
+                let bool_expr = parse_bool_expr(inner)?;
+                bool_unit = Some(Box::new(ast::BoolUnit {
+                    pos,
+                    inner: ast::BoolUnitInner::BoolExpr(bool_expr),
+                }));
             }
             Rule::code_block_stmt => {
                 if in_else {
@@ -962,8 +996,13 @@ fn parse_while_stmt(pair: Pair) -> ParseResult<Box<ast::WhileStmt>> {
     
     for inner in pair.into_inner() {
         match inner.as_rule() {
-            Rule::bool_unit_paren => {
-                bool_unit = Some(parse_bool_unit_paren(inner)?);
+            Rule::bool_expr => {
+                let pos = get_pos(&inner);
+                let bool_expr = parse_bool_expr(inner)?;
+                bool_unit = Some(Box::new(ast::BoolUnit {
+                    pos,
+                    inner: ast::BoolUnitInner::BoolExpr(bool_expr),
+                }));
             }
             Rule::code_block_stmt => {
                 stmts.push(*parse_code_block_stmt(inner)?);
