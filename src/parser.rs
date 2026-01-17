@@ -72,7 +72,6 @@ fn parse_program_element(pair: Pair) -> ParseResult<Option<Box<ast::ProgramEleme
 }
 
 fn parse_struct_def(pair: Pair) -> ParseResult<Box<ast::StructDef>> {
-    let pos = get_pos(&pair);
     let mut identifier = String::new();
     let mut decls = Vec::new();
     
@@ -84,7 +83,7 @@ fn parse_struct_def(pair: Pair) -> ParseResult<Box<ast::StructDef>> {
         }
     }
     
-    Ok(Box::new(ast::StructDef { pos, identifier, decls }))
+    Ok(Box::new(ast::StructDef { identifier, decls }))
 }
 
 fn parse_var_decl_list(pair: Pair) -> ParseResult<Vec<ast::VarDecl>> {
@@ -98,7 +97,6 @@ fn parse_var_decl_list(pair: Pair) -> ParseResult<Vec<ast::VarDecl>> {
 }
 
 fn parse_var_decl(pair: Pair) -> ParseResult<Box<ast::VarDecl>> {
-    let pos = get_pos(&pair);
     let inner_pairs: Vec<_> = pair.into_inner().collect();
     
     let identifier = inner_pairs[0].as_str().to_string();
@@ -108,30 +106,27 @@ fn parse_var_decl(pair: Pair) -> ParseResult<Box<ast::VarDecl>> {
         1 => {
             // identifier only - scalar without type
             Ok(Box::new(ast::VarDecl {
-                pos,
                 identifier,
                 type_specifier: Rc::new(None),
-                inner: ast::VarDeclInner::Scalar(Box::new(ast::VarDeclScalar { pos })),
+                inner: ast::VarDeclInner::Scalar(Box::new(ast::VarDeclScalar {})),
             }))
         }
         3 => {
             // identifier : type_spec - scalar with type
             let type_specifier = parse_type_spec(inner_pairs[2].clone())?;
             Ok(Box::new(ast::VarDecl {
-                pos,
                 identifier,
                 type_specifier,
-                inner: ast::VarDeclInner::Scalar(Box::new(ast::VarDeclScalar { pos })),
+                inner: ast::VarDeclInner::Scalar(Box::new(ast::VarDeclScalar {})),
             }))
         }
         4 => {
             // identifier [ num ] - array without type
             let len = parse_num(inner_pairs[2].clone())? as usize;
             Ok(Box::new(ast::VarDecl {
-                pos,
                 identifier,
                 type_specifier: Rc::new(None),
-                inner: ast::VarDeclInner::Array(Box::new(ast::VarDeclArray { pos, len })),
+                inner: ast::VarDeclInner::Array(Box::new(ast::VarDeclArray { len })),
             }))
         }
         6 => {
@@ -139,10 +134,9 @@ fn parse_var_decl(pair: Pair) -> ParseResult<Box<ast::VarDecl>> {
             let len = parse_num(inner_pairs[2].clone())? as usize;
             let type_specifier = parse_type_spec(inner_pairs[5].clone())?;
             Ok(Box::new(ast::VarDecl {
-                pos,
                 identifier,
                 type_specifier,
-                inner: ast::VarDeclInner::Array(Box::new(ast::VarDeclArray { pos, len })),
+                inner: ast::VarDeclInner::Array(Box::new(ast::VarDeclArray { len })),
             }))
         }
         _ => Err(format!("Invalid var_decl pattern with {} elements", inner_pairs.len()))
@@ -179,19 +173,15 @@ fn parse_num(pair: Pair) -> ParseResult<i32> {
 }
 
 fn parse_var_decl_stmt(pair: Pair) -> ParseResult<Box<ast::VarDeclStmt>> {
-    let pos = get_pos(&pair);
-    
     for inner in pair.into_inner() {
         match inner.as_rule() {
             Rule::var_def => {
                 return Ok(Box::new(ast::VarDeclStmt {
-                    pos,
                     inner: ast::VarDeclStmtInner::Def(parse_var_def(inner)?),
                 }));
             }
             Rule::var_decl => {
                 return Ok(Box::new(ast::VarDeclStmt {
-                    pos,
                     inner: ast::VarDeclStmtInner::Decl(parse_var_decl(inner)?),
                 }));
             }
@@ -203,7 +193,6 @@ fn parse_var_decl_stmt(pair: Pair) -> ParseResult<Box<ast::VarDeclStmt>> {
 }
 
 fn parse_var_def(pair: Pair) -> ParseResult<Box<ast::VarDef>> {
-    let pos = get_pos(&pair);
     let inner_pairs: Vec<_> = pair.into_inner().collect();
     
     let identifier = inner_pairs[0].as_str().to_string();
@@ -229,7 +218,6 @@ fn parse_var_def(pair: Pair) -> ParseResult<Box<ast::VarDef>> {
             .ok_or("Missing value list")?.clone())?;
         
         Ok(Box::new(ast::VarDef {
-            pos,
             identifier,
             type_specifier,
             inner: ast::VarDefInner::Array(Box::new(ast::VarDefArray { len, vals })),
@@ -247,7 +235,6 @@ fn parse_var_def(pair: Pair) -> ParseResult<Box<ast::VarDef>> {
             .ok_or("Missing value")?.clone())?;
         
         Ok(Box::new(ast::VarDef {
-            pos,
             identifier,
             type_specifier,
             inner: ast::VarDefInner::Scalar(Box::new(ast::VarDefScalar { val })),
@@ -620,7 +607,6 @@ fn parse_expr_suffix_to_left_val(base: Box<ast::LeftVal>, suffix: Pair) -> Parse
                 return Ok(Box::new(ast::LeftVal {
                     pos,
                     inner: ast::LeftValInner::ArrayExpr(Box::new(ast::ArrayExpr {
-                        pos,
                         arr: base,
                         idx,
                     })),
@@ -632,7 +618,6 @@ fn parse_expr_suffix_to_left_val(base: Box<ast::LeftVal>, suffix: Pair) -> Parse
                 return Ok(Box::new(ast::LeftVal {
                     pos,
                     inner: ast::LeftValInner::MemberExpr(Box::new(ast::MemberExpr {
-                        pos,
                         struct_id: base,
                         member_id,
                     })),
@@ -676,13 +661,11 @@ fn parse_index_expr(pair: Pair) -> ParseResult<Box<ast::IndexExpr>> {
             Rule::num => {
                 let num = parse_num(inner)? as usize;
                 return Ok(Box::new(ast::IndexExpr {
-                    pos: 0,
                     inner: ast::IndexExprInner::Num(num),
                 }));
             }
             Rule::identifier => {
                 return Ok(Box::new(ast::IndexExpr {
-                    pos: 0,
                     inner: ast::IndexExprInner::Id(inner.as_str().to_string()),
                 }));
             }
@@ -693,7 +676,6 @@ fn parse_index_expr(pair: Pair) -> ParseResult<Box<ast::IndexExpr>> {
 }
 
 fn parse_fn_call(pair: Pair) -> ParseResult<Box<ast::FnCall>> {
-    let pos = get_pos(&pair);
     let mut name = String::new();
     let mut vals = Vec::new();
     
@@ -705,7 +687,7 @@ fn parse_fn_call(pair: Pair) -> ParseResult<Box<ast::FnCall>> {
         }
     }
     
-    Ok(Box::new(ast::FnCall { pos, name, vals }))
+    Ok(Box::new(ast::FnCall { name, vals }))
 }
 
 fn parse_left_val(pair: Pair) -> ParseResult<Box<ast::LeftVal>> {
@@ -753,7 +735,6 @@ fn parse_left_val_suffix(base: Box<ast::LeftVal>, suffix: Pair) -> ParseResult<B
                 return Ok(Box::new(ast::LeftVal {
                     pos,
                     inner: ast::LeftValInner::ArrayExpr(Box::new(ast::ArrayExpr {
-                        pos,
                         arr: base,
                         idx,
                     })),
@@ -765,7 +746,6 @@ fn parse_left_val_suffix(base: Box<ast::LeftVal>, suffix: Pair) -> ParseResult<B
                 return Ok(Box::new(ast::LeftVal {
                     pos,
                     inner: ast::LeftValInner::MemberExpr(Box::new(ast::MemberExpr {
-                        pos,
                         struct_id: base,
                         member_id,
                     })),
@@ -793,7 +773,6 @@ fn parse_fn_decl_stmt(pair: Pair) -> ParseResult<Box<ast::FnDeclStmt>> {
 }
 
 fn parse_fn_decl(pair: Pair) -> ParseResult<Box<ast::FnDecl>> {
-    let pos = get_pos(&pair);
     let mut identifier = String::new();
     let mut param_decl = None;
     let mut return_dtype = Rc::new(None);
@@ -808,7 +787,6 @@ fn parse_fn_decl(pair: Pair) -> ParseResult<Box<ast::FnDecl>> {
     }
     
     Ok(Box::new(ast::FnDecl {
-        pos,
         identifier,
         param_decl,
         return_dtype,
@@ -827,7 +805,6 @@ fn parse_param_decl(pair: Pair) -> ParseResult<Box<ast::ParamDecl>> {
 }
 
 fn parse_fn_def(pair: Pair) -> ParseResult<Box<ast::FnDef>> {
-    let pos = get_pos(&pair);
     let mut fn_decl = None;
     let mut stmts = Vec::new();
     
@@ -840,7 +817,6 @@ fn parse_fn_def(pair: Pair) -> ParseResult<Box<ast::FnDef>> {
     }
     
     Ok(Box::new(ast::FnDef {
-        pos,
         fn_decl: fn_decl.ok_or("Missing fn_decl in fn_def")?,
         stmts,
     }))
@@ -849,62 +825,51 @@ fn parse_fn_def(pair: Pair) -> ParseResult<Box<ast::FnDef>> {
 // Statement parsing
 
 fn parse_code_block_stmt(pair: Pair) -> ParseResult<Box<ast::CodeBlockStmt>> {
-    let pos = get_pos(&pair);
-    
     for inner in pair.into_inner() {
         match inner.as_rule() {
             Rule::var_decl_stmt => {
                 return Ok(Box::new(ast::CodeBlockStmt {
-                    pos,
                     inner: ast::CodeBlockStmtInner::VarDecl(parse_var_decl_stmt(inner)?),
                 }));
             }
             Rule::assignment_stmt => {
                 return Ok(Box::new(ast::CodeBlockStmt {
-                    pos,
                     inner: ast::CodeBlockStmtInner::Assignment(parse_assignment_stmt(inner)?),
                 }));
             }
             Rule::call_stmt => {
                 return Ok(Box::new(ast::CodeBlockStmt {
-                    pos,
                     inner: ast::CodeBlockStmtInner::Call(parse_call_stmt(inner)?),
                 }));
             }
             Rule::if_stmt => {
                 return Ok(Box::new(ast::CodeBlockStmt {
-                    pos,
                     inner: ast::CodeBlockStmtInner::If(parse_if_stmt(inner)?),
                 }));
             }
             Rule::while_stmt => {
                 return Ok(Box::new(ast::CodeBlockStmt {
-                    pos,
                     inner: ast::CodeBlockStmtInner::While(parse_while_stmt(inner)?),
                 }));
             }
             Rule::return_stmt => {
                 return Ok(Box::new(ast::CodeBlockStmt {
-                    pos,
                     inner: ast::CodeBlockStmtInner::Return(parse_return_stmt(inner)?),
                 }));
             }
             Rule::continue_stmt => {
                 return Ok(Box::new(ast::CodeBlockStmt {
-                    pos,
-                    inner: ast::CodeBlockStmtInner::Continue(Box::new(ast::ContinueStmt { pos })),
+                    inner: ast::CodeBlockStmtInner::Continue(Box::new(ast::ContinueStmt {})),
                 }));
             }
             Rule::break_stmt => {
                 return Ok(Box::new(ast::CodeBlockStmt {
-                    pos,
-                    inner: ast::CodeBlockStmtInner::Break(Box::new(ast::BreakStmt { pos })),
+                    inner: ast::CodeBlockStmtInner::Break(Box::new(ast::BreakStmt {})),
                 }));
             }
             Rule::null_stmt => {
                 return Ok(Box::new(ast::CodeBlockStmt {
-                    pos,
-                    inner: ast::CodeBlockStmtInner::Null(Box::new(ast::NullStmt { pos })),
+                    inner: ast::CodeBlockStmtInner::Null(Box::new(ast::NullStmt {})),
                 }));
             }
             _ => {}
@@ -957,7 +922,6 @@ fn parse_return_stmt(pair: Pair) -> ParseResult<Box<ast::ReturnStmt>> {
 }
 
 fn parse_if_stmt(pair: Pair) -> ParseResult<Box<ast::IfStmt>> {
-    let pos = get_pos(&pair);
     let mut bool_unit = None;
     let mut if_stmts = Vec::new();
     let mut else_stmts = None;
@@ -986,7 +950,6 @@ fn parse_if_stmt(pair: Pair) -> ParseResult<Box<ast::IfStmt>> {
     }
     
     Ok(Box::new(ast::IfStmt {
-        pos,
         bool_unit: bool_unit.ok_or("Missing bool_unit")?,
         if_stmts,
         else_stmts,
@@ -994,7 +957,6 @@ fn parse_if_stmt(pair: Pair) -> ParseResult<Box<ast::IfStmt>> {
 }
 
 fn parse_while_stmt(pair: Pair) -> ParseResult<Box<ast::WhileStmt>> {
-    let pos = get_pos(&pair);
     let mut bool_unit = None;
     let mut stmts = Vec::new();
     
@@ -1011,7 +973,6 @@ fn parse_while_stmt(pair: Pair) -> ParseResult<Box<ast::WhileStmt>> {
     }
     
     Ok(Box::new(ast::WhileStmt {
-        pos,
         bool_unit: bool_unit.ok_or("Missing bool_unit")?,
         stmts,
     }))

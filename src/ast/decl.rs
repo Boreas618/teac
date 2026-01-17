@@ -2,7 +2,7 @@
 
 use super::expr::{RightVal, RightValList};
 use super::stmt::CodeBlockStmtList;
-use super::types::{Pos, SharedTypeSpec};
+use super::types::SharedTypeSpec;
 use std::ops::Deref;
 
 // =============================================================================
@@ -11,14 +11,11 @@ use std::ops::Deref;
 
 /// Scalar variable declaration marker.
 #[derive(Debug, Clone)]
-pub struct VarDeclScalar {
-    pub pos: Pos,
-}
+pub struct VarDeclScalar {}
 
 /// Array variable declaration.
 #[derive(Debug, Clone)]
 pub struct VarDeclArray {
-    pub pos: Pos,
     pub len: usize,
 }
 
@@ -32,7 +29,6 @@ pub enum VarDeclInner {
 /// A variable declaration (without initialization).
 #[derive(Debug, Clone)]
 pub struct VarDecl {
-    pub pos: Pos,
     pub identifier: String,
     pub type_specifier: SharedTypeSpec,
     pub inner: VarDeclInner,
@@ -68,7 +64,6 @@ pub enum VarDefInner {
 /// A variable definition (with initialization).
 #[derive(Debug, Clone)]
 pub struct VarDef {
-    pub pos: Pos,
     pub identifier: String,
     pub type_specifier: SharedTypeSpec,
     pub inner: VarDefInner,
@@ -88,7 +83,6 @@ pub enum VarDeclStmtInner {
 /// A variable declaration statement.
 #[derive(Debug, Clone)]
 pub struct VarDeclStmt {
-    pub pos: Pos,
     pub inner: VarDeclStmtInner,
 }
 
@@ -99,7 +93,6 @@ pub struct VarDeclStmt {
 /// A struct type definition.
 #[derive(Debug, Clone)]
 pub struct StructDef {
-    pub pos: Pos,
     pub identifier: String,
     pub decls: VarDeclList,
 }
@@ -117,7 +110,6 @@ pub struct ParamDecl {
 /// A function declaration (signature).
 #[derive(Debug, Clone)]
 pub struct FnDecl {
-    pub pos: Pos,
     pub identifier: String,
     pub param_decl: Option<Box<ParamDecl>>,
     pub return_dtype: SharedTypeSpec,
@@ -126,7 +118,6 @@ pub struct FnDecl {
 /// A function definition (signature + body).
 #[derive(Debug, Clone)]
 pub struct FnDef {
-    pub pos: Pos,
     pub fn_decl: Box<FnDecl>,
     pub stmts: CodeBlockStmtList,
 }

@@ -36,14 +36,12 @@ pub enum IndexExprInner {
 /// An index expression (array subscript).
 #[derive(Debug, Clone)]
 pub struct IndexExpr {
-    pub pos: Pos,
     pub inner: IndexExprInner,
 }
 
 /// Array access expression.
 #[derive(Debug, Clone)]
 pub struct ArrayExpr {
-    pub pos: Pos,
     pub arr: Box<LeftVal>,
     pub idx: Box<IndexExpr>,
 }
@@ -51,7 +49,6 @@ pub struct ArrayExpr {
 /// Member access expression (struct field).
 #[derive(Debug, Clone)]
 pub struct MemberExpr {
-    pub pos: Pos,
     pub struct_id: Box<LeftVal>,
     pub member_id: String,
 }
@@ -152,7 +149,6 @@ pub struct BoolUnit {
 /// Function call expression.
 #[derive(Debug, Clone)]
 pub struct FnCall {
-    pub pos: Pos,
     pub name: String,
     pub vals: RightValList,
 }
