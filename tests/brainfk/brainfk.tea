@@ -2,8 +2,8 @@
 
 let TAPE_LEN:i32 = 65536;
 let BUFFER_LEN:i32 = 32768;
-let tape[65536]:i32;
-let program[32768]:i32;
+let tape: [i32; 65536];
+let program: [i32; 32768];
 let ptr:i32 = 0;
 
 fn read_program() {
@@ -16,7 +16,7 @@ fn read_program() {
   program[i] = 0;
 }
 
-fn interpret(input[65536]:i32) {
+fn interpret(input: [i32; 65536]) {
   let cur_char:i32;
   let loop:i32;
   let i:i32 = 0;
