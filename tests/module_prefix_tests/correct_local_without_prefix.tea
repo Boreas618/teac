@@ -1,0 +1,13 @@
+use std;
+
+fn helper(x:i32)->i32 {
+    ret x + 1;
+}
+
+fn main()->i32 {
+    let result:i32;
+    result = helper(41);
+    std::putint(result);
+    std::putch(10);
+    ret 0;
+}
