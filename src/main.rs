@@ -190,7 +190,9 @@ fn main() {
     // Recursively expands #use directives and checks for include cycles
     let mut visited = HashSet::new();
     let prog = preprocess_file(Path::new(&input_path), &mut visited).unwrap_or_else(|e| {
-        eprintln!("Encountered error while preprocessing: {e}");
+        eprintln!("Error: Failed to read input file '{input_path}': {e}");
+        eprintln!("\nUsage: teac [OPTIONS] <FILE>");
+        eprintln!("Try 'teac --help' for more information.");
         std::process::exit(1);
     });
 
