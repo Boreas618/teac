@@ -2,7 +2,6 @@
 
 use super::decl::VarDeclStmt;
 use super::expr::{BoolUnit, FnCall, LeftVal, RightVal};
-use super::types::Pos;
 
 // =============================================================================
 // Simple Statements
@@ -29,21 +28,15 @@ pub struct ReturnStmt {
 
 /// A continue statement.
 #[derive(Debug, Clone)]
-pub struct ContinueStmt {
-    pub pos: Pos,
-}
+pub struct ContinueStmt {}
 
 /// A break statement.
 #[derive(Debug, Clone)]
-pub struct BreakStmt {
-    pub pos: Pos,
-}
+pub struct BreakStmt {}
 
 /// A null (empty) statement.
 #[derive(Debug, Clone)]
-pub struct NullStmt {
-    pub pos: Pos,
-}
+pub struct NullStmt {}
 
 // =============================================================================
 // Control Flow Statements
@@ -52,7 +45,6 @@ pub struct NullStmt {
 /// An if statement.
 #[derive(Debug, Clone)]
 pub struct IfStmt {
-    pub pos: Pos,
     pub bool_unit: Box<BoolUnit>,
     pub if_stmts: CodeBlockStmtList,
     pub else_stmts: Option<CodeBlockStmtList>,
@@ -61,7 +53,6 @@ pub struct IfStmt {
 /// A while loop statement.
 #[derive(Debug, Clone)]
 pub struct WhileStmt {
-    pub pos: Pos,
     pub bool_unit: Box<BoolUnit>,
     pub stmts: CodeBlockStmtList,
 }
@@ -87,7 +78,6 @@ pub enum CodeBlockStmtInner {
 /// A statement within a code block.
 #[derive(Debug, Clone)]
 pub struct CodeBlockStmt {
-    pub pos: Pos,
     pub inner: CodeBlockStmtInner,
 }
 
