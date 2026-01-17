@@ -9,7 +9,7 @@ use regex::Regex;
 use std::{
     collections::HashSet,
     fs::File,
-    io::{self, BufWriter, Read},
+    io::{self, BufWriter, Read, Write},
     path::{Path, PathBuf},
 };
 
@@ -28,10 +28,11 @@ struct Cli {
     #[clap(value_name = "FILE")]
     input: String,
 
-    /// Dump mode (-d ast|ir|s)
-    #[arg(short = 'd', value_enum, ignore_case = true)]
-    dump: Option<DumpMode>,
+    /// Dump mode (-d ast|ir|s), defaults to 's' (assembly)
+    #[arg(short = 'd', value_enum, ignore_case = true, default_value = "s")]
+    dump: DumpMode,
 
+    /// Output file (defaults to stdout if not specified)
     #[clap(short, long, value_name = "FILE")]
     output: Option<String>,
 }
@@ -92,21 +93,38 @@ fn preprocess_file(path: &Path, visited: &mut HashSet<PathBuf>) -> io::Result<St
     Ok(out)
 }
 
+fn write_output<W: Write>(
+    dump_mode: DumpMode,
+    module_generator: &ir::ModuleGenerator,
+    writer: &mut W,
+) {
+    match dump_mode {
+        DumpMode::IR => {
+            // Save the generated LLVM IR.
+            module_generator.output(writer).unwrap_or_else(|e| {
+                eprintln!("Encountered error outputting: {e}");
+                std::process::exit(1);
+            });
+        }
+        DumpMode::S => {
+            // Lower IR to AArch64 assembly.
+            let asm_gen = asm::AArch64AsmGenerator::new(
+                &module_generator.module,
+                &module_generator.registry,
+            );
+            asm_gen.output(writer).unwrap_or_else(|e| {
+                eprintln!("Encountered error while generating assembly: {e}");
+                std::process::exit(1);
+            });
+        }
+        DumpMode::AST => unreachable!("handled above"),
+    }
+}
+
 fn main() {
     // Parse the command.
     let cli = Cli::parse();
     let input_path = cli.input;
-    let default_ext = match cli.dump {
-        Some(DumpMode::S) => "s",
-        _ => "ll",
-    };
-    let output_path = match cli.output {
-        None => Path::new(&input_path)
-            .with_extension(default_ext)
-            .to_string_lossy()
-            .into_owned(),
-        Some(path) => path,
-    };
 
     // Process input code file.
     let mut visited = HashSet::new();
@@ -121,7 +139,7 @@ fn main() {
         std::process::exit(1);
     });
 
-    if cli.dump == Some(DumpMode::AST) {
+    if cli.dump == DumpMode::AST {
         print!("{}", ast);
         return;
     }
@@ -133,43 +151,33 @@ fn main() {
         std::process::exit(1);
     });
 
-    let out_path = Path::new(&output_path);
-    if let Some(parent) = out_path.parent() {
-        if !parent.as_os_str().is_empty() {
-            std::fs::create_dir_all(parent).unwrap_or_else(|e| {
+    // Create writer: either to file or stdout
+    match &cli.output {
+        Some(output_path) => {
+            let out_path = Path::new(output_path);
+            if let Some(parent) = out_path.parent() {
+                if !parent.as_os_str().is_empty() {
+                    std::fs::create_dir_all(parent).unwrap_or_else(|e| {
+                        eprintln!(
+                            "Failed to create output directory {}: {e}",
+                            parent.to_string_lossy()
+                        );
+                        std::process::exit(1);
+                    });
+                }
+            }
+            let mut writer = BufWriter::new(File::create(out_path).unwrap_or_else(|e| {
                 eprintln!(
-                    "Failed to create output directory {}: {e}",
-                    parent.to_string_lossy()
+                    "Failed to create output file {}: {e}",
+                    out_path.to_string_lossy()
                 );
                 std::process::exit(1);
-            });
+            }));
+            write_output(cli.dump, &module_generator, &mut writer);
         }
-    }
-    let mut writer = BufWriter::new(File::create(out_path).unwrap_or_else(|e| {
-        eprintln!(
-            "Failed to create output file {}: {e}",
-            out_path.to_string_lossy()
-        );
-        std::process::exit(1);
-    }));
-
-    match cli.dump {
-        None | Some(DumpMode::IR) => {
-            // Save the generated LLVM IR into a file.
-            module_generator.output(&mut writer).unwrap_or_else(|e| {
-                eprintln!("Encountered error outputing: {e}");
-                std::process::exit(1);
-            });
+        None => {
+            let mut writer = BufWriter::new(io::stdout());
+            write_output(cli.dump, &module_generator, &mut writer);
         }
-        Some(DumpMode::S) => {
-            // Lower IR to AArch64 assembly.
-            let asm_gen =
-                asm::AArch64AsmGenerator::new(&module_generator.module, &module_generator.registry);
-            asm_gen.output(&mut writer).unwrap_or_else(|e| {
-                eprintln!("Encountered error while generating assembly: {e}");
-                std::process::exit(1);
-            });
-        }
-        Some(DumpMode::AST) => unreachable!("handled above"),
     }
 }
