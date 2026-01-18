@@ -21,15 +21,15 @@ kw_while = @{ "while" ~ !ASCII_ALPHANUMERIC }
 kw_break = @{ "break" ~ !ASCII_ALPHANUMERIC }
 // Example: "while i < n { if inq[temp] == 0 { continue; } i = i + 1; }"
 kw_continue = @{ "continue" ~ !ASCII_ALPHANUMERIC }
-// Example: "ret 0;" or "ret sum;"
-kw_ret = @{ "ret" ~ !ASCII_ALPHANUMERIC }
+// Example: "return 0;" or "return sum;"
+kw_return = @{ "return" ~ !ASCII_ALPHANUMERIC }
 // Example: "let count:i32 = 0;"
 kw_int = @{ "i32" ~ !ASCII_ALPHANUMERIC }
 // Example: "use std;"
 kw_use = @{ "use" ~ !ASCII_ALPHANUMERIC }
 
 // Operators
-// Example: "fn main() -> i32 { ret 0; }"
+// Example: "fn main() -> i32 { return 0; }"
 op_arrow = { "->" }
 // Example: "if ch <= 57 { }"
 op_le = { "<=" }
@@ -97,7 +97,7 @@ num = @{
 // Examples: "x", "count", "my_getint", "quickread", "arr", "head", "tail", "inq"
 identifier = @{
     !kw_let ~ !kw_fn ~ !kw_struct ~ !kw_if ~ !kw_else ~ !kw_while ~ 
-    !kw_break ~ !kw_continue ~ !kw_ret ~ !kw_int ~ !kw_use ~
+    !kw_break ~ !kw_continue ~ !kw_return ~ !kw_int ~ !kw_use ~
     (ASCII_ALPHA | "_") ~ (ASCII_ALPHA | ASCII_DIGIT | "_")*
 }
 
@@ -111,7 +111,7 @@ type_spec = {
 
 // Program structure
 // A complete TeaLang program: optional use statements, followed by program elements
-// Example: "use std; let n:i32; fn main() -> i32 { ret 0; }"
+// Example: "use std; let n:i32; fn main() -> i32 { return 0; }"
 program = {
     SOI ~ use_stmt* ~ program_element* ~ EOI
 }
@@ -124,7 +124,7 @@ use_stmt = {
 }
 
 // Program element: variable declaration, struct definition, function declaration or definition
-// Examples: "let n:i32;", "struct Node { val:i32 }", "fn main() -> i32 { ret 0; }"
+// Examples: "let n:i32;", "struct Node { val:i32 }", "fn main() -> i32 { return 0; }"
 program_element = {
     var_decl_stmt
     | struct_def
@@ -192,7 +192,7 @@ param_decl = {
 }
 
 // Function definition: declaration with implementation
-// Example: "fn main() -> i32 { let x:i32 = 0; ret x; }"
+// Example: "fn main() -> i32 { let x:i32 = 0; return x; }"
 fn_def = {
     fn_decl ~ lbrace ~ code_block_stmt* ~ rbrace
 }
@@ -225,14 +225,14 @@ call_stmt = {
 }
 
 // Return statement: return from a function with or without a value
-// Examples: "ret 0;", "ret x + y;", "ret;"
+// Examples: "return 0;", "return x + y;", "return;"
 return_stmt = {
-    kw_ret ~ right_val ~ semicolon
-    | kw_ret ~ semicolon
+    kw_return ~ right_val ~ semicolon
+    | kw_return ~ semicolon
 }
 
 // If statement: conditional branching with optional else clause
-// Examples: "if x > 0 { ret x; }", "if ch == 45 { f = 1; } else { f = 0; }"
+// Examples: "if x > 0 { return x; }", "if ch == 45 { f = 1; } else { f = 0; }"
 if_stmt = {
     kw_if ~ bool_expr ~ lbrace ~ code_block_stmt* ~ rbrace ~ kw_else ~ lbrace ~ code_block_stmt* ~ rbrace
     | kw_if ~ bool_expr ~ lbrace ~ code_block_stmt* ~ rbrace
