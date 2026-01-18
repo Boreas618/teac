@@ -45,7 +45,7 @@ fn loop1(x:i32, y:i32)->i32 {
             while f < 6 {
               g = 0;
               while g < 2 {
-                arr1[a].array[b].array[c].array[d].array[e].array[f].array[g]= a + b + c + d + e + f + g + x + y;
+                arr1[a].array[b].array[c].array[d].array[e].array[f].array[g] = a + b + c + d + e + f + g + x + y;
                 g = g + 1;
               }
               f = f + 1;
@@ -162,7 +162,7 @@ fn main()->i32 {
   let n:i32 = std::getint();
   loop1(x, y);
   loop2();
-  n=loop3(h, i, j, k, l, m, n);
+  n = loop3(h, i, j, k, l, m, n);
   std::timer_stop(117);
   ret n;
 }

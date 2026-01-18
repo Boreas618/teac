@@ -54,7 +54,8 @@ fn main()->i32
     let n:i32 = my_getint();
     while n > 0 {
         let m:i32 = my_getint();
-        my_putint(m); std::putch(10);
+        my_putint(m);
+        std::putch(10);
         n = n - 1;
     }
     std::timer_stop(58);

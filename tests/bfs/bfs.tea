@@ -1,22 +1,22 @@
 use std;
 
-fn quickread()->i32{
+fn quickread()->i32 {
 	let ch:i32 = std::getch();
 	let x:i32 = 0;
 	let f:i32 = 0;
-	while (ch < 48) || (ch > 57){
-		if ch == 45{
+	while (ch < 48) || (ch > 57) {
+		if ch == 45 {
 			f = 1;
 		} 
 		ch = std::getch();
 	}
-	while (ch >= 48) && (ch <=57){
+	while (ch >= 48) && (ch <=57) {
 		x = x * 10 + ch - 48;
 		ch = std::getch();
 	}
-	if f != 0{
+	if f != 0 {
 		ret 0-x;
-	}else{
+	} else {
 		ret x;
 	}
 }
@@ -32,7 +32,7 @@ let h:i32;
 let tail:i32;
 let inq: [i32; 1005];
 
-fn addedge(from:i32, To:i32){
+fn addedge(from:i32, To:i32) {
 	to[cnt] = To;
 	next[cnt] = head[from];
 	head[from] = cnt;
@@ -43,27 +43,27 @@ fn addedge(from:i32, To:i32){
 	cnt = cnt + 1;
 }
 
-fn init(){
+fn init() {
 	let i:i32 = 0;
-	while i < 1005{
+	while i < 1005 {
 		head[i] = -1;
 		i = i + 1;
 	}
 }
 
-fn inqueue(x:i32){
+fn inqueue(x:i32) {
 	inq[x] = 1;
 	tail = tail + 1;
 	que[tail] = x;
 }
 
-fn popqueue()->i32{
+fn popqueue()->i32 {
 	h = h + 1;
 	let res:i32 = que[h];
 	ret que[h];
 }
 
-fn same(s:i32, t:i32)->i32{
+fn same(s:i32, t:i32)->i32 {
 	h = 0;
 	tail = 0;
 	inqueue(s);
@@ -71,22 +71,22 @@ fn same(s:i32, t:i32)->i32{
 	let x:i32 = 0;
 	let i:i32 = 0;
 	let temp:i32 = 0;
-	while h < tail{
+	while h < tail {
 		x = popqueue();
-		if x == t{
+		if x == t {
 			res = 1;
 		}
 		i = head[x];
-		while i != -1{
+		while i != -1 {
 			temp = to[i];
-			if inq[temp] == 0{
+			if inq[temp] == 0 {
 				inqueue(to[i]);
 			}
 			i = next[i];
 		}
 	}
 	i = 0;
-	while i <= tail{
+	while i <= tail {
 		temp = que[i];
 		inq[temp] = 0;
 		i = i + 1;
@@ -94,24 +94,27 @@ fn same(s:i32, t:i32)->i32{
 	ret res;
 }
 
-fn main()->i32{
-	n = quickread(); m = quickread();
+fn main()->i32 {
+	n = quickread();
+	m = quickread();
 	std::timer_start(97);
 	init();
 	let ch:i32 = 0;
 	let x:i32 = 0;
 	let y:i32 = 0;
-	while m != 0{
+	while m != 0 {
 		ch = std::getch();
-		while (ch != 81) && (ch != 85){
+		while (ch != 81) && (ch != 85) {
 			ch = std::getch();
 		}
-		if ch == 81{
-			x = quickread(); y = quickread();
+		if ch == 81 {
+			x = quickread();
+			y = quickread();
 			std::putint(same(x, y));
 			std::putch(10);
-		}else{
-			x = quickread(); y = quickread();
+		} else {
+			x = quickread();
+			y = quickread();
 			addedge(x, y);
 		}
 		m = m - 1;
