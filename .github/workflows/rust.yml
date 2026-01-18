@@ -32,13 +32,3 @@ jobs:
 
     - name: Run tests
       run: cargo test --verbose
-
-    - name: Generate Rust Documentation
-      run: cargo doc --no-deps
-    
-    - name: Deploy to GitHub Pages
-      if: ${{ github.ref == 'refs/heads/Rust' }}
-      uses: peaceiris/actions-gh-pages@v3
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ./target/doc
