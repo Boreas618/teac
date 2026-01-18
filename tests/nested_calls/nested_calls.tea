@@ -1,6 +1,6 @@
 use std;
 
-fn func1(x:i32, y:i32, z:i32)->i32 {
+fn func1(x:i32, y:i32, z:i32) -> i32 {
   if z == 0 {
     ret x * y;
   }
@@ -9,7 +9,7 @@ fn func1(x:i32, y:i32, z:i32)->i32 {
   }
 }
 
-fn func2(x:i32, y:i32)->i32 {
+fn func2(x:i32, y:i32) -> i32 {
   if y!=0 {
     ret func2(x-(x/y)*y, 0);
   }
@@ -18,7 +18,7 @@ fn func2(x:i32, y:i32)->i32 {
   }
 }
 
-fn func3(x:i32, y:i32) ->i32{
+fn func3(x:i32, y:i32) -> i32{
   if y == 0 {
     ret x + 1;
   }
@@ -27,7 +27,7 @@ fn func3(x:i32, y:i32) ->i32{
   }
 }
 
-fn func4(x:i32, y:i32, z:i32)->i32 {
+fn func4(x:i32, y:i32, z:i32) -> i32 {
   if x!=0 {
     ret y;
   }
@@ -36,11 +36,11 @@ fn func4(x:i32, y:i32, z:i32)->i32 {
   }
 }
 
-fn func5(x:i32)->i32 {
+fn func5(x:i32) -> i32 {
   ret 0-x;
 }
 
-fn func6(x:i32, y:i32)->i32 {
+fn func6(x:i32, y:i32) -> i32 {
   if (x!=0) && (y!=0) {
     ret 1;
   }
@@ -49,7 +49,7 @@ fn func6(x:i32, y:i32)->i32 {
   }
 }
 
-fn func7(x:i32)->i32 {
+fn func7(x:i32) -> i32 {
   if !(x!=0) {
     ret 1;
   }
@@ -58,7 +58,7 @@ fn func7(x:i32)->i32 {
   }
 }
 
-fn main()->i32 {
+fn main() -> i32 {
   std::timer_start(97);
   let i1:i32 = std::getint();
   let i2:i32 = std::getint();

@@ -1,11 +1,11 @@
 use std;
 
-fn mod(x:i32,y:i32)->i32
+fn mod(x:i32,y:i32) -> i32
 {
     ret x-(x/y)*y;
 }
 
-fn palindrome(n:i32)->i32
+fn palindrome(n:i32) -> i32
 {
     let a: [i32; 4];
     let j:i32;
@@ -27,7 +27,7 @@ fn palindrome(n:i32)->i32
 	ret flag;
 }
 
-fn main()->i32
+fn main() -> i32
 {   
     std::timer_start(30);
     let test:i32;

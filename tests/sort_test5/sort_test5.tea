@@ -1,7 +1,7 @@
 use std;
 
 let n:i32;
-fn swap (array: [i32; 10], i:i32, j:i32)->i32{
+fn swap (array: [i32; 10], i:i32, j:i32) -> i32{
     let temp:i32;
     temp = array[i];
     array[i] = array[j];
@@ -9,7 +9,7 @@ fn swap (array: [i32; 10], i:i32, j:i32)->i32{
     ret 0;  
 }
 
-fn heap_ajust(arr: [i32; 10], start:i32, end:i32)->i32 {  
+fn heap_ajust(arr: [i32; 10], start:i32, end:i32) -> i32 {  
     let dad:i32;
     dad = start;  
     let son:i32;
@@ -29,7 +29,7 @@ fn heap_ajust(arr: [i32; 10], start:i32, end:i32)->i32 {
     ret 0;  
 }
 
-fn heap_sort(arr: [i32; 10], len:i32)->i32 {  
+fn heap_sort(arr: [i32; 10], len:i32) -> i32 {  
     let i:i32;  
     let tmp:i32;
     i = len / 2 - 1;
@@ -50,7 +50,7 @@ fn heap_sort(arr: [i32; 10], len:i32)->i32 {
     ret 0;
 }  
 
-fn main()->i32{
+fn main() -> i32{
     std::timer_start(50);
     n = 10;
     let a: [i32; 10];

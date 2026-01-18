@@ -2,7 +2,7 @@ use std;
 
 let ascii_0:i32 = 48;
 
-fn my_getint()->i32
+fn my_getint() -> i32
 {
     let sum:i32 = 0;
     let c:i32;
@@ -28,7 +28,7 @@ fn my_getint()->i32
     ret sum;
 }
 
-fn mod(x:i32,y:i32)->i32
+fn mod(x:i32,y:i32) -> i32
 {
     ret x-(x/y)*y;
 }
@@ -48,7 +48,7 @@ fn my_putint(a:i32)
     }
 }
 
-fn main()->i32
+fn main() -> i32
 {   
     std::timer_start(51);
     let n:i32 = my_getint();

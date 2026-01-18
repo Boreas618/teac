@@ -1,6 +1,6 @@
 use std;
 
-fn canJump(nums: [i32; 10], n:i32)->i32 {
+fn canJump(nums: [i32; 10], n:i32) -> i32 {
     if n == 1
     {
         ret 1;
@@ -41,7 +41,7 @@ fn canJump(nums: [i32; 10], n:i32)->i32 {
     ret dp[0];
 }
 
-fn main()->i32{
+fn main() -> i32{
     std::timer_start(42);
     let res:i32;
     let a: [i32; 10];

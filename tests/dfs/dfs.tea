@@ -1,6 +1,6 @@
 use std;
 
-fn quickread()->i32{
+fn quickread() -> i32{
 	let ch:i32 = std::getch();
 	let x:i32 = 0;
 	let f:i32 = 0;
@@ -56,7 +56,7 @@ fn clear(){
 	}
 }
 
-fn same(x:i32, tar:i32)->i32{
+fn same(x:i32, tar:i32) -> i32{
 	vis[x] = 1;
 	if x == tar{
 		ret 1;
@@ -72,7 +72,7 @@ fn same(x:i32, tar:i32)->i32{
 	ret 0;
 }
 
-fn main()->i32{
+fn main() -> i32{
 	std::timer_start(76);
 	n = quickread(); m = quickread();
 	init();

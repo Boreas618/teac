@@ -1,6 +1,6 @@
 use std;
 
-fn quickread()->i32 {
+fn quickread() -> i32 {
 	let ch:i32 = std::getch();
 	let x:i32 = 0;
 	let f:i32 = 0;
@@ -57,13 +57,13 @@ fn inqueue(x:i32) {
 	que[tail] = x;
 }
 
-fn popqueue()->i32 {
+fn popqueue() -> i32 {
 	h = h + 1;
 	let res:i32 = que[h];
 	ret que[h];
 }
 
-fn same(s:i32, t:i32)->i32 {
+fn same(s:i32, t:i32) -> i32 {
 	h = 0;
 	tail = 0;
 	inqueue(s);
@@ -94,7 +94,7 @@ fn same(s:i32, t:i32)->i32 {
 	ret res;
 }
 
-fn main()->i32 {
+fn main() -> i32 {
 	n = quickread();
 	m = quickread();
 	std::timer_start(97);

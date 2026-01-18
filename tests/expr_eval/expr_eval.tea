@@ -7,13 +7,13 @@ let num:i32;
 let other:i32;
 let cur_token:i32;
 
-fn next_char()->i32
+fn next_char() -> i32
 {
     last_char = std::getch();
     ret last_char;
 }
 
-fn is_space(c:i32)->i32
+fn is_space(c:i32) -> i32
 {
     if (c == 32) || (c == 10)
     {
@@ -25,7 +25,7 @@ fn is_space(c:i32)->i32
     }
 }
 
-fn is_num(c:i32)->i32
+fn is_num(c:i32) -> i32
 {
     if (c >= 48) && (c <= 57)
     {
@@ -37,7 +37,7 @@ fn is_num(c:i32)->i32
     }
 }
 
-fn next_token()->i32
+fn next_token() -> i32
 {
     while is_space(last_char)!=0
     {
@@ -61,7 +61,7 @@ fn next_token()->i32
     ret cur_token;
 }
 
-fn panic()->i32
+fn panic() -> i32
 {
     std::putch(112);
     std::putch(97);
@@ -73,7 +73,7 @@ fn panic()->i32
     ret -1;
 }
 
-fn get_op_prec(op:i32)->i32
+fn get_op_prec(op:i32) -> i32
 {
     if (op == 43) || (op == 45)
         {ret 10;}
@@ -89,7 +89,7 @@ fn stack_push(s: [i32; 256], v:i32)
     s[temp] = v;
 }
 
-fn stack_pop(s: [i32; 256])->i32
+fn stack_pop(s: [i32; 256]) -> i32
 {
     let temp:i32 = s[0];
     let last:i32 = s[temp];
@@ -97,23 +97,23 @@ fn stack_pop(s: [i32; 256])->i32
     ret last;
 }
 
-fn stack_peek(s: [i32; 256])->i32
+fn stack_peek(s: [i32; 256]) -> i32
 {
     let temp:i32 = s[0];
     ret s[temp];
 }
 
-fn stack_size(s: [i32; 256])->i32
+fn stack_size(s: [i32; 256]) -> i32
 {
     ret s[0];
 }
 
-fn mod(x:i32,y:i32)->i32
+fn mod(x:i32,y:i32) -> i32
 {
     ret x-(x/y)*y;
 }
 
-fn eval_op(op:i32, lhs:i32, rhs:i32)->i32
+fn eval_op(op:i32, lhs:i32, rhs:i32) -> i32
 {
     if op == 43
     {
@@ -138,7 +138,7 @@ fn eval_op(op:i32, lhs:i32, rhs:i32)->i32
     ret 0;
 }
 
-fn eval()->i32
+fn eval() -> i32
 {
     let oprs: [i32; 256];
     let ops: [i32; 256];
@@ -185,7 +185,7 @@ fn eval()->i32
     ret stack_peek(oprs);
 }
 
-fn main()->i32
+fn main() -> i32
 {   
     std::timer_start(205);
     let count:i32 = std::getint();

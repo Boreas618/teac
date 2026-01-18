@@ -4,11 +4,11 @@ let a:i32;
 let b:i32;
 let d:i32;
 
-fn set_a( val:i32)->i32 { a = val; ret a; }
-fn set_b(val:i32)->i32{ b = val; ret b; }
-fn set_d(val:i32)->i32 { d = val; ret d; }
+fn set_a( val:i32) -> i32 { a = val; ret a; }
+fn set_b(val:i32) -> i32{ b = val; ret b; }
+fn set_d(val:i32) -> i32 { d = val; ret d; }
 
-fn main()->i32
+fn main() -> i32
 {   
     std::timer_start(97);
     a = 2; b = 3;

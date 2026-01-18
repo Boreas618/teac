@@ -1,7 +1,7 @@
 use std;
 
 let n:i32;
-fn Merge(array: [i32; 10], low:i32, middle:i32, high:i32)->i32
+fn Merge(array: [i32; 10], low:i32, middle:i32, high:i32) -> i32
 {
     let n1:i32;
     n1 = middle - low + 1;
@@ -54,7 +54,7 @@ fn Merge(array: [i32; 10], low:i32, middle:i32, high:i32)->i32
     ret 0;
 }
  
-fn MergeSort(array: [i32; 10], p:i32, q:i32)->i32
+fn MergeSort(array: [i32; 10], p:i32, q:i32) -> i32
 {
     if p < q
     {
@@ -69,7 +69,7 @@ fn MergeSort(array: [i32; 10], p:i32, q:i32)->i32
     ret 0;
 }
 
-fn main()->i32 {
+fn main() -> i32 {
     std::timer_start(71);
     n = 10;
     let a: [i32; 10];
