@@ -15,9 +15,9 @@ fn quickread() -> i32{
 		ch = std::getch();
 	}
 	if f != 0{
-		ret 0-x;
+		return 0-x;
 	}else{
-		ret x;
+		return x;
 	}
 }
 
@@ -59,17 +59,17 @@ fn clear(){
 fn same(x:i32, tar:i32) -> i32{
 	vis[x] = 1;
 	if x == tar{
-		ret 1;
+		return 1;
 	}
 	let i:i32 = head[x];
 	while i != -1{
 		let y:i32 = to[i];
 		if (vis[y]==0) && (same(y,tar) != 0){
-			ret 1;
+			return 1;
 		}
 		i = next[i];
 	}
-	ret 0;
+	return 0;
 }
 
 fn main() -> i32{
@@ -96,5 +96,5 @@ fn main() -> i32{
 		m = m - 1;
 	}
 	std::timer_stop(98);
-	ret 0;
+	return 0;
 }

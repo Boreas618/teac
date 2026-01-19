@@ -2,59 +2,59 @@ use std;
 
 fn func1(x:i32, y:i32, z:i32) -> i32 {
   if z == 0 {
-    ret x * y;
+    return x * y;
   }
   else {
-    ret func1(x, y - z, 0);
+    return func1(x, y - z, 0);
   }
 }
 
 fn func2(x:i32, y:i32) -> i32 {
   if y!=0 {
-    ret func2(x-(x/y)*y, 0);
+    return func2(x-(x/y)*y, 0);
   }
   else {
-    ret x;
+    return x;
   }
 }
 
 fn func3(x:i32, y:i32) -> i32{
   if y == 0 {
-    ret x + 1;
+    return x + 1;
   }
   else {
-    ret func3(x + y, 0);
+    return func3(x + y, 0);
   }
 }
 
 fn func4(x:i32, y:i32, z:i32) -> i32 {
   if x!=0 {
-    ret y;
+    return y;
   }
   else {
-    ret z;
+    return z;
   }
 }
 
 fn func5(x:i32) -> i32 {
-  ret 0-x;
+  return 0-x;
 }
 
 fn func6(x:i32, y:i32) -> i32 {
   if (x!=0) && (y!=0) {
-    ret 1;
+    return 1;
   }
   else {
-    ret 0;
+    return 0;
   }
 }
 
 fn func7(x:i32) -> i32 {
   if !(x!=0) {
-    ret 1;
+    return 1;
   }
   else {
-    ret 0;
+    return 0;
   }
 }
 
@@ -91,5 +91,5 @@ fn main() -> i32 {
                   func5(arr[9])),
             i1));
   std::timer_stop(117);
-  ret a;
+  return a;
 }

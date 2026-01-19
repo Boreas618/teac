@@ -146,7 +146,7 @@ fn loop3( h:i32,  i:i32,  j:i32,  k:i32, l:i32,  m:i32,  n:i32) -> i32 {
     a = a + 1;
     if a >= h {break;}
   }
-  ret ans;
+  return ans;
 }
 
 fn main() -> i32 {
@@ -164,5 +164,5 @@ fn main() -> i32 {
   loop2();
   n = loop3(h, i, j, k, l, m, n);
   std::timer_stop(117);
-  ret n;
+  return n;
 }

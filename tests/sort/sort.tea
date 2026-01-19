@@ -3,15 +3,15 @@ use std;
 let base:i32 = 16;
 
 fn getMaxNum( n:i32, arr: [i32; 0]) -> i32 {
-    let return_:i32 = 0;
+    let ret_:i32 = 0;
     let i:i32 = 0;
     while i < n {
-        if arr[i] > return_ {
-            return_ = arr[i];
+        if arr[i] > ret_ {
+            ret_ = arr[i];
         }
         i = i + 1;
     }
-    ret return_;
+    return ret_;
 }
 
 fn getNumPos(num:i32, pos:i32) -> i32 {
@@ -21,7 +21,7 @@ fn getNumPos(num:i32, pos:i32) -> i32 {
         num = num / base;
         i = i + 1;
     }
-    ret num -(num/ base)*base;
+    return num -(num/ base)*base;
 }
 
 fn radixSort( bitround:i32, a: [i32; 0], l:i32, r:i32) {
@@ -39,7 +39,7 @@ fn radixSort( bitround:i32, a: [i32; 0], l:i32, r:i32) {
     }
 
     if (bitround == -1) || ((l + 1) >= r) {
-        ret;
+        return;
     }
 
     let i :i32 = l;
@@ -101,7 +101,7 @@ fn radixSort( bitround:i32, a: [i32; 0], l:i32, r:i32) {
         i = i + 1;
     }
     
-    ret;
+    return;
 }
 
 let a: [i32; 30000010];
@@ -132,5 +132,5 @@ fn main() -> i32 {
     std::timer_stop(117);
     std::putint(ans);
     std::putch(10);
-    ret 0;
+    return 0;
 }

@@ -6,7 +6,7 @@ fn swap (array: [i32; 10], i:i32, j:i32) -> i32{
     temp = array[i];
     array[i] = array[j];
     array[j] = temp;
-    ret 0;  
+    return 0;  
 }
 
 fn heap_ajust(arr: [i32; 10], start:i32, end:i32) -> i32 {  
@@ -19,14 +19,14 @@ fn heap_ajust(arr: [i32; 10], start:i32, end:i32) -> i32 {
         if (son < end) && (arr[son] < arr[temp])
             {son = son + 1;  }
         if arr[dad] > arr[son]
-            {ret 0;}  
+            {return 0;}  
         else {
             dad = swap(arr,dad,son);  
             dad = son;  
             son = dad * 2 + 1;  
         }  
     }  
-    ret 0;  
+    return 0;  
 }
 
 fn heap_sort(arr: [i32; 10], len:i32) -> i32 {  
@@ -47,7 +47,7 @@ fn heap_sort(arr: [i32; 10], len:i32) -> i32 {
         tmp = heap_ajust(arr, tmp0, tmp);  
         i = i-1;
     }  
-    ret 0;
+    return 0;
 }  
 
 fn main() -> i32{
@@ -68,5 +68,5 @@ fn main() -> i32{
         i = i + 1;
     }
     std::timer_stop(66);
-    ret 0;
+    return 0;
 }

@@ -15,9 +15,9 @@ fn quickread() -> i32 {
 		ch = std::getch();
 	}
 	if f != 0 {
-		ret 0-x;
+		return 0-x;
 	} else {
-		ret x;
+		return x;
 	}
 }
 
@@ -60,7 +60,7 @@ fn inqueue(x:i32) {
 fn popqueue() -> i32 {
 	h = h + 1;
 	let res:i32 = que[h];
-	ret que[h];
+	return que[h];
 }
 
 fn same(s:i32, t:i32) -> i32 {
@@ -91,7 +91,7 @@ fn same(s:i32, t:i32) -> i32 {
 		inq[temp] = 0;
 		i = i + 1;
 	}
-	ret res;
+	return res;
 }
 
 fn main() -> i32 {
@@ -120,5 +120,5 @@ fn main() -> i32 {
 		m = m - 1;
 	}
 	std::timer_stop(117);
-	ret 0;
+	return 0;
 }

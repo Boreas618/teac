@@ -51,7 +51,7 @@ fn Merge(array: [i32; 10], low:i32, middle:i32, high:i32) -> i32
         k = k + 1;
         j = j + 1;
     }
-    ret 0;
+    return 0;
 }
  
 fn MergeSort(array: [i32; 10], p:i32, q:i32) -> i32
@@ -66,7 +66,7 @@ fn MergeSort(array: [i32; 10], p:i32, q:i32) -> i32
         tmp = MergeSort(array, tmp, q);
         tmp = Merge(array,p, mid, q);
     }
-    ret 0;
+    return 0;
 }
 
 fn main() -> i32 {
@@ -96,5 +96,5 @@ fn main() -> i32 {
         i = i + 1;
     }
     std::timer_stop(97);
-    ret 0;
+    return 0;
 }

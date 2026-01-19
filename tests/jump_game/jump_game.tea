@@ -3,11 +3,11 @@ use std;
 fn canJump(nums: [i32; 10], n:i32) -> i32 {
     if n == 1
     {
-        ret 1;
+        return 1;
     }
     if nums[0] > (n - 2)
     {
-        ret 1;
+        return 1;
     }
     let dp: [i32; 10];
     let i:i32;
@@ -38,7 +38,7 @@ fn canJump(nums: [i32; 10], n:i32) -> i32 {
         i = i - 1;
     }
 
-    ret dp[0];
+    return dp[0];
 }
 
 fn main() -> i32{
@@ -50,5 +50,5 @@ fn main() -> i32{
     res = 10;
     res = canJump(a, res);
     std::timer_stop(49);
-    ret res;
+    return res;
 }

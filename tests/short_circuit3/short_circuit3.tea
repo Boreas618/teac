@@ -4,9 +4,9 @@ let a:i32;
 let b:i32;
 let d:i32;
 
-fn set_a( val:i32) -> i32 { a = val; ret a; }
-fn set_b(val:i32) -> i32{ b = val; ret b; }
-fn set_d(val:i32) -> i32 { d = val; ret d; }
+fn set_a( val:i32) -> i32 { a = val; return a; }
+fn set_b(val:i32) -> i32{ b = val; return b; }
+fn set_d(val:i32) -> i32 { d = val; return d; }
 
 fn main() -> i32
 {   
@@ -44,5 +44,5 @@ fn main() -> i32
     if (!(i1!=0)) || (i3 < i3) && (i4 >= i4) {std::putch(75);}
     std::putch(10);
     std::timer_stop(117);
-    ret 0;
+    return 0;
 }

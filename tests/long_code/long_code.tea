@@ -21,7 +21,7 @@ fn bubblesort(arr: [i32; 0]) -> i32 {
         }
         i = i + 1;
     }
-    ret 0;
+    return 0;
 }
 
 fn insertsort(a: [i32; 0]) -> i32{
@@ -43,7 +43,7 @@ fn insertsort(a: [i32; 0]) -> i32{
         a[tmp]=temp; 
         i = i + 1;
     }
-    ret 0;
+    return 0;
 }
 
 fn QuickSort(arr: [i32; 0], low:i32,  high:i32) -> i32
@@ -88,7 +88,7 @@ fn QuickSort(arr: [i32; 0], low:i32,  high:i32) -> i32
         tmp = i + 1;
         tmp = QuickSort(arr, tmp, high);
     }
-    ret 0;
+    return 0;
 }
 
 
@@ -97,10 +97,10 @@ fn getMid(arr: [i32; 0]) -> i32{
     if ((n /2)*2) == n {
         mid = n / 2;
         let tmp:i32=mid-1;
-        ret (arr[mid] + arr[tmp]) / 2;
+        return (arr[mid] + arr[tmp]) / 2;
     } else {
         mid = n / 2;
-        ret arr[mid];
+        return arr[mid];
     }
 }
 
@@ -126,7 +126,7 @@ fn getMost(arr: [i32; 0]) -> i32 {
         }
         i = i + 1;
     }
-    ret number;
+    return number;
 }
 
 fn revert(arr: [i32; 0]) -> i32 {
@@ -142,7 +142,7 @@ fn revert(arr: [i32; 0]) -> i32 {
         i = i + 1;
         j = j - 1;
     }
-    ret 0;
+    return 0;
 }
 
 fn arrCopy(src: [i32; 0], target: [i32; 0]) -> i32 {
@@ -152,7 +152,7 @@ fn arrCopy(src: [i32; 0], target: [i32; 0]) -> i32 {
         target[i] = src[i];
         i = i + 1;
     }
-    ret 0;
+    return 0;
 }
 
 fn calSum(arr: [i32; 0], stride:i32) -> i32 {
@@ -170,7 +170,7 @@ fn calSum(arr: [i32; 0], stride:i32) -> i32 {
         }
         i = i + 1;
     }
-    ret 0;
+    return 0;
 }
 
 fn avgPooling(arr: [i32; 0], stride:i32) -> i32 {
@@ -201,7 +201,7 @@ fn avgPooling(arr: [i32; 0], stride:i32) -> i32 {
         arr[i] = 0;
         i = i + 1;
     }
-    ret 0;
+    return 0;
 }
 
 fn main() -> i32 {
@@ -309,5 +309,5 @@ fn main() -> i32 {
         i = i + 1;
     }
     std::timer_stop(312);
-    ret 0;
+    return 0;
 }

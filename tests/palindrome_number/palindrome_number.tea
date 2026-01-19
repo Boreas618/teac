@@ -2,7 +2,7 @@ use std;
 
 fn mod(x:i32,y:i32) -> i32
 {
-    ret x-(x/y)*y;
+    return x-(x/y)*y;
 }
 
 fn palindrome(n:i32) -> i32
@@ -24,7 +24,7 @@ fn palindrome(n:i32) -> i32
 	}else{
 		flag=0;
 	}
-	ret flag;
+	return flag;
 }
 
 fn main() -> i32
@@ -47,6 +47,6 @@ fn main() -> i32
     flag = 10;
     std::putch(flag);
     std::timer_stop(47);
-    ret 0;
+    return 0;
     
 }
