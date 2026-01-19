@@ -17,7 +17,7 @@ use crate::ir::value::Named;
 
 impl ModuleGenerator {
     /// Generates IR for an entire program.
-    pub fn gen(&mut self, from: &ast::Program) -> Result<(), Error> {
+    pub fn generate(&mut self, from: &ast::Program) -> Result<(), Error> {
         // Handle use statements - register external std library functions
         for use_stmt in from.use_stmts.iter() {
             self.handle_use_stmt(use_stmt)?;

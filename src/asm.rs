@@ -15,6 +15,14 @@ use std::io::Write;
 /// This trait defines the interface that all backend code generators must implement.
 /// Each backend (e.g., AArch64, x86_64) provides its own implementation.
 pub trait AsmGenerator {
-    /// Emits assembly code for the entire module to the given writer.
+    /// Generates assembly from the IR module.
+    ///
+    /// This performs instruction selection, register allocation, and prepares
+    /// the final assembly representation without writing it out.
+    fn generate(&mut self) -> Result<(), Error>;
+
+    /// Writes the generated assembly to the given writer.
+    ///
+    /// Must be called after `generate()`.
     fn output<W: Write>(&self, w: &mut W) -> Result<(), Error>;
 }

@@ -28,6 +28,31 @@ use std::io::Write;
 use types::dtype_to_regsize;
 
 // =============================================================================
+// Generated Assembly Types
+// =============================================================================
+
+/// A generated global variable.
+struct GeneratedGlobal {
+    symbol: String,
+    data: GlobalData,
+}
+
+/// Data layout for a global variable.
+enum GlobalData {
+    /// A single 32-bit word.
+    Word { value: i64 },
+    /// An array of 32-bit words followed by zero-initialized bytes.
+    Array { words: Vec<i64>, zero_bytes: i64 },
+}
+
+/// A generated function.
+struct GeneratedFunction {
+    symbol: String,
+    frame_size: i64,
+    insts: Vec<Inst>,
+}
+
+// =============================================================================
 // AArch64 Code Generator
 // =============================================================================
 
@@ -35,32 +60,53 @@ use types::dtype_to_regsize;
 pub struct AArch64AsmGenerator<'a> {
     module: &'a ir::Module,
     registry: &'a ir::Registry,
+    globals: Vec<GeneratedGlobal>,
+    functions: Vec<GeneratedFunction>,
 }
 
 impl<'a> AArch64AsmGenerator<'a> {
     pub fn new(module: &'a ir::Module, registry: &'a ir::Registry) -> Self {
-        Self { module, registry }
+        Self {
+            module,
+            registry,
+            globals: Vec::new(),
+            functions: Vec::new(),
+        }
     }
 }
 
 impl<'a> AsmGenerator for AArch64AsmGenerator<'a> {
-    fn output<W: Write>(&self, w: &mut W) -> Result<(), Error> {
+    fn generate(&mut self) -> Result<(), Error> {
         let layouts: StructLayouts = compute_struct_layouts(&self.registry.struct_types)?;
 
-        if !self.module.global_list.is_empty() {
+        self.globals.clear();
+        for g in self.module.global_list.values() {
+            self.globals.push(Self::handle_global(&layouts, g)?);
+        }
+
+        self.functions.clear();
+        for func in self.module.function_list.values() {
+            if func.blocks.is_some() {
+                self.functions.push(Self::handle_function(&layouts, func)?);
+            }
+        }
+
+        Ok(())
+    }
+
+    fn output<W: Write>(&self, w: &mut W) -> Result<(), Error> {
+        if !self.globals.is_empty() {
             writeln!(w, ".data")?;
-            for g in self.module.global_list.values() {
-                Self::gen_global(w, &layouts, g)?;
+            for g in &self.globals {
+                Self::output_global(w, g)?;
             }
             writeln!(w)?;
         }
 
         writeln!(w, ".text")?;
-        for func in self.module.function_list.values() {
-            if func.blocks.is_some() {
-                Self::gen_function(w, &layouts, func)?;
-                writeln!(w)?;
-            }
+        for func in &self.functions {
+            Self::output_function(w, func)?;
+            writeln!(w)?;
         }
         Ok(())
     }
@@ -98,25 +144,19 @@ impl<'a> AArch64AsmGenerator<'a> {
         Ok(insts)
     }
 
-    fn gen_global<W: Write>(
-        w: &mut W,
-        layouts: &StructLayouts,
-        g: &ir::GlobalVariable,
-    ) -> Result<(), Error> {
-        let sym = g.identifier.clone();
+    fn handle_global(layouts: &StructLayouts, g: &ir::GlobalVariable) -> Result<GeneratedGlobal, Error> {
+        let symbol = g.identifier.clone();
 
-        match &g.dtype {
+        let data = match &g.dtype {
             ir::Dtype::I32 => {
-                let init = g
+                let value = g
                     .initializers
                     .as_ref()
                     .and_then(|v| v.first())
                     .copied()
+                    .map(|v| v as i64)
                     .unwrap_or(0);
-                writeln!(w, ".globl {sym}")?;
-                writeln!(w, ".p2align 2")?;
-                writeln!(w, "{sym}:")?;
-                writeln!(w, "\t.word {init}")?;
+                GlobalData::Word { value }
             }
             ir::Dtype::Pointer { inner, length } => {
                 if *length == 0 {
@@ -127,22 +167,18 @@ impl<'a> AArch64AsmGenerator<'a> {
                 let len = *length;
 
                 let (elem_size, _) = size_align_of_dtype(inner.as_ref(), layouts)?;
-                let total_bytes = (len as i64) * elem_size;
-
-                writeln!(w, ".globl {sym}")?;
-                writeln!(w, ".p2align 2")?;
-                writeln!(w, "{sym}:")?;
 
                 if let Some(inits) = &g.initializers {
-                    for v in inits.iter().take(len) {
-                        writeln!(w, "\t.word {v}")?;
-                    }
+                    let words: Vec<i64> = inits.iter().take(len).map(|&v| v as i64).collect();
                     let remaining = len.saturating_sub(inits.len());
-                    if remaining > 0 {
-                        writeln!(w, "\t.zero {}", (remaining as i64) * elem_size)?;
-                    }
+                    let zero_bytes = (remaining as i64) * elem_size;
+                    GlobalData::Array { words, zero_bytes }
                 } else {
-                    writeln!(w, "\t.zero {total_bytes}")?;
+                    let zero_bytes = (len as i64) * elem_size;
+                    GlobalData::Array {
+                        words: Vec::new(),
+                        zero_bytes,
+                    }
                 }
             }
             _ => {
@@ -150,17 +186,41 @@ impl<'a> AArch64AsmGenerator<'a> {
                     dtype: g.dtype.clone(),
                 })
             }
+        };
+
+        Ok(GeneratedGlobal { symbol, data })
+    }
+
+    fn output_global<W: Write>(w: &mut W, g: &GeneratedGlobal) -> Result<(), Error> {
+        writeln!(w, ".globl {}", g.symbol)?;
+        writeln!(w, ".p2align 2")?;
+        writeln!(w, "{}:", g.symbol)?;
+        match &g.data {
+            GlobalData::Word { value } => {
+                writeln!(w, "\t.word {value}")?;
+            }
+            GlobalData::Array { words, zero_bytes } => {
+                for v in words {
+                    writeln!(w, "\t.word {v}")?;
+                }
+                if *zero_bytes > 0 {
+                    writeln!(w, "\t.zero {zero_bytes}")?;
+                }
+            }
         }
         Ok(())
     }
 
-    fn gen_function<W: Write>(
-        w: &mut W,
+    fn handle_function(
         layouts: &StructLayouts,
         func: &ir::Function,
-    ) -> Result<(), Error> {
+    ) -> Result<GeneratedFunction, Error> {
         let Some(blocks) = &func.blocks else {
-            return Ok(());
+            return Ok(GeneratedFunction {
+                symbol: func.identifier.clone(),
+                frame_size: 0,
+                insts: Vec::new(),
+            });
         };
 
         let mut frame = StackFrame::default();
@@ -223,17 +283,23 @@ impl<'a> AArch64AsmGenerator<'a> {
             frame.alloc_spill(v, 8, 8);
         }
 
-        let insts_final = rewrite_insts(&insts, &alloc, &frame, &vreg_kinds)?;
-
-        let sym = func.identifier.clone();
-        let mut printer = AsmPrinter::new(w);
-        printer.emit_global(&sym)?;
-        printer.emit_align(2)?;
-        printer.emit_label(&sym)?;
+        let insts = rewrite_insts(&insts, &alloc, &frame, &vreg_kinds)?;
         let frame_size = frame.frame_size_aligned();
-        printer.emit_prologue(frame_size)?;
-        printer.emit_insts(&insts_final)?;
 
+        Ok(GeneratedFunction {
+            symbol: func.identifier.clone(),
+            frame_size,
+            insts,
+        })
+    }
+
+    fn output_function<W: Write>(w: &mut W, func: &GeneratedFunction) -> Result<(), Error> {
+        let mut printer = AsmPrinter::new(w);
+        printer.emit_global(&func.symbol)?;
+        printer.emit_align(2)?;
+        printer.emit_label(&func.symbol)?;
+        printer.emit_prologue(func.frame_size)?;
+        printer.emit_insts(&func.insts)?;
         Ok(())
     }
 }

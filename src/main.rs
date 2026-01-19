@@ -167,10 +167,14 @@ fn write_output<W: Write>(
         }
         DumpMode::S => {
             // Lower IR to AArch64 assembly code
-            let asm_gen = asm::AArch64AsmGenerator::new(
+            let mut asm_gen = asm::AArch64AsmGenerator::new(
                 &module_generator.module,
                 &module_generator.registry,
             );
+            asm_gen.generate().unwrap_or_else(|e| {
+                eprintln!("Encountered error while generating assembly: {e}");
+                std::process::exit(1);
+            });
             asm_gen.output(writer).unwrap_or_else(|e| {
                 eprintln!("Encountered error while generating assembly: {e}");
                 std::process::exit(1);
@@ -218,7 +222,7 @@ fn main() {
     // Stage 3: Generate LLVM-style Intermediate Representation from the AST
     // This performs semantic analysis, type checking, and IR code generation
     let mut module_generator = ir::ModuleGenerator::new();
-    module_generator.gen(&ast).unwrap_or_else(|e| {
+    module_generator.generate(&ast).unwrap_or_else(|e| {
         eprintln!("Encountered error while generating IR from AST: {e}");
         std::process::exit(1);
     });
