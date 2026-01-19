@@ -7,7 +7,7 @@ use crate::ast;
 /// Parser for the TeaLang programming language.
 /// Uses Pest parser generator with grammar defined in the teapl.pest file
 #[derive(Parser)]
-#[grammar = "teapl.pest"]
+#[grammar = "tealang.pest"]
 pub struct TeaLangParser;
 
 type ParseResult<T> = Result<T, String>;
