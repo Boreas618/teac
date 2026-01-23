@@ -700,7 +700,7 @@ impl<'a> InstRewriter<'a> {
     ) -> Result<(), Error> {
         // Load base (64-bit pointer).
         let base_reg = self.load_src_reg(base, RegSize::X64, SCRATCH0)?;
-        let base_used_scratch = matches!(base_reg, Reg::P(SCRATCH0));
+        let base_used_scratch = matches!(base_reg, Reg::P(r) if r == SCRATCH0);
 
         // Load index (32-bit integer).
         let index_scratch = if base_used_scratch {

@@ -222,6 +222,8 @@ impl<'a> AArch64AsmGenerator<'a> {
                 insts: Vec::new(),
             });
         };
+        let lowered_blocks = ir::opt::lower_phis_for_codegen(blocks);
+        let blocks = &lowered_blocks;
 
         let mut frame = StackFrame::default();
         let alloca_ptrs = collect_alloca_ptrs(blocks)?;
@@ -266,6 +268,11 @@ impl<'a> AArch64AsmGenerator<'a> {
                     Alloca(_) => { /* Stack slots handled by frame layout */ }
                     Store(s) => ctx.gen_store(s)?,
                     Load(s) => ctx.gen_load(s)?,
+                    Phi(_) => {
+                        return Err(Error::Internal(
+                            "phi node reached codegen without lowering".into(),
+                        ))
+                    }
                     BiOp(s) => ctx.gen_biop(s)?,
                     Cmp(s) => ctx.gen_cmp(s)?,
                     CJump(s) => ctx.gen_cjump(s)?,

@@ -4,6 +4,9 @@ use super::inst::Inst;
 use super::types::{Addr, BinOp, Cond, IndexOperand, Operand, Reg, RegSize};
 use crate::asm::error::Error;
 
+const SCRATCH0: u8 = 16;
+const SCRATCH1: u8 = 17;
+
 pub trait AsmPrint {
     fn emit_inst(&mut self, inst: &Inst) -> Result<(), Error>;
 
@@ -99,6 +102,20 @@ impl<W: Write> AsmPrinter<W> {
         }
     }
 
+    fn scratch_in_use(regs: &[Reg], scratch: u8) -> bool {
+        regs.iter().any(|r| matches!(r, Reg::P(n) if *n == scratch))
+    }
+
+    fn pick_scratch_reg(&self, regs: &[Reg]) -> Option<Reg> {
+        let use0 = Self::scratch_in_use(regs, SCRATCH0);
+        let use1 = Self::scratch_in_use(regs, SCRATCH1);
+        match (use0, use1) {
+            (false, _) => Some(Reg::P(SCRATCH0)),
+            (true, false) => Some(Reg::P(SCRATCH1)),
+            (true, true) => None,
+        }
+    }
+
     fn emit_mov(&mut self, size: RegSize, dst: Reg, src: Operand) -> Result<(), Error> {
         let dst_s = self.reg_name(dst, size);
         match src {
@@ -137,9 +154,17 @@ impl<W: Write> AsmPrinter<W> {
                         };
                         if self.is_addsub_imm_encodable(imm_abs) {
                             writeln!(self.writer, "\t{op_mn} {dst_s}, {lhs_s}, #{imm_abs}")?;
+                        } else if dst != lhs {
+                            // Use dst as temp to avoid clobbering scratch regs.
+                            self.emit_mov_imm(&dst_s, imm_abs as u64)?;
+                            writeln!(self.writer, "\t{op_mn} {dst_s}, {lhs_s}, {dst_s}")?;
                         } else {
-                            // Use x16/w16 as scratch.
-                            let scratch = self.reg_name(Reg::P(16), size);
+                            let scratch_reg = if matches!(dst, Reg::P(r) if r == SCRATCH0) {
+                                Reg::P(SCRATCH1)
+                            } else {
+                                Reg::P(SCRATCH0)
+                            };
+                            let scratch = self.reg_name(scratch_reg, size);
                             self.emit_mov_imm(&scratch, imm_abs as u64)?;
                             writeln!(self.writer, "\t{op_mn} {dst_s}, {lhs_s}, {scratch}")?;
                         }
@@ -156,26 +181,50 @@ impl<W: Write> AsmPrinter<W> {
                 }
             }
             BinOp::Mul => {
-                let rhs_s = match rhs {
-                    Operand::Reg(r) => self.reg_name(r, size),
-                    Operand::Imm(imm) => {
-                        let scratch = self.reg_name(Reg::P(16), size);
-                        self.emit_mov_imm(&scratch, imm as u64)?;
-                        scratch
+                match rhs {
+                    Operand::Reg(r) => {
+                        let rhs_s = self.reg_name(r, size);
+                        writeln!(self.writer, "\tmul {dst_s}, {lhs_s}, {rhs_s}")?;
                     }
-                };
-                writeln!(self.writer, "\tmul {dst_s}, {lhs_s}, {rhs_s}")?;
+                    Operand::Imm(imm) => {
+                        if dst != lhs {
+                            self.emit_mov_imm(&dst_s, imm as u64)?;
+                            writeln!(self.writer, "\tmul {dst_s}, {lhs_s}, {dst_s}")?;
+                        } else {
+                            let scratch_reg = if matches!(dst, Reg::P(r) if r == SCRATCH0) {
+                                Reg::P(SCRATCH1)
+                            } else {
+                                Reg::P(SCRATCH0)
+                            };
+                            let scratch = self.reg_name(scratch_reg, size);
+                            self.emit_mov_imm(&scratch, imm as u64)?;
+                            writeln!(self.writer, "\tmul {dst_s}, {lhs_s}, {scratch}")?;
+                        }
+                    }
+                }
             }
             BinOp::SDiv => {
-                let rhs_s = match rhs {
-                    Operand::Reg(r) => self.reg_name(r, size),
-                    Operand::Imm(imm) => {
-                        let scratch = self.reg_name(Reg::P(16), size);
-                        self.emit_mov_imm(&scratch, imm as u64)?;
-                        scratch
+                match rhs {
+                    Operand::Reg(r) => {
+                        let rhs_s = self.reg_name(r, size);
+                        writeln!(self.writer, "\tsdiv {dst_s}, {lhs_s}, {rhs_s}")?;
                     }
-                };
-                writeln!(self.writer, "\tsdiv {dst_s}, {lhs_s}, {rhs_s}")?;
+                    Operand::Imm(imm) => {
+                        if dst != lhs {
+                            self.emit_mov_imm(&dst_s, imm as u64)?;
+                            writeln!(self.writer, "\tsdiv {dst_s}, {lhs_s}, {dst_s}")?;
+                        } else {
+                            let scratch_reg = if matches!(dst, Reg::P(r) if r == SCRATCH0) {
+                                Reg::P(SCRATCH1)
+                            } else {
+                                Reg::P(SCRATCH0)
+                            };
+                            let scratch = self.reg_name(scratch_reg, size);
+                            self.emit_mov_imm(&scratch, imm as u64)?;
+                            writeln!(self.writer, "\tsdiv {dst_s}, {lhs_s}, {scratch}")?;
+                        }
+                    }
+                }
             }
         }
 
@@ -199,14 +248,6 @@ impl<W: Write> AsmPrinter<W> {
     ) -> Result<(), Error> {
         let reg_s = self.reg_name(reg, size);
 
-        // Choose scratch register that doesn't conflict with the data register.
-        let scratch = if matches!(reg, Reg::P(16)) {
-            Reg::P(17)
-        } else {
-            Reg::P(16)
-        };
-        let scratch_s = self.reg_name(scratch, RegSize::X64);
-
         match addr {
             Addr::BaseOff { base, offset } => {
                 let base_s = self.reg_name(*base, RegSize::X64);
@@ -215,13 +256,58 @@ impl<W: Write> AsmPrinter<W> {
                 } else if self.is_mem_offset_encodable(*offset) {
                     writeln!(self.writer, "\t{mnemonic} {reg_s}, [{base_s}, #{offset}]")?;
                 } else {
-                    self.emit_add_x_imm(scratch, *base, *offset)?;
-                    writeln!(self.writer, "\t{mnemonic} {reg_s}, [{scratch_s}]")?;
+                    if mnemonic == "ldr" {
+                        // Compute address in the destination register (safe for loads).
+                        let addr_s = self.reg_name(reg, RegSize::X64);
+                        let (op_mn, imm_abs) = if *offset < 0 {
+                            ("sub", -offset)
+                        } else {
+                            ("add", *offset)
+                        };
+                        self.emit_mov_imm(&addr_s, imm_abs as u64)?;
+                        writeln!(self.writer, "\t{op_mn} {addr_s}, {base_s}, {addr_s}")?;
+                        writeln!(self.writer, "\t{mnemonic} {reg_s}, [{addr_s}]")?;
+                    } else {
+                        let scratch = self.pick_scratch_reg(&[reg, *base]);
+                        if let Some(scratch) = scratch {
+                            let scratch_s = self.reg_name(scratch, RegSize::X64);
+                            self.emit_add_x_imm_with(scratch, *base, *offset, scratch)?;
+                            writeln!(self.writer, "\t{mnemonic} {reg_s}, [{scratch_s}]")?;
+                        } else {
+                            // Fallback: save src, compute addr in src reg, restore src into base reg.
+                            self.emit_sub_sp(16)?;
+                            writeln!(self.writer, "\tstr {reg_s}, [sp]")?;
+
+                            let addr_s = self.reg_name(reg, RegSize::X64);
+                            let (op_mn, imm_abs) = if *offset < 0 {
+                                ("sub", -offset)
+                            } else {
+                                ("add", *offset)
+                            };
+                            self.emit_mov_imm(&addr_s, imm_abs as u64)?;
+                            writeln!(self.writer, "\t{op_mn} {addr_s}, {base_s}, {addr_s}")?;
+
+                            let restored_s = self.reg_name(*base, size);
+                            writeln!(self.writer, "\tldr {restored_s}, [sp]")?;
+                            self.emit_add_sp(16)?;
+                            writeln!(self.writer, "\t{mnemonic} {restored_s}, [{addr_s}]")?;
+                        }
+                    }
                 }
             }
             Addr::Global(sym) => {
-                self.emit_adrp_add(scratch, sym)?;
-                writeln!(self.writer, "\t{mnemonic} {reg_s}, [{scratch_s}]")?;
+                if mnemonic == "ldr" {
+                    let addr_s = self.reg_name(reg, RegSize::X64);
+                    self.emit_adrp_add(reg, sym)?;
+                    writeln!(self.writer, "\t{mnemonic} {reg_s}, [{addr_s}]")?;
+                } else {
+                    let scratch = self
+                        .pick_scratch_reg(&[reg])
+                        .unwrap_or(Reg::P(SCRATCH0));
+                    let scratch_s = self.reg_name(scratch, RegSize::X64);
+                    self.emit_adrp_add(scratch, sym)?;
+                    writeln!(self.writer, "\t{mnemonic} {reg_s}, [{scratch_s}]")?;
+                }
             }
         }
         Ok(())
@@ -239,7 +325,10 @@ impl<W: Write> AsmPrinter<W> {
                 )?;
                 Ok(())
             }
-            Addr::BaseOff { base, offset } => self.emit_add_x_imm(dst, *base, *offset),
+            Addr::BaseOff { base, offset } => {
+                let scratch = self.pick_scratch_reg(&[dst, *base]).unwrap_or(dst);
+                self.emit_add_x_imm_with(dst, *base, *offset, scratch)
+            }
         }
     }
 
@@ -260,7 +349,8 @@ impl<W: Write> AsmPrinter<W> {
                 if off == 0 {
                     writeln!(self.writer, "\tmov {dst_s}, {base_s}")?;
                 } else {
-                    self.emit_add_x_imm(dst, base, off)?;
+                    let scratch = self.pick_scratch_reg(&[dst, base]).unwrap_or(dst);
+                    self.emit_add_x_imm_with(dst, base, off, scratch)?;
                 }
             }
             IndexOperand::Reg(r) => {
@@ -274,10 +364,42 @@ impl<W: Write> AsmPrinter<W> {
                     )?;
                 } else {
                     // General case: sign-extend, multiply, add.
-                    writeln!(self.writer, "\tsxtw x16, {idx_s}")?;
-                    self.emit_mov_imm("x17", scale as u64)?;
-                    writeln!(self.writer, "\tmul x16, x16, x17")?;
-                    writeln!(self.writer, "\tadd {dst_s}, {base_s}, x16")?;
+                    if dst != base {
+                        let tmp0_s = self.reg_name(dst, RegSize::X64);
+                        let tmp1 = self
+                            .pick_scratch_reg(&[dst, base])
+                            .unwrap_or(Reg::P(SCRATCH0));
+                        let tmp1_s = self.reg_name(tmp1, RegSize::X64);
+                        writeln!(self.writer, "\tsxtw {tmp0_s}, {idx_s}")?;
+                        self.emit_mov_imm(&tmp1_s, scale as u64)?;
+                        writeln!(self.writer, "\tmul {tmp0_s}, {tmp0_s}, {tmp1_s}")?;
+                        writeln!(self.writer, "\tadd {dst_s}, {base_s}, {tmp0_s}")?;
+                    } else if matches!(base, Reg::P(r) if r == SCRATCH0)
+                        || matches!(base, Reg::P(r) if r == SCRATCH1)
+                    {
+                        let other = if matches!(base, Reg::P(r) if r == SCRATCH0) {
+                            Reg::P(SCRATCH1)
+                        } else {
+                            Reg::P(SCRATCH0)
+                        };
+                        let tmp0_s = self.reg_name(base, RegSize::X64);
+                        let tmp1_s = self.reg_name(other, RegSize::X64);
+                        self.emit_sub_sp(16)?;
+                        writeln!(self.writer, "\tstr {tmp0_s}, [sp]")?;
+                        writeln!(self.writer, "\tsxtw {tmp0_s}, {idx_s}")?;
+                        self.emit_mov_imm(&tmp1_s, scale as u64)?;
+                        writeln!(self.writer, "\tmul {tmp0_s}, {tmp0_s}, {tmp1_s}")?;
+                        writeln!(self.writer, "\tldr {tmp1_s}, [sp]")?;
+                        self.emit_add_sp(16)?;
+                        writeln!(self.writer, "\tadd {dst_s}, {tmp1_s}, {tmp0_s}")?;
+                    } else {
+                        let scratch0 = self.reg_name(Reg::P(SCRATCH0), RegSize::X64);
+                        let scratch1 = self.reg_name(Reg::P(SCRATCH1), RegSize::X64);
+                        writeln!(self.writer, "\tsxtw {scratch0}, {idx_s}")?;
+                        self.emit_mov_imm(&scratch1, scale as u64)?;
+                        writeln!(self.writer, "\tmul {scratch0}, {scratch0}, {scratch1}")?;
+                        writeln!(self.writer, "\tadd {dst_s}, {base_s}, {scratch0}")?;
+                    }
                 }
             }
         }
@@ -292,7 +414,12 @@ impl<W: Write> AsmPrinter<W> {
                 writeln!(self.writer, "\tcmp {lhs_s}, #{imm}")?
             }
             Operand::Imm(imm) => {
-                let scratch = self.reg_name(Reg::P(16), size);
+                let scratch_reg = if matches!(lhs, Reg::P(r) if r == SCRATCH0) {
+                    Reg::P(SCRATCH1)
+                } else {
+                    Reg::P(SCRATCH0)
+                };
+                let scratch = self.reg_name(scratch_reg, size);
                 self.emit_mov_imm(&scratch, imm as u64)?;
                 writeln!(self.writer, "\tcmp {lhs_s}, {scratch}")?;
             }
@@ -357,7 +484,13 @@ impl<W: Write> AsmPrinter<W> {
         Ok(())
     }
 
-    fn emit_add_x_imm(&mut self, dst: Reg, base: Reg, offset: i64) -> Result<(), Error> {
+    fn emit_add_x_imm_with(
+        &mut self,
+        dst: Reg,
+        base: Reg,
+        offset: i64,
+        scratch: Reg,
+    ) -> Result<(), Error> {
         let dst_s = self.reg_name(dst, RegSize::X64);
         let base_s = self.reg_name(base, RegSize::X64);
 
@@ -370,11 +503,12 @@ impl<W: Write> AsmPrinter<W> {
                 writeln!(self.writer, "\tsub {dst_s}, {base_s}, #{}", -off)?
             }
             off => {
-                self.emit_mov_imm("x16", off.unsigned_abs())?;
+                let scratch_s = self.reg_name(scratch, RegSize::X64);
+                self.emit_mov_imm(&scratch_s, off.unsigned_abs())?;
                 if off > 0 {
-                    writeln!(self.writer, "\tadd {dst_s}, {base_s}, x16")?;
+                    writeln!(self.writer, "\tadd {dst_s}, {base_s}, {scratch_s}")?;
                 } else {
-                    writeln!(self.writer, "\tsub {dst_s}, {base_s}, x16")?;
+                    writeln!(self.writer, "\tsub {dst_s}, {base_s}, {scratch_s}")?;
                 }
             }
         }
@@ -388,8 +522,9 @@ impl<W: Write> AsmPrinter<W> {
         if self.is_addsub_imm_encodable(imm) {
             writeln!(self.writer, "\tadd sp, sp, #{imm}")?;
         } else {
-            self.emit_mov_imm("x16", imm as u64)?;
-            writeln!(self.writer, "\tadd sp, sp, x16")?;
+            let scratch = self.reg_name(Reg::P(SCRATCH0), RegSize::X64);
+            self.emit_mov_imm(&scratch, imm as u64)?;
+            writeln!(self.writer, "\tadd sp, sp, {scratch}")?;
         }
         Ok(())
     }
@@ -458,8 +593,9 @@ impl<W: Write> AsmPrint for AsmPrinter<W> {
         if self.is_addsub_imm_encodable(imm) {
             writeln!(self.writer, "\tsub sp, sp, #{imm}")?;
         } else {
-            self.emit_mov_imm("x16", imm as u64)?;
-            writeln!(self.writer, "\tsub sp, sp, x16")?;
+            let scratch = self.reg_name(Reg::P(SCRATCH0), RegSize::X64);
+            self.emit_mov_imm(&scratch, imm as u64)?;
+            writeln!(self.writer, "\tsub sp, sp, {scratch}")?;
         }
         Ok(())
     }

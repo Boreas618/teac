@@ -8,6 +8,7 @@
 use crate::ast;
 use crate::ir::function::{Function, FunctionGenerator};
 use crate::ir::module::ModuleGenerator;
+use crate::ir::opt;
 use crate::ir::stmt::{Stmt, StmtInner};
 use crate::ir::types::{Dtype, FunctionType, StructMember, StructType};
 use crate::ir::value::GlobalVariable;
@@ -54,6 +55,7 @@ impl ModuleGenerator {
                     f.blocks = Some(blocks);
                     f.local_variables = Some(local_variables);
                     f.arguments = arguments;
+                    opt::mem2reg(f);
                 } else {
                     return Err(Error::FunctionNotDefined {
                         symbol: fn_def.fn_decl.identifier.clone(),

@@ -24,6 +24,8 @@ pub enum StmtInner {
     Call(CallStmt),
     /// Load from memory.
     Load(LoadStmt),
+    /// Phi node.
+    Phi(PhiStmt),
     /// Binary arithmetic operation.
     BiOp(BiOpStmt),
     /// Stack allocation.
@@ -71,6 +73,13 @@ impl Stmt {
     pub fn as_load(dst: Operand, ptr: Operand) -> Self {
         Self {
             inner: StmtInner::Load(LoadStmt { dst, ptr }),
+        }
+    }
+
+    /// Creates a phi statement.
+    pub fn as_phi(dst: Operand, incomings: Vec<(BlockLabel, Operand)>) -> Self {
+        Self {
+            inner: StmtInner::Phi(PhiStmt { dst, incomings }),
         }
     }
 
@@ -171,6 +180,7 @@ impl Display for Stmt {
             StmtInner::Gep(s) => write!(f, "\t{}", s),
             StmtInner::Label(s) => write!(f, "{}", s),
             StmtInner::Load(s) => write!(f, "\t{}", s),
+            StmtInner::Phi(s) => write!(f, "\t{}", s),
             StmtInner::Return(s) => write!(f, "\t{}", s),
             StmtInner::Store(s) => write!(f, "\t{}", s),
             StmtInner::Jump(s) => write!(f, "\t{}", s),
@@ -200,6 +210,15 @@ pub struct LoadStmt {
     pub dst: Operand,
     /// Source pointer.
     pub ptr: Operand,
+}
+
+/// Phi node statement.
+#[derive(Clone)]
+pub struct PhiStmt {
+    /// Destination register.
+    pub dst: Operand,
+    /// Incoming values with their predecessor labels.
+    pub incomings: Vec<(BlockLabel, Operand)>,
 }
 
 /// Binary arithmetic operation statement.
@@ -330,6 +349,19 @@ impl Display for LoadStmt {
             self.dst.dtype(),
             self.ptr
         )
+    }
+}
+
+impl Display for PhiStmt {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let dtype = self.dst.dtype();
+        let incoming_str = self
+            .incomings
+            .iter()
+            .map(|(label, val)| format!("[ {}, %{} ]", val, label))
+            .collect::<Vec<_>>()
+            .join(", ");
+        write!(f, "{} = phi {} {}", self.dst, dtype, incoming_str)
     }
 }
 
