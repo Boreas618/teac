@@ -14,8 +14,7 @@ pub(crate) use inst::Inst;
 pub(crate) use types::{Addr, BinOp, Cond, Operand, Reg};
 
 use crate::asm::common::{
-    collect_alloca_ptrs, compute_struct_layouts, size_align_of_alloca, size_align_of_dtype,
-    StackFrame, StructLayouts, VReg, VRegKind,
+    collect_alloca_ptrs, size_align_of_alloca, StackFrame, StructLayouts, VReg, VRegKind,
 };
 use crate::asm::error::Error;
 use crate::asm::AsmGenerator;
@@ -77,7 +76,7 @@ impl<'a> AArch64AsmGenerator<'a> {
 
 impl<'a> AsmGenerator for AArch64AsmGenerator<'a> {
     fn generate(&mut self) -> Result<(), Error> {
-        let layouts: StructLayouts = compute_struct_layouts(&self.registry.struct_types)?;
+        let layouts = StructLayouts::from_struct_types(&self.registry.struct_types)?;
 
         self.globals.clear();
         for g in self.module.global_list.values() {
@@ -166,7 +165,7 @@ impl<'a> AArch64AsmGenerator<'a> {
                 }
                 let len = *length;
 
-                let (elem_size, _) = size_align_of_dtype(inner.as_ref(), layouts)?;
+                let (elem_size, _) = layouts.size_align_of(inner.as_ref())?;
 
                 if let Some(inits) = &g.initializers {
                     let words: Vec<i64> = inits.iter().take(len).map(|&v| v as i64).collect();

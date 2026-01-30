@@ -23,8 +23,7 @@
 use super::inst::Inst;
 use super::types::{Addr, BinOp, Cond, IndexOperand, Operand, Reg, RegSize};
 use crate::asm::common::{
-    align_up, size_align_of_dtype, vreg_from_value, StackFrame, StackSlot, StructLayouts, VReg,
-    VRegKind,
+    align_up, vreg_from_value, StackFrame, StackSlot, StructLayouts, VReg, VRegKind,
 };
 use crate::asm::error::Error;
 use crate::ast;
@@ -295,7 +294,7 @@ impl<'a> FunctionGenerator<'a> {
         base_kind: PtrBase,
         base_slot: Option<StackSlot>,
     ) -> Result<(), Error> {
-        let (elem_size, _) = size_align_of_dtype(inner, self.layouts)?;
+        let (elem_size, _) = self.layouts.size_align_of(inner)?;
         let index = self.lower_index(idx)?;
 
         match (base_kind, base_slot) {

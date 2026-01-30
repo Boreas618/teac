@@ -1,5 +1,5 @@
 //! Stack frame layout and alloca handling.
-use super::{align_up, size_align_of_dtype, vreg_from_value, StructLayouts, VReg};
+use super::{align_up, vreg_from_value, StructLayouts, VReg};
 use crate::asm::error::Error;
 use crate::ir;
 use std::collections::HashMap;
@@ -98,7 +98,7 @@ pub fn size_align_of_alloca(
 ) -> Result<(i64, i64), Error> {
     match dtype {
         ir::Dtype::Pointer { inner, length } => {
-            let (inner_size, inner_align) = size_align_of_dtype(inner.as_ref(), layouts)?;
+            let (inner_size, inner_align) = layouts.size_align_of(inner.as_ref())?;
             match length {
                 // Local scalar pointer: allocate space for one element
                 0 => Ok((inner_size, inner_align)),

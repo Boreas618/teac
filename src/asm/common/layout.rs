@@ -19,43 +19,103 @@ pub struct StructLayout {
 pub struct StructLayouts(HashMap<String, StructLayout>);
 
 impl StructLayouts {
+    /// Creates layouts from IR struct type definitions.
+    ///
+    /// Processes structs in definition order, assuming dependencies are defined
+    /// before being used as members of other structs.
+    pub fn from_struct_types(
+        structs: &indexmap::IndexMap<String, ir::StructType>,
+    ) -> Result<Self, Error> {
+        let mut layouts = Self::default();
+        for (name, st) in structs.iter() {
+            let layout = layouts.compute_single_layout(st)?;
+            layouts.insert(name.clone(), layout);
+        }
+        Ok(layouts)
+    }
+
     pub fn get(&self, name: &str) -> Option<&StructLayout> {
         self.0.get(name)
     }
 
-    pub fn insert(&mut self, name: String, layout: StructLayout) {
+    fn insert(&mut self, name: String, layout: StructLayout) {
         self.0.insert(name, layout);
     }
-}
 
-// =============================================================================
-// Type Size / Alignment
-// =============================================================================
+    /// Returns (size, alignment) in bytes for a data type.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::UnsupportedDtype`] for unsupported types, or
+    /// [`Error::MissingStructLayout`] if a struct layout is not found.
+    pub fn size_align_of(&self, dtype: &ir::Dtype) -> Result<(i64, i64), Error> {
+        match dtype {
+            ir::Dtype::I32 => Ok((4, 4)),
+            ir::Dtype::Pointer { .. } => Ok((8, 8)),
+            ir::Dtype::Struct { type_name } => {
+                let layout = self
+                    .get(type_name)
+                    .ok_or_else(|| Error::MissingStructLayout {
+                        name: type_name.clone(),
+                    })?;
+                Ok((layout.size, layout.align))
+            }
+            _ => Err(Error::UnsupportedDtype {
+                dtype: dtype.clone(),
+            }),
+        }
+    }
 
-/// Returns (size, alignment) in bytes for a data type.
-///
-/// # Errors
-///
-/// Returns [`Error::UnsupportedDtype`] for unsupported types, or
-/// [`Error::MissingStructLayout`] if a struct layout is not found.
-pub fn size_align_of_dtype(
-    dtype: &ir::Dtype,
-    layouts: &StructLayouts,
-) -> Result<(i64, i64), Error> {
-    match dtype {
-        ir::Dtype::I32 => Ok((4, 4)),
-        ir::Dtype::Pointer { .. } => Ok((8, 8)),
-        ir::Dtype::Struct { type_name } => {
-            let layout = layouts
+    /// Returns (size, alignment) for a struct member field.
+    ///
+    /// This differs from `size_align_of` in how it handles pointers:
+    /// - `length == 0`: pointer value (8 bytes)
+    /// - `length > 0`: inline array of `length` elements
+    fn size_align_of_member(&self, dtype: &ir::Dtype) -> Result<(i64, i64), Error> {
+        match dtype {
+            ir::Dtype::I32 => Ok((4, 4)),
+            ir::Dtype::Pointer { inner, length } => match length {
+                0 => Ok((8, 8)), // Pointer value
+                n => {
+                    // Array of elements
+                    let (s, a) = self.size_align_of(inner.as_ref())?;
+                    Ok(((*n as i64) * s, a))
+                }
+            },
+            ir::Dtype::Struct { type_name } => self
                 .get(type_name)
+                .map(|l| (l.size, l.align))
                 .ok_or_else(|| Error::MissingStructLayout {
                     name: type_name.clone(),
-                })?;
-            Ok((layout.size, layout.align))
+                }),
+            other => Err(Error::UnsupportedDtype {
+                dtype: other.clone(),
+            }),
         }
-        _ => Err(Error::UnsupportedDtype {
-            dtype: dtype.clone(),
-        }),
+    }
+
+    /// Computes layout for a single struct type.
+    ///
+    /// All referenced struct types must already be present in `self`.
+    fn compute_single_layout(&self, st: &ir::StructType) -> Result<StructLayout, Error> {
+        let mut field_offsets = vec![0i64; st.elements.len()];
+        let mut offset = 0i64;
+        let mut max_align = 1i64;
+
+        for (i, (_, member)) in st.elements.iter().enumerate() {
+            let (size, align) = self.size_align_of_member(&member.dtype)?;
+
+            offset = align_up(offset, align);
+            max_align = max_align.max(align);
+            field_offsets[i] = offset;
+            offset += size;
+        }
+
+        Ok(StructLayout {
+            size: align_up(offset, max_align),
+            align: max_align,
+            field_offsets,
+        })
     }
 }
 
@@ -77,73 +137,3 @@ pub fn align_up(x: i64, align: i64) -> i64 {
     }
 }
 
-// =============================================================================
-// Struct Layout Computation
-// =============================================================================
-
-/// Computes memory layouts for all struct types.
-///
-/// Processes structs in definition order, assuming dependencies are defined
-/// before being used as members of other structs.
-pub fn compute_struct_layouts(
-    structs: &indexmap::IndexMap<String, ir::StructType>,
-) -> Result<StructLayouts, Error> {
-    let mut layouts = StructLayouts::default();
-
-    for (name, st) in structs.iter() {
-        let layout = compute_struct_layout(st, &layouts)?;
-        layouts.insert(name.clone(), layout);
-    }
-
-    Ok(layouts)
-}
-
-/// Computes layout for a single struct type.
-///
-/// All referenced struct types must already be present in `layouts`.
-pub fn compute_struct_layout(
-    st: &ir::StructType,
-    layouts: &StructLayouts,
-) -> Result<StructLayout, Error> {
-    let mut field_offsets = vec![0i64; st.elements.len()];
-    let mut offset = 0i64;
-    let mut max_align = 1i64;
-
-    for (i, (_, member)) in st.elements.iter().enumerate() {
-        let (size, align) = member_size_align(&member.dtype, layouts)?;
-
-        offset = align_up(offset, align);
-        max_align = max_align.max(align);
-        field_offsets[i] = offset;
-        offset += size;
-    }
-
-    Ok(StructLayout {
-        size: align_up(offset, max_align),
-        align: max_align,
-        field_offsets,
-    })
-}
-
-fn member_size_align(dtype: &ir::Dtype, layouts: &StructLayouts) -> Result<(i64, i64), Error> {
-    match dtype {
-        ir::Dtype::I32 => Ok((4, 4)),
-        ir::Dtype::Pointer { inner, length } => match length {
-            0 => Ok((8, 8)), // Pointer value
-            n => {
-                // Array of elements
-                let (s, a) = size_align_of_dtype(inner.as_ref(), layouts)?;
-                Ok(((*n as i64) * s, a))
-            }
-        },
-        ir::Dtype::Struct { type_name } => layouts
-            .get(type_name)
-            .map(|l| (l.size, l.align))
-            .ok_or_else(|| Error::MissingStructLayout {
-                name: type_name.clone(),
-            }),
-        other => Err(Error::UnsupportedDtype {
-            dtype: other.clone(),
-        }),
-    }
-}
