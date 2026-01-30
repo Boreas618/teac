@@ -24,6 +24,13 @@ impl Display for BlockLabel {
     }
 }
 
+impl BlockLabel {
+    /// Returns a unique string key for this label (used for CFG lookups)
+    pub fn key(&self) -> String {
+        format!("{}", self)
+    }
+}
+
 pub struct Function {
     pub identifier: String,
     pub local_variables: Option<IndexMap<String, Rc<LocalVariable>>>,
