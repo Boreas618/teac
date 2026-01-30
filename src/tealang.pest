@@ -83,6 +83,8 @@ colon = { ":" }
 dot = { "." }
 // Example: "std::getint()"
 double_colon = { "::" }
+// Example: "&[i32]" in function parameters
+ampersand = { "&" }
 
 // Literals and identifiers
 // Numeric literal: zero or a non-zero digit followed by any digits
@@ -147,9 +149,10 @@ var_decl_list = {
 }
 
 // Variable declaration: can be array or scalar, with or without type annotation
-// Examples: "n:i32", "arr: [i32; 100]", "que[1005]", "count"
+// Examples: "n:i32", "arr: [i32; 100]", "que[1005]", "count", "input: &[i32]"
 var_decl = {
-    identifier ~ colon ~ lbracket ~ type_spec ~ semicolon ~ num ~ rbracket  // array with type (Rust style)
+    identifier ~ colon ~ ampersand ~ lbracket ~ type_spec ~ rbracket  // slice type: &[T] (pointer to first element)
+    | identifier ~ colon ~ lbracket ~ type_spec ~ semicolon ~ num ~ rbracket  // array with type (Rust style)
     | identifier ~ colon ~ type_spec  // scalar with type
     | identifier ~ lbracket ~ num ~ rbracket  // array without type
     | identifier  // scalar without type

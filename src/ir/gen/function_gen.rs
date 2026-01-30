@@ -140,6 +140,8 @@ impl<'ir> FunctionGenerator<'ir> {
                 ),
                 true,
             ),
+            // Slice types (&[T]) are only valid for function parameters, not local variables
+            (ast::VarDeclInner::Slice(_), _) => return Err(Error::LocalVarDefinitionUnsupported),
             _ => return Err(Error::LocalVarDefinitionUnsupported),
         };
 

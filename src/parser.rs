@@ -138,6 +138,16 @@ fn parse_var_decl(pair: Pair) -> ParseResult<Box<ast::VarDecl>> {
                 inner: ast::VarDeclInner::Array(Box::new(ast::VarDeclArray { len })),
             }))
         }
+        6 => {
+            // Slice type: identifier ~ colon ~ ampersand ~ lbracket ~ type_spec ~ rbracket
+            // e.g., "input: &[i32]"
+            let type_specifier = parse_type_spec(inner_pairs[4].clone())?;
+            Ok(Box::new(ast::VarDecl {
+                identifier,
+                type_specifier,
+                inner: ast::VarDeclInner::Slice(()),
+            }))
+        }
         7 => {
             let type_specifier = parse_type_spec(inner_pairs[3].clone())?;
             let len = parse_num(inner_pairs[5].clone())? as usize;

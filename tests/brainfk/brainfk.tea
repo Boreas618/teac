@@ -16,7 +16,7 @@ fn read_program() {
   program[i] = 0;
 }
 
-fn interpret(input: [i32; 65536]) {
+fn interpret(input: &[i32]) {
   let cur_char:i32;
   let loop:i32;
   let i:i32 = 0;

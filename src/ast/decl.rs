@@ -12,6 +12,8 @@ pub struct VarDeclArray {
 pub enum VarDeclInner {
     Scalar(()),
     Array(Box<VarDeclArray>),
+    /// Slice type: &[T] - pointer to first element (no length info)
+    Slice(()),
 }
 
 #[derive(Debug, Clone)]

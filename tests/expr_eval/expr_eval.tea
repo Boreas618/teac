@@ -82,14 +82,14 @@ fn get_op_prec(op:i32) -> i32
     return 0;
 }
 
-fn stack_push(s: [i32; 256], v:i32)
+fn stack_push(s: &[i32], v:i32)
 {
     s[0] = s[0] + 1;
     let temp:i32 = s[0];
     s[temp] = v;
 }
 
-fn stack_pop(s: [i32; 256]) -> i32
+fn stack_pop(s: &[i32]) -> i32
 {
     let temp:i32 = s[0];
     let last:i32 = s[temp];
@@ -97,13 +97,13 @@ fn stack_pop(s: [i32; 256]) -> i32
     return last;
 }
 
-fn stack_peek(s: [i32; 256]) -> i32
+fn stack_peek(s: &[i32]) -> i32
 {
     let temp:i32 = s[0];
     return s[temp];
 }
 
-fn stack_size(s: [i32; 256]) -> i32
+fn stack_size(s: &[i32]) -> i32
 {
     return s[0];
 }

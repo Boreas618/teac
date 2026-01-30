@@ -258,6 +258,11 @@ impl ModuleGenerator {
                             inner: Box::new(base_dtype),
                             length: array.len,
                         },
+                        // Slice types (&[T]) are only valid for function parameters, not struct members
+                        ast::VarDeclInner::Slice(_) => Dtype::Pointer {
+                            inner: Box::new(base_dtype),
+                            length: 0,
+                        },
                     },
                 },
             ));

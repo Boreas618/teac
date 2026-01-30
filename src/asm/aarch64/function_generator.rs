@@ -151,7 +151,14 @@ impl<'a> FunctionGenerator<'a> {
 
         match s.base_ptr.dtype() {
             ir::Dtype::Pointer { inner, length } => {
-                if *length == 0 {
+                // Distinguish between array access and struct field access:
+                // - Array access: new_ptr.dtype() == base_ptr.dtype() (indexing into array/slice)
+                // - Struct field access: new_ptr.dtype() != base_ptr.dtype() (accessing a field)
+                let is_struct_field_access = *length == 0
+                    && matches!(inner.as_ref(), ir::Dtype::Struct { .. })
+                    && s.new_ptr.dtype() != s.base_ptr.dtype();
+
+                if is_struct_field_access {
                     if let ir::Dtype::Struct { type_name } = inner.as_ref() {
                         return self
                             .gen_gep_struct(new_ptr, &s.index, type_name, base_kind, base_slot);

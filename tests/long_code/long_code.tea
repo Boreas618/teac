@@ -2,7 +2,7 @@ use std;
 
 let n:i32;
 
-fn bubblesort(arr: [i32; 0]) -> i32 {
+fn bubblesort(arr: &[i32]) -> i32 {
     let i:i32;
     let j:i32;
     i =0; 
@@ -24,7 +24,7 @@ fn bubblesort(arr: [i32; 0]) -> i32 {
     return 0;
 }
 
-fn insertsort(a: [i32; 0]) -> i32{
+fn insertsort(a: &[i32]) -> i32{
     let i:i32;
     i = 1;
     while i<n     
@@ -46,7 +46,7 @@ fn insertsort(a: [i32; 0]) -> i32{
     return 0;
 }
 
-fn QuickSort(arr: [i32; 0], low:i32,  high:i32) -> i32
+fn QuickSort(arr: &[i32], low:i32,  high:i32) -> i32
 {
     if low < high
     {
@@ -92,7 +92,7 @@ fn QuickSort(arr: [i32; 0], low:i32,  high:i32) -> i32
 }
 
 
-fn getMid(arr: [i32; 0]) -> i32{
+fn getMid(arr: &[i32]) -> i32{
     let mid:i32;
     if ((n /2)*2) == n {
         mid = n / 2;
@@ -104,7 +104,7 @@ fn getMid(arr: [i32; 0]) -> i32{
     }
 }
 
-fn getMost(arr: [i32; 0]) -> i32 {
+fn getMost(arr: &[i32]) -> i32 {
     let count: [i32; 1000];
     let i:i32;
     i = 0;
@@ -129,7 +129,7 @@ fn getMost(arr: [i32; 0]) -> i32 {
     return number;
 }
 
-fn revert(arr: [i32; 0]) -> i32 {
+fn revert(arr: &[i32]) -> i32 {
     let temp:i32;
     let i:i32;
     let j:i32;
@@ -145,7 +145,7 @@ fn revert(arr: [i32; 0]) -> i32 {
     return 0;
 }
 
-fn arrCopy(src: [i32; 0], target: [i32; 0]) -> i32 {
+fn arrCopy(src: &[i32], target: &[i32]) -> i32 {
     let i:i32;
     i = 0;
     while i < n {
@@ -155,7 +155,7 @@ fn arrCopy(src: [i32; 0], target: [i32; 0]) -> i32 {
     return 0;
 }
 
-fn calSum(arr: [i32; 0], stride:i32) -> i32 {
+fn calSum(arr: &[i32], stride:i32) -> i32 {
     let sum:i32;
     sum = 0;
     let i:i32;
@@ -173,7 +173,7 @@ fn calSum(arr: [i32; 0], stride:i32) -> i32 {
     return 0;
 }
 
-fn avgPooling(arr: [i32; 0], stride:i32) -> i32 {
+fn avgPooling(arr: &[i32], stride:i32) -> i32 {
     let sum:i32;
     let i:i32;
     i = 0;

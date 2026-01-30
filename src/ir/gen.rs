@@ -80,6 +80,10 @@ impl TryFrom<&ast::VarDecl> for Dtype {
                 inner: Box::new(base_dtype),
                 length: decl.len,
             }),
+            ast::VarDeclInner::Slice(_) => Ok(Dtype::Pointer {
+                inner: Box::new(base_dtype),
+                length: 0, // Slice is a pointer with no length info
+            }),
             ast::VarDeclInner::Scalar(_) => Ok(decl.base_dtype()),
         }
     }
