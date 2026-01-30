@@ -15,4 +15,4 @@ pub use liveness::Liveness;
 pub use vreg::VRegCounter;
 
 pub use mem2reg::mem2reg;
-pub use phi_lowering::lower_phis_for_codegen;
+pub use phi_lowering::PhiLowering;

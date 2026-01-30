@@ -6,17 +6,13 @@ use crate::ir::types::Dtype;
 use crate::ir::value::{LocalVariable, Operand};
 use std::collections::HashMap;
 
-pub fn lower_phis_for_codegen(blocks: &[Vec<Stmt>]) -> Vec<Vec<Stmt>> {
-    PhiLowering::new(blocks).run()
-}
-
-struct PhiLowering<'a> {
+pub struct PhiLowering<'a> {
     blocks: &'a [Vec<Stmt>],
     vreg_counter: VRegCounter,
 }
 
 impl<'a> PhiLowering<'a> {
-    fn new(blocks: &'a [Vec<Stmt>]) -> Self {
+    pub fn new(blocks: &'a [Vec<Stmt>]) -> Self {
         let vreg_counter = VRegCounter::from_blocks(blocks, &[]);
         Self {
             blocks,
@@ -24,7 +20,7 @@ impl<'a> PhiLowering<'a> {
         }
     }
 
-    fn run(mut self) -> Vec<Vec<Stmt>> {
+    pub fn run(mut self) -> Vec<Vec<Stmt>> {
         if !self.has_phis() {
             return self.blocks.to_vec();
         }

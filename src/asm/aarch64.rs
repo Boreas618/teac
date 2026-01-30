@@ -202,7 +202,7 @@ impl<'a> AArch64AsmGenerator<'a> {
                 insts: Vec::new(),
             });
         };
-        let lowered_blocks = ir::opt::lower_phis_for_codegen(blocks);
+        let lowered_blocks = ir::opt::PhiLowering::new(blocks).run();
         let blocks = &lowered_blocks;
 
         let mut frame = StackFrame::default();
