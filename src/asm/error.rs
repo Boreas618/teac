@@ -14,7 +14,7 @@ pub enum Error {
     UnsupportedOperand { what: String },
 
     #[error("missing condition mapping for virtual register %{vreg}")]
-    MissingCond { vreg: u32 },
+    MissingCond { vreg: usize },
 
     #[error("missing struct layout for '{name}'")]
     MissingStructLayout { name: String },

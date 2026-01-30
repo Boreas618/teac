@@ -36,6 +36,7 @@ pub struct Function {
     pub local_variables: Option<IndexMap<String, Rc<LocalVariable>>>,
     pub blocks: Option<Vec<Vec<Stmt>>>,
     pub arguments: Vec<LocalVariable>,
+    pub next_vreg: usize,
 }
 
 pub struct FunctionGenerator<'ir> {
@@ -43,8 +44,8 @@ pub struct FunctionGenerator<'ir> {
     pub local_variables: IndexMap<String, Rc<LocalVariable>>,
     pub irs: Vec<Stmt>,
     pub arguments: Vec<LocalVariable>,
-    virt_reg_index: usize,
-    basic_block_index: usize,
+    pub next_vreg: usize,
+    pub next_basic_block: usize,
 }
 
 impl<'ir> FunctionGenerator<'ir> {
@@ -54,31 +55,25 @@ impl<'ir> FunctionGenerator<'ir> {
             local_variables: IndexMap::new(),
             irs: Vec::new(),
             arguments: Vec::new(),
-            virt_reg_index: 100,
-            basic_block_index: 1,
+            next_vreg: 100,
+            next_basic_block: 1,
         }
     }
 
-    pub fn increment_virt_reg_index(&mut self) -> usize {
-        self.virt_reg_index += 1;
-        self.virt_reg_index - 1
-    }
-
-    pub fn increment_basic_block_index(&mut self) -> usize {
-        self.basic_block_index += 1;
-        self.basic_block_index - 1
+    pub fn alloc_vreg(&mut self) -> usize {
+        let idx = self.next_vreg;
+        self.next_vreg += 1;
+        idx
     }
 
     pub fn alloc_temporary(&mut self, dtype: Dtype) -> Operand {
-        Operand::Local(LocalVariable::new(
-            dtype,
-            self.increment_virt_reg_index(),
-            None,
-        ))
+        Operand::Local(LocalVariable::new(dtype, self.alloc_vreg(), None))
     }
 
     pub fn alloc_basic_block(&mut self) -> BlockLabel {
-        BlockLabel::BasicBlock(self.increment_basic_block_index())
+        let idx = self.next_basic_block;
+        self.next_basic_block += 1;
+        BlockLabel::BasicBlock(idx)
     }
 
     pub fn lookup_variable(&self, id: &str) -> Result<Operand, Error> {

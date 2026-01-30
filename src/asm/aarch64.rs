@@ -7,9 +7,7 @@ mod types;
 pub(crate) use inst::Inst;
 pub(crate) use types::{Addr, BinOp, Cond, Operand, Reg};
 
-use crate::asm::common::{
-    collect_alloca_ptrs, size_align_of_alloca, StackFrame, StructLayouts, VReg, VRegKind,
-};
+use crate::asm::common::{collect_alloca_ptrs, size_align_of_alloca, StackFrame, StructLayouts};
 use crate::asm::error::Error;
 use crate::asm::AsmGenerator;
 use crate::ir;
@@ -97,7 +95,7 @@ impl<'a> AArch64AsmGenerator<'a> {
         let mut insts = Vec::new();
 
         for (i, arg) in func.arguments.iter().enumerate() {
-            let v = VReg(arg.index as u32);
+            let v = arg.index;
             let size = dtype_to_regsize(&arg.dtype)?;
 
             if i < 8 {
@@ -202,7 +200,7 @@ impl<'a> AArch64AsmGenerator<'a> {
                 insts: Vec::new(),
             });
         };
-        let lowered_blocks = ir::opt::PhiLowering::new(blocks).run();
+        let lowered_blocks = ir::opt::PhiLowering::new(blocks, func.next_vreg).run();
         let blocks = &lowered_blocks;
 
         let mut frame = StackFrame::default();
@@ -212,21 +210,9 @@ impl<'a> AArch64AsmGenerator<'a> {
             frame.alloc_alloca(*vreg, align, size);
         }
 
-        let mut vreg_kinds: HashMap<VReg, VRegKind> = HashMap::new();
-        for arg in func.arguments.iter() {
-            let kind = match &arg.dtype {
-                ir::Dtype::I32 => VRegKind::Int32,
-                ir::Dtype::Pointer { .. } => VRegKind::Ptr64,
-                _ => {
-                    return Err(Error::UnsupportedDtype {
-                        dtype: arg.dtype.clone(),
-                    })
-                }
-            };
-            vreg_kinds.insert(VReg(arg.index as u32), kind);
-        }
+        let mut next_vreg = func.next_vreg;
 
-        let mut cond_map: HashMap<VReg, Cond> = HashMap::new();
+        let mut cond_map: HashMap<usize, Cond> = HashMap::new();
         let mut insts: Vec<Inst> = Vec::new();
 
         insts.extend(Self::gen_arg_moves(func)?);
@@ -236,7 +222,7 @@ impl<'a> AArch64AsmGenerator<'a> {
             frame: &frame,
             layouts,
             insts: &mut insts,
-            vreg_kinds: &mut vreg_kinds,
+            next_vreg: &mut next_vreg,
             cond_map: &mut cond_map,
         };
 
@@ -270,7 +256,7 @@ impl<'a> AArch64AsmGenerator<'a> {
             frame.alloc_spill(v, 8, 8);
         }
 
-        let insts = rewrite_insts(&insts, &alloc, &frame, &vreg_kinds)?;
+        let insts = rewrite_insts(&insts, &alloc, &frame)?;
         let frame_size = frame.frame_size_aligned();
 
         Ok(GeneratedFunction {

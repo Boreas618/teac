@@ -31,6 +31,7 @@ impl ModuleGenerator {
                 let mut function_generator = FunctionGenerator::new(self);
                 function_generator.gen(fn_def)?;
 
+                let next_vreg = function_generator.next_vreg;
                 let blocks = Self::harvest_function_irs(function_generator.irs);
                 let local_variables = function_generator.local_variables;
                 let arguments = function_generator.arguments;
@@ -44,6 +45,7 @@ impl ModuleGenerator {
                     f.blocks = Some(blocks);
                     f.local_variables = Some(local_variables);
                     f.arguments = arguments;
+                    f.next_vreg = next_vreg;
                     opt::mem2reg(f);
                 } else {
                     return Err(Error::FunctionNotDefined {
@@ -205,6 +207,7 @@ impl ModuleGenerator {
                 local_variables: None,
                 identifier: identifier.clone(),
                 blocks: None,
+                next_vreg: 0,
             },
         );
 
@@ -258,7 +261,6 @@ impl ModuleGenerator {
                             inner: Box::new(base_dtype),
                             length: array.len,
                         },
-                        // Slice types (&[T]) are only valid for function parameters, not struct members
                         ast::VarDeclInner::Slice(_) => Dtype::Pointer {
                             inner: Box::new(base_dtype),
                             length: 0,

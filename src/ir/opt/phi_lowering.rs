@@ -1,5 +1,4 @@
 use super::cfg::next_basic_block_id;
-use super::vreg::{local_index, VRegCounter};
 use crate::ir::function::BlockLabel;
 use crate::ir::stmt::{PhiStmt, Stmt, StmtInner};
 use crate::ir::types::Dtype;
@@ -8,16 +7,12 @@ use std::collections::HashMap;
 
 pub struct PhiLowering<'a> {
     blocks: &'a [Vec<Stmt>],
-    vreg_counter: VRegCounter,
+    next_vreg: usize,
 }
 
 impl<'a> PhiLowering<'a> {
-    pub fn new(blocks: &'a [Vec<Stmt>]) -> Self {
-        let vreg_counter = VRegCounter::from_blocks(blocks, &[]);
-        Self {
-            blocks,
-            vreg_counter,
-        }
+    pub fn new(blocks: &'a [Vec<Stmt>], next_vreg: usize) -> Self {
+        Self { blocks, next_vreg }
     }
 
     pub fn run(mut self) -> Vec<Vec<Stmt>> {
@@ -65,7 +60,7 @@ impl<'a> PhiLowering<'a> {
 
         for (b_idx, block) in block_data.iter().enumerate() {
             for phi in &block.phis {
-                let slot = slot_alloc.get_or_create(&phi.dst, &mut self.vreg_counter);
+                let slot = slot_alloc.get_or_create(&phi.dst, &mut self.next_vreg);
                 phi_loads[b_idx].push(Stmt::as_load(phi.dst.clone(), slot));
             }
         }
@@ -262,17 +257,15 @@ impl PhiSlotAllocator {
         }
     }
 
-    fn get_or_create(&mut self, phi_dst: &Operand, vreg: &mut VRegCounter) -> Operand {
-        let dst_idx = local_index(phi_dst).expect("phi dest must be local");
+    fn get_or_create(&mut self, phi_dst: &Operand, next_vreg: &mut usize) -> Operand {
+        let dst_idx = phi_dst.vreg_index().expect("phi dest must be local");
 
         self.slots
             .entry(dst_idx)
             .or_insert_with(|| {
-                let ptr = LocalVariable::new(
-                    Dtype::ptr_to(phi_dst.dtype().clone()),
-                    vreg.alloc(),
-                    None,
-                );
+                let idx = *next_vreg;
+                *next_vreg += 1;
+                let ptr = LocalVariable::new(Dtype::ptr_to(phi_dst.dtype().clone()), idx, None);
                 let slot = Operand::Local(ptr);
                 self.alloca_stmts.push(Stmt::as_alloca(slot.clone()));
                 slot
@@ -292,7 +285,7 @@ impl PhiSlotAllocator {
                     .map(|(_, val)| val.clone())
                     .unwrap_or_else(|| Operand::from(0));
 
-                let dst_idx = local_index(&phi.dst).expect("phi dest must be local");
+                let dst_idx = phi.dst.vreg_index().expect("phi dest must be local");
                 let slot = self.slots.get(&dst_idx).expect("missing phi slot").clone();
 
                 Stmt::as_store(incoming, slot)

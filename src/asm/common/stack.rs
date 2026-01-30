@@ -1,4 +1,4 @@
-use super::{align_up, vreg_from_value, StructLayouts, VReg};
+use super::{align_up, StructLayouts};
 use crate::asm::error::Error;
 use crate::ir;
 use std::collections::HashMap;
@@ -10,8 +10,8 @@ pub struct StackSlot {
 
 #[derive(Debug, Default)]
 pub struct StackFrame {
-    alloca_slots: HashMap<u32, StackSlot>,
-    spill_slots: HashMap<VReg, StackSlot>,
+    alloca_slots: HashMap<usize, StackSlot>,
+    spill_slots: HashMap<usize, StackSlot>,
     size: i64,
 }
 
@@ -25,27 +25,27 @@ impl StackFrame {
         }
     }
 
-    pub fn alloc_alloca(&mut self, vreg: VReg, align: i64, size: i64) -> StackSlot {
+    pub fn alloc_alloca(&mut self, vreg: usize, align: i64, size: i64) -> StackSlot {
         let slot = self.alloc_slot(align, size);
-        self.alloca_slots.insert(vreg.0, slot);
+        self.alloca_slots.insert(vreg, slot);
         slot
     }
 
-    pub fn alloc_spill(&mut self, vreg: VReg, align: i64, size: i64) -> StackSlot {
+    pub fn alloc_spill(&mut self, vreg: usize, align: i64, size: i64) -> StackSlot {
         let slot = self.alloc_slot(align, size);
         self.spill_slots.insert(vreg, slot);
         slot
     }
 
-    pub fn has_alloca(&self, vreg: VReg) -> bool {
-        self.alloca_slots.contains_key(&vreg.0)
+    pub fn has_alloca(&self, vreg: usize) -> bool {
+        self.alloca_slots.contains_key(&vreg)
     }
 
-    pub fn alloca_slot(&self, vreg: VReg) -> Option<StackSlot> {
-        self.alloca_slots.get(&vreg.0).copied()
+    pub fn alloca_slot(&self, vreg: usize) -> Option<StackSlot> {
+        self.alloca_slots.get(&vreg).copied()
     }
 
-    pub fn spill_slot(&self, vreg: VReg) -> Option<StackSlot> {
+    pub fn spill_slot(&self, vreg: usize) -> Option<StackSlot> {
         self.spill_slots.get(&vreg).copied()
     }
 
@@ -56,11 +56,14 @@ impl StackFrame {
 
 pub fn collect_alloca_ptrs(
     blocks: &[Vec<ir::stmt::Stmt>],
-) -> Result<HashMap<VReg, ir::Dtype>, Error> {
+) -> Result<HashMap<usize, ir::Dtype>, Error> {
     let mut out = HashMap::new();
     for stmt in blocks.iter().flatten() {
         if let ir::stmt::StmtInner::Alloca(a) = &stmt.inner {
-            out.insert(vreg_from_value(&a.dst)?, a.dst.dtype().clone());
+            let vreg = a.dst.vreg_index().ok_or_else(|| Error::UnsupportedOperand {
+                what: format!("alloca destination is not a local variable: {}", a.dst),
+            })?;
+            out.insert(vreg, a.dst.dtype().clone());
         }
     }
     Ok(out)

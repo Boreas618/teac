@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet, VecDeque};
 
 use super::inst::Inst;
 use super::types::{Addr, IndexOperand, Operand, Reg, RegSize};
-use crate::asm::common::{StackFrame, VReg, VRegKind};
+use crate::asm::common::StackFrame;
 use crate::asm::error::Error;
 
 const NUM_COLORS: usize = 7;
@@ -13,8 +13,8 @@ const SCRATCH1: u8 = 17;
 
 #[derive(Debug, Clone)]
 pub struct AllocationResult {
-    pub coloring: HashMap<VReg, u8>,
-    pub spilled: Vec<VReg>,
+    pub coloring: HashMap<usize, u8>,
+    pub spilled: Vec<usize>,
 }
 
 pub fn allocate(instructions: &[Inst]) -> AllocationResult {
@@ -32,7 +32,6 @@ pub fn rewrite_insts(
     insts: &[Inst],
     alloc: &AllocationResult,
     frame: &StackFrame,
-    _vreg_kinds: &HashMap<VReg, VRegKind>,
 ) -> Result<Vec<Inst>, Error> {
     let mut rewriter = InstRewriter::new(alloc, frame);
     rewriter.rewrite_all(insts)?;
@@ -112,19 +111,19 @@ impl ControlFlowGraph {
 
 struct LivenessAnalysis {
     #[allow(dead_code)]
-    live_in: Vec<HashSet<VReg>>,
-    live_out: Vec<HashSet<VReg>>,
+    live_in: Vec<HashSet<usize>>,
+    live_out: Vec<HashSet<usize>>,
 }
 
 impl LivenessAnalysis {
     fn compute(instructions: &[Inst], cfg: &ControlFlowGraph) -> Self {
         let n = instructions.len();
 
-        let uses: Vec<HashSet<VReg>> = instructions.iter().map(|i| i.used_vregs()).collect();
-        let defs: Vec<HashSet<VReg>> = instructions.iter().map(|i| i.defined_vregs()).collect();
+        let uses: Vec<HashSet<usize>> = instructions.iter().map(|i| i.used_vregs()).collect();
+        let defs: Vec<HashSet<usize>> = instructions.iter().map(|i| i.defined_vregs()).collect();
 
-        let mut live_in: Vec<HashSet<VReg>> = vec![HashSet::new(); n];
-        let mut live_out: Vec<HashSet<VReg>> = vec![HashSet::new(); n];
+        let mut live_in: Vec<HashSet<usize>> = vec![HashSet::new(); n];
+        let mut live_out: Vec<HashSet<usize>> = vec![HashSet::new(); n];
 
         let mut in_worklist: Vec<bool> = vec![true; n];
         let mut worklist: VecDeque<usize> = (0..n).rev().collect();
@@ -132,7 +131,7 @@ impl LivenessAnalysis {
         while let Some(i) = worklist.pop_front() {
             in_worklist[i] = false;
 
-            let new_out: HashSet<VReg> = cfg.successors[i]
+            let new_out: HashSet<usize> = cfg.successors[i]
                 .iter()
                 .flat_map(|&s| live_in[s].iter().copied())
                 .collect();
@@ -164,13 +163,13 @@ impl LivenessAnalysis {
 }
 
 struct InterferenceGraph {
-    nodes: HashSet<VReg>,
-    adjacency: HashMap<VReg, HashSet<VReg>>,
+    nodes: HashSet<usize>,
+    adjacency: HashMap<usize, HashSet<usize>>,
 }
 
 impl InterferenceGraph {
     fn build(instructions: &[Inst], liveness: &LivenessAnalysis) -> Self {
-        let nodes: HashSet<VReg> = instructions
+        let nodes: HashSet<usize> = instructions
             .iter()
             .flat_map(|inst| {
                 inst.used_vregs()
@@ -186,7 +185,7 @@ impl InterferenceGraph {
             };
         }
 
-        let mut adjacency: HashMap<VReg, HashSet<VReg>> =
+        let mut adjacency: HashMap<usize, HashSet<usize>> =
             nodes.iter().map(|&v| (v, HashSet::new())).collect();
 
         for (i, inst) in instructions.iter().enumerate() {
@@ -203,7 +202,7 @@ impl InterferenceGraph {
         Self { nodes, adjacency }
     }
 
-    fn degree(&self, v: VReg) -> usize {
+    fn degree(&self, v: usize) -> usize {
         self.adjacency.get(&v).map(|s| s.len()).unwrap_or(0)
     }
 
@@ -216,21 +215,21 @@ impl InterferenceGraph {
         self.select(stack, potential_spills)
     }
 
-    fn simplify(&mut self) -> (Vec<VReg>, HashSet<VReg>) {
-        let mut degree: HashMap<VReg, usize> =
+    fn simplify(&mut self) -> (Vec<usize>, HashSet<usize>) {
+        let mut degree: HashMap<usize, usize> =
             self.nodes.iter().map(|&v| (v, self.degree(v))).collect();
 
-        let mut low_degree: VecDeque<VReg> = self
+        let mut low_degree: VecDeque<usize> = self
             .nodes
             .iter()
             .copied()
             .filter(|v| degree[v] < NUM_COLORS)
             .collect();
-        let mut in_low: HashSet<VReg> = low_degree.iter().copied().collect();
+        let mut in_low: HashSet<usize> = low_degree.iter().copied().collect();
 
-        let mut removed: HashSet<VReg> = HashSet::new();
-        let mut stack: Vec<VReg> = Vec::with_capacity(self.nodes.len());
-        let mut potential_spills: HashSet<VReg> = HashSet::new();
+        let mut removed: HashSet<usize> = HashSet::new();
+        let mut stack: Vec<usize> = Vec::with_capacity(self.nodes.len());
+        let mut potential_spills: HashSet<usize> = HashSet::new();
 
         while stack.len() < self.nodes.len() {
             let pick = self.pick_node(
@@ -267,12 +266,12 @@ impl InterferenceGraph {
 
     fn pick_node(
         &self,
-        low_degree: &mut VecDeque<VReg>,
-        in_low: &mut HashSet<VReg>,
-        removed: &HashSet<VReg>,
-        degree: &HashMap<VReg, usize>,
-        potential_spills: &mut HashSet<VReg>,
-    ) -> VReg {
+        low_degree: &mut VecDeque<usize>,
+        in_low: &mut HashSet<usize>,
+        removed: &HashSet<usize>,
+        degree: &HashMap<usize, usize>,
+        potential_spills: &mut HashSet<usize>,
+    ) -> usize {
         while let Some(v) = low_degree.pop_front() {
             in_low.remove(&v);
             if !removed.contains(&v) {
@@ -292,9 +291,9 @@ impl InterferenceGraph {
         v
     }
 
-    fn select(&self, mut stack: Vec<VReg>, potential_spills: HashSet<VReg>) -> AllocationResult {
-        let mut coloring: HashMap<VReg, u8> = HashMap::new();
-        let mut spilled: Vec<VReg> = Vec::new();
+    fn select(&self, mut stack: Vec<usize>, potential_spills: HashSet<usize>) -> AllocationResult {
+        let mut coloring: HashMap<usize, u8> = HashMap::new();
+        let mut spilled: Vec<usize> = Vec::new();
 
         while let Some(v) = stack.pop() {
             let used_colors: HashSet<u8> = self
@@ -312,7 +311,7 @@ impl InterferenceGraph {
             }
         }
 
-        spilled.sort_by_key(|v| (!potential_spills.contains(v), v.0));
+        spilled.sort_by_key(|v| (!potential_spills.contains(v), *v));
 
         AllocationResult { coloring, spilled }
     }
@@ -364,11 +363,11 @@ impl<'a> InstRewriter<'a> {
         Ok(())
     }
 
-    fn color_of(&self, v: VReg) -> Option<u8> {
+    fn color_of(&self, v: usize) -> Option<u8> {
         self.alloc.coloring.get(&v).copied()
     }
 
-    fn is_spilled(&self, v: VReg) -> bool {
+    fn is_spilled(&self, v: usize) -> bool {
         self.frame.spill_slot(v).is_some()
     }
 
@@ -385,11 +384,11 @@ impl<'a> InstRewriter<'a> {
         }
     }
 
-    fn emit_spill_load(&mut self, v: VReg, size: RegSize, into: u8) -> Result<(), Error> {
+    fn emit_spill_load(&mut self, v: usize, size: RegSize, into: u8) -> Result<(), Error> {
         let slot = self
             .frame
             .spill_slot(v)
-            .ok_or_else(|| Error::Internal(format!("missing spill slot for {v:?}")))?;
+            .ok_or_else(|| Error::Internal(format!("missing spill slot for vreg {v}")))?;
 
         self.output.push(Inst::Ldr {
             size,
@@ -402,11 +401,11 @@ impl<'a> InstRewriter<'a> {
         Ok(())
     }
 
-    fn emit_spill_store(&mut self, v: VReg, size: RegSize, from: u8) -> Result<(), Error> {
+    fn emit_spill_store(&mut self, v: usize, size: RegSize, from: u8) -> Result<(), Error> {
         let slot = self
             .frame
             .spill_slot(v)
-            .ok_or_else(|| Error::Internal(format!("missing spill slot for {v:?}")))?;
+            .ok_or_else(|| Error::Internal(format!("missing spill slot for vreg {v}")))?;
 
         self.output.push(Inst::Str {
             size,
@@ -816,6 +815,6 @@ impl<'a> InstRewriter<'a> {
 
 enum MappedReg {
     Physical { reg: Reg },
-    Colored { reg: Reg, vreg: VReg },
-    Spilled { vreg: VReg },
+    Colored { reg: Reg, vreg: usize },
+    Spilled { vreg: usize },
 }

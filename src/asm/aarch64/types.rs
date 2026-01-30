@@ -1,10 +1,9 @@
-use crate::asm::common::VReg;
 use crate::asm::error::Error;
 use crate::ir;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Reg {
-    V(VReg),
+    V(usize),
     P(u8),
     SP,
 }

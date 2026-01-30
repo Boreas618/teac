@@ -1,7 +1,6 @@
 use std::collections::HashSet;
 
 use super::types::{Addr, BinOp, Cond, IndexOperand, Operand, Reg, RegSize};
-use crate::asm::common::VReg;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Inst {
@@ -76,22 +75,22 @@ pub enum Inst {
 }
 
 impl Inst {
-    pub fn used_vregs(&self) -> HashSet<VReg> {
+    pub fn used_vregs(&self) -> HashSet<usize> {
         let mut used = HashSet::new();
 
-        let add_reg = |s: &mut HashSet<VReg>, r: &Reg| {
+        let add_reg = |s: &mut HashSet<usize>, r: &Reg| {
             if let Reg::V(v) = r {
                 s.insert(*v);
             }
         };
 
-        let add_operand = |s: &mut HashSet<VReg>, op: &Operand| {
+        let add_operand = |s: &mut HashSet<usize>, op: &Operand| {
             if let Operand::Reg(Reg::V(v)) = op {
                 s.insert(*v);
             }
         };
 
-        let add_addr = |s: &mut HashSet<VReg>, addr: &Addr| {
+        let add_addr = |s: &mut HashSet<usize>, addr: &Addr| {
             if let Addr::BaseOff {
                 base: Reg::V(v), ..
             } = addr
@@ -135,7 +134,7 @@ impl Inst {
         used
     }
 
-    pub fn defined_vregs(&self) -> HashSet<VReg> {
+    pub fn defined_vregs(&self) -> HashSet<usize> {
         let mut defined = HashSet::new();
         match self {
             Inst::Mov { dst, .. }

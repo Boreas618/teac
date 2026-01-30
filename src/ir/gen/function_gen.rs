@@ -27,14 +27,14 @@ impl<'ir> FunctionGenerator<'ir> {
 
             let var = LocalVariable::new(
                 dtype.clone(),
-                self.increment_virt_reg_index(),
+                self.alloc_vreg(),
                 Some(id.to_string()),
             );
             self.arguments.push(var.clone());
 
             let ptr = Rc::new(LocalVariable::new(
                 Dtype::ptr_to(dtype.clone()),
-                self.increment_virt_reg_index(),
+                self.alloc_vreg(),
                 Some(id.to_string()),
             ));
             self.emit_alloca(Operand::Local(ptr.as_ref().clone()));
@@ -103,7 +103,7 @@ impl<'ir> FunctionGenerator<'ir> {
             let right_type = right.dtype();
             let local_val = LocalVariable::new(
                 Dtype::ptr_to(right_type.clone()),
-                self.increment_virt_reg_index(),
+                self.alloc_vreg(),
                 left.identifier(),
             );
             left = Operand::Local(local_val.clone());
@@ -147,7 +147,7 @@ impl<'ir> FunctionGenerator<'ir> {
 
         let variable = Rc::new(LocalVariable::new(
             var_dtype,
-            self.increment_virt_reg_index(),
+            self.alloc_vreg(),
             Some(identifier.clone()),
         ));
 
@@ -198,7 +198,7 @@ impl<'ir> FunctionGenerator<'ir> {
                     None => LocalVariable::new(Dtype::Undecided, 0, Some(identifier.clone())),
                     Some(Dtype::I32) => LocalVariable::new(
                         Dtype::ptr_to(Dtype::I32),
-                        self.increment_virt_reg_index(),
+                        self.alloc_vreg(),
                         Some(identifier.clone()),
                     ),
                     _ => return Err(Error::LocalVarDefinitionUnsupported),
@@ -220,7 +220,7 @@ impl<'ir> FunctionGenerator<'ir> {
 
                 let v = Rc::new(LocalVariable::new(
                     var_dtype,
-                    self.increment_virt_reg_index(),
+                    self.alloc_vreg(),
                     Some(identifier.clone()),
                 ));
 

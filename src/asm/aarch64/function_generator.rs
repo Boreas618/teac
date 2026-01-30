@@ -1,8 +1,6 @@
 use super::inst::Inst;
-use super::types::{Addr, BinOp, Cond, IndexOperand, Operand, Reg, RegSize};
-use crate::asm::common::{
-    align_up, vreg_from_value, StackFrame, StackSlot, StructLayouts, VReg, VRegKind,
-};
+use super::types::{Addr, BinOp, Cond, IndexOperand, Operand, Reg, RegSize, dtype_to_regsize};
+use crate::asm::common::{align_up, StackFrame, StackSlot, StructLayouts};
 use crate::asm::error::Error;
 use crate::ast;
 use crate::ir;
@@ -16,7 +14,7 @@ fn mangle_bb(func: &str, bb: usize) -> String {
 pub(crate) enum PtrBase {
     Stack,
     Global(String),
-    Reg(VReg),
+    Reg(usize),
 }
 
 pub struct FunctionGenerator<'a> {
@@ -24,15 +22,14 @@ pub struct FunctionGenerator<'a> {
     pub frame: &'a StackFrame,
     pub layouts: &'a StructLayouts,
     pub insts: &'a mut Vec<Inst>,
-    pub vreg_kinds: &'a mut HashMap<VReg, VRegKind>,
-    pub cond_map: &'a mut HashMap<VReg, Cond>,
+    pub next_vreg: &'a mut usize,
+    pub cond_map: &'a mut HashMap<usize, Cond>,
 }
 
 impl<'a> FunctionGenerator<'a> {
-    pub fn fresh_vreg(&mut self, kind: VRegKind) -> VReg {
-        let next = self.vreg_kinds.keys().map(|v| v.0).max().unwrap_or(100) + 1;
-        let v = VReg(next);
-        self.vreg_kinds.insert(v, kind);
+    pub fn fresh_vreg(&mut self) -> usize {
+        let v = *self.next_vreg;
+        *self.next_vreg += 1;
         v
     }
 
@@ -43,16 +40,15 @@ impl<'a> FunctionGenerator<'a> {
     }
 
     pub fn gen_store(&mut self, s: &ir::stmt::StoreStmt) -> Result<(), Error> {
-        let (src, src_kind) = self.lower_value(&s.src)?;
+        let (src, size) = self.lower_value(&s.src)?;
         let addr = self.lower_ptr_as_addr(&s.ptr)?;
-        let size = vreg_kind_to_size(src_kind);
 
         match src {
             Operand::Reg(r) => {
                 self.insts.push(Inst::Str { size, src: r, addr });
             }
             Operand::Imm(imm) => {
-                let tmp = self.fresh_vreg(src_kind);
+                let tmp = self.fresh_vreg();
                 self.insts.push(Inst::Mov {
                     size,
                     dst: Reg::V(tmp),
@@ -69,14 +65,8 @@ impl<'a> FunctionGenerator<'a> {
     }
 
     pub fn gen_load(&mut self, s: &ir::stmt::LoadStmt) -> Result<(), Error> {
-        let dst = vreg_from_value(&s.dst)?;
-
-        let (kind, size) = match s.dst.dtype() {
-            ir::Dtype::I32 => (VRegKind::Int32, RegSize::W32),
-            ir::Dtype::Pointer { .. } => (VRegKind::Ptr64, RegSize::X64),
-            _ => (VRegKind::Int32, RegSize::W32),
-        };
-        self.vreg_kinds.insert(dst, kind);
+        let dst = Self::operand_vreg(&s.dst)?;
+        let size = dtype_to_regsize(s.dst.dtype())?;
 
         let addr = self.lower_ptr_as_addr(&s.ptr)?;
         self.insts.push(Inst::Ldr {
@@ -88,8 +78,7 @@ impl<'a> FunctionGenerator<'a> {
     }
 
     pub fn gen_biop(&mut self, s: &ir::stmt::BiOpStmt) -> Result<(), Error> {
-        let dst = vreg_from_value(&s.dst)?;
-        self.vreg_kinds.insert(dst, VRegKind::Int32);
+        let dst = Self::operand_vreg(&s.dst)?;
 
         let lhs = self.lower_int_to_reg(&s.left)?;
         let rhs = self.lower_int(&s.right)?;
@@ -106,7 +95,7 @@ impl<'a> FunctionGenerator<'a> {
     }
 
     pub fn gen_cmp(&mut self, s: &ir::stmt::CmpStmt) -> Result<(), Error> {
-        let dst = vreg_from_value(&s.dst)?;
+        let dst = Self::operand_vreg(&s.dst)?;
         let lhs = self.lower_int_to_reg(&s.left)?;
         let rhs = self.lower_int(&s.right)?;
         let cond = cmp_op_to_cond(&s.kind);
@@ -121,11 +110,11 @@ impl<'a> FunctionGenerator<'a> {
     }
 
     pub fn gen_cjump(&mut self, s: &ir::stmt::CJumpStmt) -> Result<(), Error> {
-        let cond_v = vreg_from_value(&s.dst)?;
+        let cond_v = Self::operand_vreg(&s.dst)?;
         let cond = *self
             .cond_map
             .get(&cond_v)
-            .ok_or_else(|| Error::MissingCond { vreg: cond_v.0 })?;
+            .ok_or_else(|| Error::MissingCond { vreg: cond_v })?;
 
         let true_label = self.mangle_block_label(&s.true_label);
         let false_label = self.mangle_block_label(&s.false_label);
@@ -144,8 +133,7 @@ impl<'a> FunctionGenerator<'a> {
     }
 
     pub fn gen_gep(&mut self, s: &ir::stmt::GepStmt) -> Result<(), Error> {
-        let new_ptr = vreg_from_value(&s.new_ptr)?;
-        self.vreg_kinds.insert(new_ptr, VRegKind::Ptr64);
+        let new_ptr = Self::operand_vreg(&s.new_ptr)?;
 
         let (base_kind, base_slot) = self.lower_ptr(&s.base_ptr)?;
 
@@ -212,8 +200,7 @@ impl<'a> FunctionGenerator<'a> {
 
     pub fn gen_return(&mut self, s: &ir::stmt::ReturnStmt) -> Result<(), Error> {
         if let Some(v) = &s.val {
-            let (op, kind) = self.lower_value(v)?;
-            let size = vreg_kind_to_size(kind);
+            let (op, size) = self.lower_value(v)?;
             self.insts.push(Inst::Mov {
                 size,
                 dst: Reg::P(0),
@@ -226,7 +213,7 @@ impl<'a> FunctionGenerator<'a> {
 
     fn gen_gep_struct(
         &mut self,
-        new_ptr: VReg,
+        new_ptr: usize,
         idx: &ir::Operand,
         type_name: &str,
         base_kind: PtrBase,
@@ -254,7 +241,7 @@ impl<'a> FunctionGenerator<'a> {
 
     fn gen_gep_array(
         &mut self,
-        new_ptr: VReg,
+        new_ptr: usize,
         idx: &ir::Operand,
         inner: &ir::Dtype,
         base_kind: PtrBase,
@@ -310,7 +297,7 @@ impl<'a> FunctionGenerator<'a> {
 
     fn emit_ptr_offset(
         &mut self,
-        dst: VReg,
+        dst: usize,
         base_kind: PtrBase,
         base_slot: Option<StackSlot>,
         offset: i64,
@@ -370,7 +357,7 @@ impl<'a> FunctionGenerator<'a> {
                 },
             });
         } else {
-            let (op, _kind) = self.lower_value(arg)?;
+            let (op, _size) = self.lower_value(arg)?;
             match op {
                 Operand::Imm(imm) => {
                     self.insts.push(Inst::Mov {
@@ -406,7 +393,7 @@ impl<'a> FunctionGenerator<'a> {
         if matches!(arg.dtype(), ir::Dtype::Pointer { .. }) {
             self.emit_ptr_to_reg(arg, Reg::P(reg_idx))?;
         } else {
-            let (op, _kind) = self.lower_value(arg)?;
+            let (op, _size) = self.lower_value(arg)?;
             self.insts.push(Inst::Mov {
                 size: RegSize::W32,
                 dst: Reg::P(reg_idx),
@@ -417,10 +404,9 @@ impl<'a> FunctionGenerator<'a> {
     }
 
     fn gen_call_result(&mut self, res: &ir::LocalVariable) -> Result<(), Error> {
-        let dst = VReg(res.index as u32);
+        let dst = res.index;
         match &res.dtype {
             ir::Dtype::I32 => {
-                self.vreg_kinds.insert(dst, VRegKind::Int32);
                 self.insts.push(Inst::Mov {
                     size: RegSize::W32,
                     dst: Reg::V(dst),
@@ -473,12 +459,12 @@ impl<'a> FunctionGenerator<'a> {
                         dtype: l.dtype.clone(),
                     });
                 }
-                if self.frame.has_alloca(VReg(l.index as u32)) {
+                if self.frame.has_alloca(l.index) {
                     return Err(Error::UnsupportedOperand {
                         what: format!("int operand references alloca pointer %r{}", l.index),
                     });
                 }
-                Ok(Operand::Reg(Reg::V(VReg(l.index as u32))))
+                Ok(Operand::Reg(Reg::V(l.index)))
             }
             ir::Operand::Global(_) => Err(Error::UnsupportedOperand {
                 what: format!("unsupported int operand: {}", val),
@@ -490,7 +476,7 @@ impl<'a> FunctionGenerator<'a> {
         match self.lower_int(val)? {
             Operand::Reg(r) => Ok(r),
             Operand::Imm(imm) => {
-                let tmp = self.fresh_vreg(VRegKind::Int32);
+                let tmp = self.fresh_vreg();
                 self.insts.push(Inst::Mov {
                     size: RegSize::W32,
                     dst: Reg::V(tmp),
@@ -501,14 +487,14 @@ impl<'a> FunctionGenerator<'a> {
         }
     }
 
-    fn lower_value(&self, val: &ir::Operand) -> Result<(Operand, VRegKind), Error> {
+    fn lower_value(&self, val: &ir::Operand) -> Result<(Operand, RegSize), Error> {
         match val {
-            ir::Operand::Integer(i) => Ok((Operand::Imm(i.value as i64), VRegKind::Int32)),
+            ir::Operand::Integer(i) => Ok((Operand::Imm(i.value as i64), RegSize::W32)),
             ir::Operand::Local(l) => {
-                let kind = match &l.dtype {
-                    ir::Dtype::I32 => VRegKind::Int32,
+                let size = match &l.dtype {
+                    ir::Dtype::I32 => RegSize::W32,
                     ir::Dtype::Pointer { .. } => {
-                        if self.frame.has_alloca(VReg(l.index as u32)) {
+                        if self.frame.has_alloca(l.index) {
                             return Err(Error::UnsupportedOperand {
                                 what: format!(
                                     "value operand uses alloca pointer %r{} directly (need address-of)",
@@ -516,7 +502,7 @@ impl<'a> FunctionGenerator<'a> {
                                 ),
                             });
                         }
-                        VRegKind::Ptr64
+                        RegSize::X64
                     }
                     other => {
                         return Err(Error::UnsupportedDtype {
@@ -524,7 +510,7 @@ impl<'a> FunctionGenerator<'a> {
                         })
                     }
                 };
-                Ok((Operand::Reg(Reg::V(VReg(l.index as u32))), kind))
+                Ok((Operand::Reg(Reg::V(l.index)), size))
             }
             ir::Operand::Global(_) => Err(Error::UnsupportedOperand {
                 what: "unexpected global variable in value position".into(),
@@ -553,7 +539,7 @@ impl<'a> FunctionGenerator<'a> {
     fn lower_ptr(&self, val: &ir::Operand) -> Result<(PtrBase, Option<StackSlot>), Error> {
         match val {
             ir::Operand::Local(l) => {
-                let v = VReg(l.index as u32);
+                let v = l.index;
                 if let Some(slot) = self.frame.alloca_slot(v) {
                     return Ok((PtrBase::Stack, Some(slot)));
                 }
@@ -580,12 +566,12 @@ impl<'a> FunctionGenerator<'a> {
                         dtype: l.dtype.clone(),
                     });
                 }
-                if self.frame.has_alloca(VReg(l.index as u32)) {
+                if self.frame.has_alloca(l.index) {
                     return Err(Error::UnsupportedOperand {
                         what: format!("index operand references alloca pointer %r{}", l.index),
                     });
                 }
-                Ok(IndexOperand::Reg(Reg::V(VReg(l.index as u32))))
+                Ok(IndexOperand::Reg(Reg::V(l.index)))
             }
             ir::Operand::Global(_) => Err(Error::UnsupportedOperand {
                 what: format!("unsupported index operand: {}", val),
@@ -608,12 +594,11 @@ impl<'a> FunctionGenerator<'a> {
             ir::BlockLabel::Function(name) => name.clone(),
         }
     }
-}
 
-fn vreg_kind_to_size(kind: VRegKind) -> RegSize {
-    match kind {
-        VRegKind::Int32 => RegSize::W32,
-        VRegKind::Ptr64 => RegSize::X64,
+    fn operand_vreg(op: &ir::Operand) -> Result<usize, Error> {
+        op.vreg_index().ok_or_else(|| Error::UnsupportedOperand {
+            what: format!("expected local variable, got: {}", op),
+        })
     }
 }
 
