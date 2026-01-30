@@ -130,14 +130,3 @@ impl Cfg {
     }
 }
 
-pub fn next_basic_block_id(labels: &[BlockLabel]) -> usize {
-    labels
-        .iter()
-        .filter_map(|l| match l {
-            BlockLabel::BasicBlock(n) => Some(*n),
-            _ => None,
-        })
-        .max()
-        .unwrap_or(0)
-        + 1
-}

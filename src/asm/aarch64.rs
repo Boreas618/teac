@@ -7,7 +7,9 @@ mod types;
 pub(crate) use inst::Inst;
 pub(crate) use types::{Addr, BinOp, Cond, Operand, Reg};
 
-use crate::asm::common::{collect_alloca_ptrs, size_align_of_alloca, StackFrame, StructLayouts};
+use crate::asm::common::{
+    collect_alloca_ptrs, eliminate_phis, size_align_of_alloca, StackFrame, StructLayouts,
+};
 use crate::asm::error::Error;
 use crate::asm::AsmGenerator;
 use crate::ir;
@@ -193,15 +195,14 @@ impl<'a> AArch64AsmGenerator<'a> {
         layouts: &StructLayouts,
         func: &ir::Function,
     ) -> Result<GeneratedFunction, Error> {
-        let Some(blocks) = &func.blocks else {
+        let Some(blocks) = eliminate_phis(func) else {
             return Ok(GeneratedFunction {
                 symbol: func.identifier.clone(),
                 frame_size: 0,
                 insts: Vec::new(),
             });
         };
-        let lowered_blocks = ir::opt::PhiLowering::new(blocks, func.next_vreg).run();
-        let blocks = &lowered_blocks;
+        let blocks = &blocks;
 
         let mut frame = StackFrame::default();
         let alloca_ptrs = collect_alloca_ptrs(blocks)?;

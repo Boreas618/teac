@@ -2,7 +2,6 @@ mod cfg;
 mod dominator;
 mod liveness;
 mod mem2reg;
-mod phi_lowering;
 
 #[allow(unused_imports)]
 pub use cfg::Cfg;
@@ -12,4 +11,3 @@ pub use dominator::DominatorInfo;
 pub use liveness::Liveness;
 
 pub use mem2reg::mem2reg;
-pub use phi_lowering::PhiLowering;
