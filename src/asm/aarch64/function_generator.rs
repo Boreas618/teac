@@ -1,25 +1,3 @@
-//! Function code generation for AArch64.
-//!
-//! This module provides instruction selection from IR to abstract machine
-//! instructions (pre-register-allocation). The main entry point is
-//! [`FunctionGenerator`], which processes IR statements and emits [`Inst`].
-//!
-//! # Architecture
-//!
-//! - **Instruction Generation** (`gen_*` methods): Convert IR statements to machine instructions
-//! - **Operand Lowering** (`lower_*` methods): Convert IR operands to machine operands
-//! - **Virtual Registers**: Fresh vregs are allocated via [`FunctionGenerator::fresh_vreg`]
-//!
-//! # Usage
-//!
-//! ```ignore
-//! let mut gen = FunctionGenerator::new(...);
-//! for stmt in ir_statements {
-//!     gen.gen_stmt(stmt)?;
-//! }
-//! let insts = gen.into_insts();
-//! ```
-
 use super::inst::Inst;
 use super::types::{Addr, BinOp, Cond, IndexOperand, Operand, Reg, RegSize};
 use crate::asm::common::{
@@ -34,27 +12,12 @@ fn mangle_bb(func: &str, bb: usize) -> String {
     format!(".L{func}_bb{bb}")
 }
 
-// =============================================================================
-// Pointer Classification
-// =============================================================================
-
-/// Pointer base classification for address lowering.
-///
-/// This enum categorizes pointer operands based on their origin,
-/// which determines how they should be addressed in generated code.
 #[derive(Debug, Clone)]
 pub(crate) enum PtrBase {
-    /// Stack-allocated via alloca. Requires `StackSlot` for the offset.
     Stack,
-    /// Global symbol reference.
     Global(String),
-    /// Pointer value held in a virtual register.
     Reg(VReg),
 }
-
-// =============================================================================
-// Function Generator
-// =============================================================================
 
 pub struct FunctionGenerator<'a> {
     pub func_id: &'a str,
@@ -108,7 +71,6 @@ impl<'a> FunctionGenerator<'a> {
     pub fn gen_load(&mut self, s: &ir::stmt::LoadStmt) -> Result<(), Error> {
         let dst = vreg_from_value(&s.dst)?;
 
-        // Determine register size based on destination type
         let (kind, size) = match s.dst.dtype() {
             ir::Dtype::I32 => (VRegKind::Int32, RegSize::W32),
             ir::Dtype::Pointer { .. } => (VRegKind::Ptr64, RegSize::X64),
@@ -143,7 +105,6 @@ impl<'a> FunctionGenerator<'a> {
         Ok(())
     }
 
-    /// Records condition code for use by subsequent conditional jumps.
     pub fn gen_cmp(&mut self, s: &ir::stmt::CmpStmt) -> Result<(), Error> {
         let dst = vreg_from_value(&s.dst)?;
         let lhs = self.lower_int_to_reg(&s.left)?;
@@ -190,7 +151,6 @@ impl<'a> FunctionGenerator<'a> {
 
         match s.base_ptr.dtype() {
             ir::Dtype::Pointer { inner, length } => {
-                // For scalar pointer (length == 0): check if struct for member access
                 if *length == 0 {
                     if let ir::Dtype::Struct { type_name } = inner.as_ref() {
                         return self
@@ -222,7 +182,6 @@ impl<'a> FunctionGenerator<'a> {
             self.gen_call_reg_arg(arg, i as u8)?;
         }
 
-        // Strip module prefix from function name for external calls
         let func_name = if let Some(pos) = s.func_name.rfind("::") {
             s.func_name[pos + 2..].to_string()
         } else {

@@ -1,12 +1,3 @@
-//! Common types and utilities for code generation.
-//!
-//! This module provides shared abstractions used across all target backends:
-//!
-//! - [`AsmGenerator`]: Trait for target-specific code generators
-//! - [`VReg`] / [`VRegKind`]: Virtual register representation
-//! - [`StackFrame`] / [`StackSlot`]: Stack layout management
-//! - [`StructLayout`] / [`StructLayouts`]: Aggregate type layouts
-
 mod layout;
 mod stack;
 mod vreg;

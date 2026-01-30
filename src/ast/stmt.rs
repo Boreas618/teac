@@ -1,48 +1,31 @@
-//! Statement AST nodes.
-
 use super::decl::VarDeclStmt;
 use super::expr::{BoolUnit, FnCall, LeftVal, RightVal};
 
-// =============================================================================
-// Simple Statements
-// =============================================================================
-
-/// An assignment statement.
 #[derive(Debug, Clone)]
 pub struct AssignmentStmt {
     pub left_val: Box<LeftVal>,
     pub right_val: Box<RightVal>,
 }
 
-/// A function call statement.
 #[derive(Debug, Clone)]
 pub struct CallStmt {
     pub fn_call: Box<FnCall>,
 }
 
-/// A return statement.
 #[derive(Debug, Clone)]
 pub struct ReturnStmt {
     pub val: Option<Box<RightVal>>,
 }
 
-/// A continue statement.
 #[derive(Debug, Clone)]
 pub struct ContinueStmt {}
 
-/// A break statement.
 #[derive(Debug, Clone)]
 pub struct BreakStmt {}
 
-/// A null (empty) statement.
 #[derive(Debug, Clone)]
 pub struct NullStmt {}
 
-// =============================================================================
-// Control Flow Statements
-// =============================================================================
-
-/// An if statement.
 #[derive(Debug, Clone)]
 pub struct IfStmt {
     pub bool_unit: Box<BoolUnit>,
@@ -50,18 +33,12 @@ pub struct IfStmt {
     pub else_stmts: Option<CodeBlockStmtList>,
 }
 
-/// A while loop statement.
 #[derive(Debug, Clone)]
 pub struct WhileStmt {
     pub bool_unit: Box<BoolUnit>,
     pub stmts: CodeBlockStmtList,
 }
 
-// =============================================================================
-// Code Block
-// =============================================================================
-
-/// Code block statement variants.
 #[derive(Debug, Clone)]
 pub enum CodeBlockStmtInner {
     VarDecl(Box<VarDeclStmt>),
@@ -75,11 +52,9 @@ pub enum CodeBlockStmtInner {
     Null(Box<NullStmt>),
 }
 
-/// A statement within a code block.
 #[derive(Debug, Clone)]
 pub struct CodeBlockStmt {
     pub inner: CodeBlockStmtInner,
 }
 
-/// List of statements in a code block.
 pub type CodeBlockStmtList = Vec<CodeBlockStmt>;

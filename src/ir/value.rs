@@ -1,52 +1,24 @@
 #![allow(unused)]
-//! IR values and operands.
-//!
-//! This module provides the value types that can be used as operands in IR statements:
-//!
-//! - [`Value`]: Unified value enum (integer, local variable, global variable)
-//! - [`Integer`]: Constant integer value
-//! - [`LocalVariable`]: Function-local virtual register
-//! - [`GlobalVariable`]: Global variable reference
-//! - [`Typed`]: Trait for values with types
 
 use super::types::Dtype;
 use std::fmt::{Display, Formatter};
 
-// =============================================================================
-// Typed Trait
-// =============================================================================
-
-/// Trait for values that have a data type.
 pub trait Typed {
     fn dtype(&self) -> &Dtype;
 }
 
-// =============================================================================
-// Named Trait
-// =============================================================================
-
-/// Trait for values that may have an identifier.
 pub trait Named {
     fn identifier(&self) -> Option<String>;
 }
 
-// =============================================================================
-// Operand Enum
-// =============================================================================
-
-/// A unified type representing all possible IR operands.
 #[derive(Clone)]
 pub enum Operand {
-    /// Constant integer value.
     Integer(Integer),
-    /// Local variable (virtual register).
     Local(LocalVariable),
-    /// Global variable reference.
     Global(GlobalVariable),
 }
 
 impl Operand {
-    /// Returns the data type of this value.
     pub fn dtype(&self) -> &Dtype {
         match self {
             Operand::Integer(i) => i.dtype(),
@@ -55,7 +27,6 @@ impl Operand {
         }
     }
 
-    /// Returns the identifier if this value has one.
     pub fn identifier(&self) -> Option<String> {
         match self {
             Operand::Integer(i) => i.identifier(),
@@ -64,7 +35,6 @@ impl Operand {
         }
     }
 
-    /// Attempts to get this value as a LocalVariable.
     pub fn as_local(&self) -> Option<&LocalVariable> {
         match self {
             Operand::Local(l) => Some(l),
@@ -72,7 +42,6 @@ impl Operand {
         }
     }
 
-    /// Attempts to get this value as a GlobalVariable.
     pub fn as_global(&self) -> Option<&GlobalVariable> {
         match self {
             Operand::Global(g) => Some(g),
@@ -80,7 +49,6 @@ impl Operand {
         }
     }
 
-    /// Attempts to get this value as an Integer.
     pub fn as_integer(&self) -> Option<&Integer> {
         match self {
             Operand::Integer(i) => Some(i),
@@ -88,12 +56,10 @@ impl Operand {
         }
     }
 
-    /// Returns true if this is an addressable value (local or global variable).
     pub fn is_addressable(&self) -> bool {
         matches!(self, Operand::Local(_) | Operand::Global(_))
     }
 
-    /// Returns the virtual register index if this is a local variable.
     pub fn vreg_index(&self) -> Option<usize> {
         self.as_local().map(|l| l.index)
     }
@@ -133,15 +99,9 @@ impl From<i32> for Operand {
     }
 }
 
-// =============================================================================
-// Integer Constant
-// =============================================================================
-
-/// A constant integer value.
 #[derive(Clone)]
 pub struct Integer {
     _dtype: Dtype,
-    /// The integer value.
     pub value: i32,
 }
 
@@ -172,21 +132,10 @@ impl Display for Integer {
     }
 }
 
-// =============================================================================
-// Local Variable
-// =============================================================================
-
-/// A local variable (virtual register) within a function.
-///
-/// Can be either named (corresponding to source-level variables) or anonymous
-/// (IR temporaries for maintaining SSA form).
 #[derive(Clone)]
 pub struct LocalVariable {
-    /// Data type of the variable.
     pub dtype: Dtype,
-    /// Optional source-level identifier.
     pub identifier: Option<String>,
-    /// Virtual register index.
     pub index: usize,
 }
 
@@ -209,7 +158,6 @@ impl Display for LocalVariable {
 }
 
 impl LocalVariable {
-    /// Creates a new LocalVariable without an identifier.
     pub fn new(dtype: Dtype, index: usize, identifier: Option<String>) -> Self {
         Self {
             dtype,
@@ -219,18 +167,10 @@ impl LocalVariable {
     }
 }
 
-// =============================================================================
-// Global Variable
-// =============================================================================
-
-/// A global variable definition.
 #[derive(Clone)]
 pub struct GlobalVariable {
-    /// Data type of the variable.
     pub dtype: Dtype,
-    /// Identifier (symbol name).
     pub identifier: String,
-    /// Optional static initializers.
     pub initializers: Option<Vec<i32>>,
 }
 

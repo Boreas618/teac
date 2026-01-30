@@ -1,15 +1,6 @@
-//! Core AArch64 type definitions.
-//!
-//! This module contains the fundamental types used throughout the AArch64
-//! backend: registers, operands, addresses, and related enums.
-
 use crate::asm::common::VReg;
 use crate::asm::error::Error;
 use crate::ir;
-
-// =============================================================================
-// Register Types
-// =============================================================================
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Reg {

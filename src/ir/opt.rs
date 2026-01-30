@@ -1,20 +1,9 @@
-//! IR optimization passes.
-//!
-//! Currently includes:
-//! - mem2reg: promote stack slots to SSA registers with phi nodes
-//! - phi lowering: remove phi nodes for codegen
-
 use crate::ir::function::{BlockLabel, Function};
 use crate::ir::stmt::{PhiStmt, Stmt, StmtInner};
 use crate::ir::types::Dtype;
 use crate::ir::value::{LocalVariable, Operand};
 use std::collections::{HashMap, HashSet, VecDeque};
 
-// =============================================================================
-// Public Passes
-// =============================================================================
-
-/// Promote eligible allocas to SSA registers with phi nodes.
 pub fn mem2reg(func: &mut Function) {
     let Some(blocks) = func.blocks.as_mut() else {
         return;
@@ -87,7 +76,6 @@ pub fn mem2reg(func: &mut Function) {
     *blocks = renamer.finish_blocks();
 }
 
-/// Lower phi nodes into explicit moves for code generation.
 pub fn lower_phis_for_codegen(blocks: &[Vec<Stmt>]) -> Vec<Vec<Stmt>> {
     if !blocks
         .iter()
@@ -234,10 +222,6 @@ pub fn lower_phis_for_codegen(blocks: &[Vec<Stmt>]) -> Vec<Vec<Stmt>> {
 
     out_blocks
 }
-
-// =============================================================================
-// mem2reg Internals
-// =============================================================================
 
 #[derive(Clone)]
 struct PhiInfo {
@@ -714,11 +698,6 @@ fn update_max_from_operand(max_idx: &mut usize, op: &Operand) {
     }
 }
 
-
-// =============================================================================
-// CFG + Dominators
-// =============================================================================
-
 fn collect_labels(blocks: &[Vec<Stmt>]) -> Vec<BlockLabel> {
     blocks
         .iter()
@@ -977,10 +956,6 @@ fn build_dom_tree(idom: &[Option<usize>]) -> Vec<Vec<usize>> {
     }
     children
 }
-
-// =============================================================================
-// Phi Lowering Internals
-// =============================================================================
 
 #[derive(Clone)]
 struct BlockData {

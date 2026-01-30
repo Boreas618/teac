@@ -1,11 +1,3 @@
-//! Graph-coloring register allocator.
-//!
-//! Implements a Chaitin-Briggs style register allocator with:
-//! - Liveness analysis via backward dataflow
-//! - Interference graph construction
-//! - Simplify-select graph coloring
-//! - Spill code generation
-
 use std::collections::{HashMap, HashSet, VecDeque};
 
 use super::inst::Inst;
@@ -13,7 +5,6 @@ use super::types::{Addr, IndexOperand, Operand, Reg, RegSize};
 use crate::asm::common::{StackFrame, VReg, VRegKind};
 use crate::asm::error::Error;
 
-/// x9-x15
 const NUM_COLORS: usize = 7;
 const ALLOCATABLE_REGS: [u8; NUM_COLORS] = [9, 10, 11, 12, 13, 14, 15];
 
@@ -510,7 +501,6 @@ impl<'a> InstRewriter<'a> {
             }
             MappedReg::Colored { reg, vreg } => {
                 if self.is_spilled(vreg) {
-                    // Store directly to spill slot.
                     let from = self.operand_to_phys_reg(src_op, size, SCRATCH0)?;
                     self.emit_spill_store(vreg, size, from)?;
                 } else {
@@ -543,7 +533,7 @@ impl<'a> InstRewriter<'a> {
         match self.map_reg(dst) {
             MappedReg::Physical { reg } | MappedReg::Colored { reg, .. } => {
                 let (final_dst, vreg) = match self.map_reg(dst) {
-                    MappedReg::Colored { reg:_, vreg } if self.is_spilled(vreg) => {
+                    MappedReg::Colored { reg: _, vreg } if self.is_spilled(vreg) => {
                         (Reg::P(SCRATCH0), Some(vreg))
                     }
                     _ => (reg, None),
@@ -698,11 +688,9 @@ impl<'a> InstRewriter<'a> {
         index: IndexOperand,
         scale: i64,
     ) -> Result<(), Error> {
-        // Load base (64-bit pointer).
         let base_reg = self.load_src_reg(base, RegSize::X64, SCRATCH0)?;
         let base_used_scratch = matches!(base_reg, Reg::P(r) if r == SCRATCH0);
 
-        // Load index (32-bit integer).
         let index_scratch = if base_used_scratch {
             SCRATCH1
         } else {
@@ -784,7 +772,6 @@ impl<'a> InstRewriter<'a> {
                             true,
                         ))
                     } else {
-                        // Uncolored, not spilled: use scratch.
                         Ok((
                             Addr::BaseOff {
                                 base: Reg::P(scratch),

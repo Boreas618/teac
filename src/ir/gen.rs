@@ -1,11 +1,3 @@
-//! IR generation from AST.
-//!
-//! This module provides the IR generation logic, split into:
-//!
-//! - [`module_gen`]: Top-level module generation (globals, structs, functions)
-//! - [`static_eval`]: Static evaluation of constant expressions
-//! - [`function_gen`]: Function body generation (expressions, statements)
-
 mod function_gen;
 mod module_gen;
 mod static_eval;
@@ -13,11 +5,6 @@ mod static_eval;
 use crate::ast;
 use crate::ir::types::Dtype;
 
-// =============================================================================
-// Type Conversion Traits
-// =============================================================================
-
-/// Trait for extracting base dtype from AST declarations.
 pub trait BaseDtype {
     fn type_specifier(&self) -> &Option<ast::TypeSepcifier>;
 
@@ -43,10 +30,6 @@ impl BaseDtype for ast::VarDef {
     }
 }
 
-// =============================================================================
-// Named Trait Implementation for AST Types
-// =============================================================================
-
 use super::value::Named;
 
 impl Named for ast::VarDecl {
@@ -69,10 +52,6 @@ impl Named for ast::VarDeclStmt {
         }
     }
 }
-
-// =============================================================================
-// Type Conversions from AST
-// =============================================================================
 
 impl From<ast::TypeSepcifier> for Dtype {
     fn from(a: ast::TypeSepcifier) -> Self {

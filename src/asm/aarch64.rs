@@ -1,15 +1,9 @@
-//! AArch64 (ARM64) code generation backend.
-//!
-//! Provides instruction selection, register allocation integration, and
-//! assembly emission for the AArch64 architecture.
-
 mod asm_printer;
 mod function_generator;
 mod inst;
 mod register_allocator;
 mod types;
 
-// Re-export types for internal use within the aarch64 module
 pub(crate) use inst::Inst;
 pub(crate) use types::{Addr, BinOp, Cond, Operand, Reg};
 
@@ -26,36 +20,22 @@ use std::collections::HashMap;
 use std::io::Write;
 use types::dtype_to_regsize;
 
-// =============================================================================
-// Generated Assembly Types
-// =============================================================================
-
-/// A generated global variable.
 struct GeneratedGlobal {
     symbol: String,
     data: GlobalData,
 }
 
-/// Data layout for a global variable.
 enum GlobalData {
-    /// A single 32-bit word.
     Word { value: i64 },
-    /// An array of 32-bit words followed by zero-initialized bytes.
     Array { words: Vec<i64>, zero_bytes: i64 },
 }
 
-/// A generated function.
 struct GeneratedFunction {
     symbol: String,
     frame_size: i64,
     insts: Vec<Inst>,
 }
 
-// =============================================================================
-// AArch64 Code Generator
-// =============================================================================
-
-/// AArch64 assembly code generator.
 pub struct AArch64AsmGenerator<'a> {
     module: &'a ir::Module,
     registry: &'a ir::Registry,
@@ -120,14 +100,12 @@ impl<'a> AArch64AsmGenerator<'a> {
             let size = dtype_to_regsize(&arg.dtype)?;
 
             if i < 8 {
-                // First 8 args in registers x0-x7.
                 insts.push(Inst::Mov {
                     size,
                     dst: Reg::V(v),
                     src: Operand::Reg(Reg::P(i as u8)),
                 });
             } else {
-                // Stack args at [fp + 16 + (i-8)*8].
                 let offset = 16 + ((i - 8) as i64) * 8;
                 insts.push(Inst::Ldr {
                     size,

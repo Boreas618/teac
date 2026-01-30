@@ -1,10 +1,3 @@
-//! Top-level module generation from AST.
-//!
-//! Handles:
-//! - Global variable declarations
-//! - Function declarations and definitions
-//! - Struct type definitions
-
 use crate::ast;
 use crate::ir::function::{Function, FunctionGenerator};
 use crate::ir::module::ModuleGenerator;
@@ -17,14 +10,11 @@ use crate::ir::Error;
 use crate::ir::value::Named;
 
 impl ModuleGenerator {
-    /// Generates IR for an entire program.
     pub fn generate(&mut self, from: &ast::Program) -> Result<(), Error> {
-        // Handle use statements - register external std library functions
         for use_stmt in from.use_stmts.iter() {
             self.handle_use_stmt(use_stmt)?;
         }
-        
-        // First pass: collect declarations
+
         for elem in from.elements.iter() {
             use ast::ProgramElementInner::*;
             match &elem.inner {
@@ -35,7 +25,6 @@ impl ModuleGenerator {
             }
         }
 
-        // Second pass: generate function bodies
         for elem in from.elements.iter() {
             use ast::ProgramElementInner::*;
             if let FnDef(fn_def) = &elem.inner {
@@ -66,17 +55,14 @@ impl ModuleGenerator {
 
         Ok(())
     }
-    
-    /// Handles a use statement by registering external library functions.
+
     fn handle_use_stmt(&mut self, use_stmt: &ast::UseStmt) -> Result<(), Error> {
-        // For now, we only support the "std" module
         if use_stmt.module_name == "std" {
             self.register_std_functions()?;
         }
         Ok(())
     }
-    
-    /// Registers standard library functions with std:: prefix.
+
     fn register_std_functions(&mut self) -> Result<(), Error> {
         let std_functions = vec![
             ("std::getint", vec![], Dtype::I32),
@@ -101,7 +87,6 @@ impl ModuleGenerator {
         Ok(())
     }
 
-    /// Organizes IR statements into basic blocks.
     fn harvest_function_irs(irs: Vec<Stmt>) -> Vec<Vec<Stmt>> {
         let mut blocks = Vec::new();
         let mut insts = Vec::new();
@@ -130,7 +115,6 @@ impl ModuleGenerator {
             blocks.push(insts);
         }
 
-        // Move allocas to the entry block
         for block_index in 1..blocks.len() {
             let block = blocks.get(block_index).unwrap();
             let (allocas, remaining): (Vec<Stmt>, Vec<Stmt>) = block
@@ -144,7 +128,6 @@ impl ModuleGenerator {
         blocks
     }
 
-    /// Handles a global variable declaration.
     fn handle_global_var_decl(&mut self, stmt: &ast::VarDeclStmt) -> Result<(), Error> {
         let identifier = match stmt.identifier() {
             Some(id) => id,
@@ -185,7 +168,6 @@ impl ModuleGenerator {
             })
     }
 
-    /// Handles a function declaration.
     fn handle_fn_decl(&mut self, decl: &ast::FnDecl) -> Result<(), Error> {
         let identifier = decl.identifier.clone();
 
@@ -229,7 +211,6 @@ impl ModuleGenerator {
         Ok(())
     }
 
-    /// Handles a function definition.
     fn handle_fn_def(&mut self, stmt: &ast::FnDef) -> Result<(), Error> {
         let identifier = stmt.fn_decl.identifier.clone();
 
@@ -247,7 +228,6 @@ impl ModuleGenerator {
         Ok(())
     }
 
-    /// Handles a struct type definition.
     fn handle_struct_def(&mut self, struct_def: &ast::StructDef) -> Result<(), Error> {
         let identifier = struct_def.identifier.clone();
         let mut offset = 0;

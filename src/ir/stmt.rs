@@ -1,11 +1,3 @@
-//! IR statement types.
-//!
-//! This module defines the IR statement representation:
-//!
-//! - [`Stmt`]: A single IR statement
-//! - [`StmtInner`]: The kind of statement (load, store, call, etc.)
-//! - Individual statement types (LoadStmt, StoreStmt, etc.)
-
 use crate::ast;
 
 use super::function::BlockLabel;
@@ -13,52 +5,28 @@ use super::types::Dtype;
 use super::value::Operand;
 use std::fmt::{self, Display, Formatter};
 
-// =============================================================================
-// Statement Types
-// =============================================================================
-
-/// The kind of IR statement.
 #[derive(Clone)]
 pub enum StmtInner {
-    /// Function call.
     Call(CallStmt),
-    /// Load from memory.
     Load(LoadStmt),
-    /// Phi node.
     Phi(PhiStmt),
-    /// Binary arithmetic operation.
     BiOp(BiOpStmt),
-    /// Stack allocation.
     Alloca(AllocaStmt),
-    /// Comparison.
     Cmp(CmpStmt),
-    /// Conditional jump.
     CJump(CJumpStmt),
-    /// Label declaration.
     Label(LabelStmt),
-    /// Store to memory.
     Store(StoreStmt),
-    /// Unconditional jump.
     Jump(JumpStmt),
-    /// Get element pointer.
     Gep(GepStmt),
-    /// Return from function.
     Return(ReturnStmt),
 }
 
-/// An IR statement with its inner data.
 #[derive(Clone)]
 pub struct Stmt {
-    /// The statement data.
     pub inner: StmtInner,
 }
 
-// =============================================================================
-// Statement Constructors
-// =============================================================================
-
 impl Stmt {
-    /// Creates a call statement.
     pub fn as_call(func_name: String, res: Option<Operand>, args: Vec<Operand>) -> Self {
         Self {
             inner: StmtInner::Call(CallStmt {
@@ -69,21 +37,18 @@ impl Stmt {
         }
     }
 
-    /// Creates a load statement.
     pub fn as_load(dst: Operand, ptr: Operand) -> Self {
         Self {
             inner: StmtInner::Load(LoadStmt { dst, ptr }),
         }
     }
 
-    /// Creates a phi statement.
     pub fn as_phi(dst: Operand, incomings: Vec<(BlockLabel, Operand)>) -> Self {
         Self {
             inner: StmtInner::Phi(PhiStmt { dst, incomings }),
         }
     }
 
-    /// Creates a binary operation statement.
     pub fn as_biop(kind: ast::ArithBiOp, left: Operand, right: Operand, dst: Operand) -> Self {
         Self {
             inner: StmtInner::BiOp(BiOpStmt {
@@ -95,14 +60,12 @@ impl Stmt {
         }
     }
 
-    /// Creates an alloca statement.
     pub fn as_alloca(dst: Operand) -> Self {
         Self {
             inner: StmtInner::Alloca(AllocaStmt { dst }),
         }
     }
 
-    /// Creates a comparison statement.
     pub fn as_cmp(kind: ast::ComOp, left: Operand, right: Operand, dst: Operand) -> Self {
         Self {
             inner: StmtInner::Cmp(CmpStmt {
@@ -114,7 +77,6 @@ impl Stmt {
         }
     }
 
-    /// Creates a conditional jump statement.
     pub fn as_cjump(dst: Operand, true_label: BlockLabel, false_label: BlockLabel) -> Self {
         Self {
             inner: StmtInner::CJump(CJumpStmt {
@@ -125,35 +87,30 @@ impl Stmt {
         }
     }
 
-    /// Creates a label statement.
     pub fn as_label(label: BlockLabel) -> Self {
         Self {
             inner: StmtInner::Label(LabelStmt { label }),
         }
     }
 
-    /// Creates a store statement.
     pub fn as_store(src: Operand, ptr: Operand) -> Self {
         Self {
             inner: StmtInner::Store(StoreStmt { src, ptr }),
         }
     }
 
-    /// Creates an unconditional jump statement.
     pub fn as_jump(target: BlockLabel) -> Self {
         Self {
             inner: StmtInner::Jump(JumpStmt { target }),
         }
     }
 
-    /// Creates a return statement.
     pub fn as_return(val: Option<Operand>) -> Self {
         Self {
             inner: StmtInner::Return(ReturnStmt { val }),
         }
     }
 
-    /// Creates a GEP statement.
     pub fn as_gep(new_ptr: Operand, base_ptr: Operand, index: Operand) -> Self {
         Self {
             inner: StmtInner::Gep(GepStmt {
@@ -188,127 +145,80 @@ impl Display for Stmt {
     }
 }
 
-// =============================================================================
-// Individual Statement Types
-// =============================================================================
-
-/// Function call statement.
 #[derive(Clone)]
 pub struct CallStmt {
-    /// Function name.
     pub func_name: String,
-    /// Optional result register.
     pub res: Option<Operand>,
-    /// Call arguments.
     pub args: Vec<Operand>,
 }
 
-/// Load from memory statement.
 #[derive(Clone)]
 pub struct LoadStmt {
-    /// Destination register.
     pub dst: Operand,
-    /// Source pointer.
     pub ptr: Operand,
 }
 
-/// Phi node statement.
 #[derive(Clone)]
 pub struct PhiStmt {
-    /// Destination register.
     pub dst: Operand,
-    /// Incoming values with their predecessor labels.
     pub incomings: Vec<(BlockLabel, Operand)>,
 }
 
-/// Binary arithmetic operation statement.
 #[derive(Clone)]
 pub struct BiOpStmt {
-    /// Operation kind.
     pub kind: ast::ArithBiOp,
-    /// Left operand.
     pub left: Operand,
-    /// Right operand.
     pub right: Operand,
-    /// Destination register.
     pub dst: Operand,
 }
 
-/// Stack allocation statement.
 #[derive(Clone)]
 pub struct AllocaStmt {
-    /// Destination pointer register.
     pub dst: Operand,
 }
 
-/// Comparison statement.
 #[derive(Clone)]
 pub struct CmpStmt {
-    /// Comparison kind.
     pub kind: ast::ComOp,
-    /// Left operand.
     pub left: Operand,
-    /// Right operand.
     pub right: Operand,
-    /// Destination register (boolean result).
     pub dst: Operand,
 }
 
-/// Conditional jump statement.
 #[derive(Clone)]
 pub struct CJumpStmt {
-    /// Condition register.
     pub dst: Operand,
-    /// Label to jump to if true.
     pub true_label: BlockLabel,
-    /// Label to jump to if false.
     pub false_label: BlockLabel,
 }
 
-/// Label statement.
 #[derive(Clone)]
 pub struct LabelStmt {
-    /// The label.
     pub label: BlockLabel,
 }
 
-/// Store to memory statement.
 #[derive(Clone)]
 pub struct StoreStmt {
-    /// Source value.
     pub src: Operand,
-    /// Destination pointer.
     pub ptr: Operand,
 }
 
-/// Unconditional jump statement.
 #[derive(Clone)]
 pub struct JumpStmt {
-    /// Target label.
     pub target: BlockLabel,
 }
 
-/// Get element pointer statement.
 #[derive(Clone)]
 pub struct GepStmt {
-    /// Result pointer.
     pub new_ptr: Operand,
-    /// Base pointer.
     pub base_ptr: Operand,
-    /// Index value.
     pub index: Operand,
 }
 
-/// Return statement.
 #[derive(Clone)]
 pub struct ReturnStmt {
-    /// Optional return value.
     pub val: Option<Operand>,
 }
-
-// =============================================================================
-// Statement Display Implementations
-// =============================================================================
 
 impl Display for CallStmt {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {

@@ -1,8 +1,3 @@
-//! AArch64 instruction representation.
-//!
-//! This module defines the abstract machine instructions used between
-//! instruction selection and register allocation.
-
 use std::collections::HashSet;
 
 use super::types::{Addr, BinOp, Cond, IndexOperand, Operand, Reg, RegSize};

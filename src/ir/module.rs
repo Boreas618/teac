@@ -1,59 +1,25 @@
-//! IR module and registry.
-//!
-//! This module provides:
-//!
-//! - [`Module`]: Container for functions and global variables
-//! - [`Registry`]: Type registry for structs and function signatures
-//! - [`ModuleGenerator`]: Context for building an IR module
-
 use super::function::Function;
 use super::types::{Dtype, FunctionType, StructType};
 use super::value::GlobalVariable;
 use indexmap::IndexMap;
 use std::io::Write;
 
-// =============================================================================
-// Registry
-// =============================================================================
-
-/// Type registry, analogous to LLVM's LLVMContext.
-///
-/// Contains struct type definitions and function signatures.
 pub struct Registry {
-    /// Struct type definitions keyed by name.
     pub struct_types: IndexMap<String, StructType>,
-    /// Function type signatures keyed by function name.
     pub function_types: IndexMap<String, FunctionType>,
 }
 
-// =============================================================================
-// Module
-// =============================================================================
-
-/// An IR module, analogous to LLVM's Module.
-///
-/// Contains global variables and function definitions.
 pub struct Module {
-    /// Global variable definitions keyed by name.
     pub global_list: IndexMap<String, GlobalVariable>,
-    /// Function definitions keyed by name.
     pub function_list: IndexMap<String, Function>,
 }
 
-// =============================================================================
-// Module Generator
-// =============================================================================
-
-/// Context for building an IR module from an AST.
 pub struct ModuleGenerator {
-    /// The module being built.
     pub module: Module,
-    /// Type registry.
     pub registry: Registry,
 }
 
 impl ModuleGenerator {
-    /// Creates a new empty module generator.
     pub fn new() -> Self {
         let module = Module {
             global_list: IndexMap::new(),
@@ -66,7 +32,6 @@ impl ModuleGenerator {
         Self { module, registry }
     }
 
-    /// Outputs the module as LLVM-like IR text.
     pub fn output<W: Write>(&self, writer: &mut W) -> std::io::Result<()> {
         // Structs
         for (type_name, struct_type) in self.registry.struct_types.iter() {

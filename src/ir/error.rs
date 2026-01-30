@@ -1,11 +1,8 @@
 #![allow(unused)]
 
-//! IR generation errors.
-
 use crate::ast;
 use thiserror::Error;
 
-/// Errors that can occur during IR generation.
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("Initialization of structs not supported")]

@@ -1,12 +1,7 @@
-//! Static evaluation of constant expressions.
-//!
-//! Used for global variable initializers and compile-time constant folding.
-
 use crate::ast;
 use crate::ir::{Error, ModuleGenerator};
 
 impl ModuleGenerator {
-    /// Evaluates a right-value expression statically.
     pub fn handle_right_val_static(r: &ast::RightVal) -> Result<i32, Error> {
         match &r.inner {
             ast::RightValInner::ArithExpr(expr) => Self::handle_arith_expr_static(expr),
@@ -14,7 +9,6 @@ impl ModuleGenerator {
         }
     }
 
-    /// Evaluates an arithmetic expression statically.
     pub fn handle_arith_expr_static(expr: &ast::ArithExpr) -> Result<i32, Error> {
         match &expr.inner {
             ast::ArithExprInner::ArithBiOpExpr(expr) => Self::handle_arith_biop_expr_static(expr),
@@ -22,7 +16,6 @@ impl ModuleGenerator {
         }
     }
 
-    /// Evaluates a boolean expression statically.
     pub fn handle_bool_expr_static(expr: &ast::BoolExpr) -> Result<i32, Error> {
         match &expr.inner {
             ast::BoolExprInner::BoolBiOpExpr(expr) => Self::handle_bool_biop_expr_static(expr),
@@ -30,7 +23,6 @@ impl ModuleGenerator {
         }
     }
 
-    /// Evaluates a binary arithmetic expression statically.
     pub fn handle_arith_biop_expr_static(expr: &ast::ArithBiOpExpr) -> Result<i32, Error> {
         let left = Self::handle_arith_expr_static(&expr.left)?;
         let right = Self::handle_arith_expr_static(&expr.right)?;
@@ -42,7 +34,6 @@ impl ModuleGenerator {
         }
     }
 
-    /// Evaluates an expression unit statically.
     pub fn handle_expr_unit_static(expr: &ast::ExprUnit) -> Result<i32, Error> {
         match &expr.inner {
             ast::ExprUnitInner::Num(num) => Ok(*num),
@@ -54,7 +45,6 @@ impl ModuleGenerator {
         }
     }
 
-    /// Evaluates a binary boolean expression statically.
     pub fn handle_bool_biop_expr_static(expr: &ast::BoolBiOpExpr) -> Result<i32, Error> {
         let left = Self::handle_bool_expr_static(&expr.left)? != 0;
         let right = Self::handle_bool_expr_static(&expr.right)? != 0;
@@ -65,7 +55,6 @@ impl ModuleGenerator {
         }
     }
 
-    /// Evaluates a boolean unit statically.
     pub fn handle_bool_unit_static(unit: &ast::BoolUnit) -> Result<i32, Error> {
         match &unit.inner {
             ast::BoolUnitInner::ComExpr(expr) => Self::handle_com_op_expr_static(expr),
@@ -74,7 +63,6 @@ impl ModuleGenerator {
         }
     }
 
-    /// Evaluates a unary arithmetic expression statically.
     pub fn handle_arith_uexpr_static(u: &ast::ArithUExpr) -> Result<i32, Error> {
         if u.op == ast::ArithUOp::Neg {
             Ok(-Self::handle_expr_unit_static(&u.expr)?)
@@ -83,7 +71,6 @@ impl ModuleGenerator {
         }
     }
 
-    /// Evaluates a comparison expression statically.
     pub fn handle_com_op_expr_static(expr: &ast::ComExpr) -> Result<i32, Error> {
         let left = Self::handle_expr_unit_static(&expr.left)?;
         let right = Self::handle_expr_unit_static(&expr.right)?;
@@ -97,7 +84,6 @@ impl ModuleGenerator {
         }
     }
 
-    /// Evaluates a unary boolean expression statically.
     pub fn handle_bool_uop_expr_static(expr: &ast::BoolUOpExpr) -> Result<i32, Error> {
         if expr.op == ast::BoolUOp::Not {
             Ok((Self::handle_bool_unit_static(&expr.cond)? == 0) as i32)

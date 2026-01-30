@@ -1,10 +1,3 @@
-//! Function body IR generation.
-//!
-//! Handles:
-//! - Expression evaluation (arithmetic, boolean, array, struct member)
-//! - Statement generation (assignment, if, while, return, etc.)
-//! - Local variable declarations and definitions
-
 use std::rc::Rc;
 
 use crate::ast::{self, AssignmentStmt, RightValList};
@@ -14,12 +7,7 @@ use crate::ir::types::Dtype;
 use crate::ir::value::{LocalVariable, Named, Operand};
 use crate::ir::Error;
 
-// =============================================================================
-// Entry Point
-// =============================================================================
-
 impl<'ir> FunctionGenerator<'ir> {
-    /// Entry point for funtion generator
     pub fn gen(&mut self, from: &ast::FnDef) -> Result<(), Error> {
         let identifier = &from.fn_decl.identifier;
         let function_type = self
@@ -33,12 +21,10 @@ impl<'ir> FunctionGenerator<'ir> {
         self.emit_label(BlockLabel::Function(identifier.clone()));
 
         for (id, dtype) in arguments.iter() {
-            // Check for variable redefinition
             if self.local_variables.contains_key(id) {
                 return Err(Error::VariableRedefinition { symbol: id.clone() });
             }
 
-            // Register arguments as local variable
             let var = LocalVariable::new(
                 dtype.clone(),
                 self.increment_virt_reg_index(),
@@ -46,7 +32,6 @@ impl<'ir> FunctionGenerator<'ir> {
             );
             self.arguments.push(var.clone());
 
-            // Allocate stack slots for function arguments
             let ptr = Rc::new(LocalVariable::new(
                 Dtype::ptr_to(dtype.clone()),
                 self.increment_virt_reg_index(),
@@ -57,12 +42,10 @@ impl<'ir> FunctionGenerator<'ir> {
             self.local_variables.insert(id.clone(), ptr);
         }
 
-        // Handle statements in the function body
         for stmt in from.stmts.iter() {
             self.handle_block(stmt, None, None)?;
         }
 
-        // Append default return if needed
         if let Some(stmt) = self.irs.last() {
             if !matches!(stmt.inner, StmtInner::Return(_)) {
                 let return_type = self
@@ -88,10 +71,6 @@ impl<'ir> FunctionGenerator<'ir> {
         Ok(())
     }
 }
-
-// =============================================================================
-// Statement Handlers
-// =============================================================================
 
 impl<'ir> FunctionGenerator<'ir> {
     pub fn handle_block(
@@ -313,7 +292,6 @@ impl<'ir> FunctionGenerator<'ir> {
         self.handle_bool_unit(&stmt.bool_unit, true_label.clone(), false_label.clone())?;
         self.emit_alloca(bool_evaluated);
 
-        // True block
         self.emit_label(true_label);
         let local_variables_prev = self.local_variables.clone();
         for s in stmt.if_stmts.iter() {
@@ -322,7 +300,6 @@ impl<'ir> FunctionGenerator<'ir> {
         self.local_variables = local_variables_prev;
         self.emit_jump(after_label.clone());
 
-        // False block
         self.emit_label(false_label);
         let local_variables_prev = self.local_variables.clone();
         if let Some(else_stmts) = &stmt.else_stmts {
@@ -333,7 +310,6 @@ impl<'ir> FunctionGenerator<'ir> {
         self.local_variables = local_variables_prev;
         self.emit_jump(after_label.clone());
 
-        // After block
         self.emit_label(after_label);
 
         Ok(())
@@ -346,11 +322,9 @@ impl<'ir> FunctionGenerator<'ir> {
 
         self.emit_jump(test_label.clone());
 
-        // Test block
         self.emit_label(test_label.clone());
         self.handle_bool_unit(&stmt.bool_unit, true_label.clone(), false_label.clone())?;
 
-        // While body
         self.emit_label(true_label);
         let local_variables_prev = self.local_variables.clone();
         for s in stmt.stmts.iter() {
@@ -359,7 +333,6 @@ impl<'ir> FunctionGenerator<'ir> {
         self.local_variables = local_variables_prev;
         self.emit_jump(test_label);
 
-        // After while
         self.emit_label(false_label);
         Ok(())
     }
@@ -389,10 +362,6 @@ impl<'ir> FunctionGenerator<'ir> {
         Ok(())
     }
 }
-
-// =============================================================================
-// Expression Handlers
-// =============================================================================
 
 impl<'ir> FunctionGenerator<'ir> {
     fn handle_com_op_expr(
@@ -455,9 +424,6 @@ impl<'ir> FunctionGenerator<'ir> {
             ast::ExprUnitInner::ArithUExpr(expr) => self.handle_arith_uexpr(expr),
         }?;
 
-        // Pointer dereferencing: Expression units may return pointers (addresses) when referencing
-        // local variables, which are stored in memory (stack slots) to allow reassignment while
-        // maintaining SSA form. When used as rvalues, we must load the actual value from memory.
         Ok(match operand.dtype() {
             Dtype::Pointer { inner, length: 0 } if operand.is_addressable() => {
                 let dst = self.alloc_temporary(inner.as_ref().clone());
@@ -488,7 +454,6 @@ impl<'ir> FunctionGenerator<'ir> {
     fn handle_array_expr(&mut self, expr: &ast::ArrayExpr) -> Result<Operand, Error> {
         let arr = self.handle_left_val(&expr.arr)?;
 
-        // For nested pointers, load the inner pointer first
         let (arr, arr_dtype) = match arr.dtype() {
             Dtype::Pointer { inner, length: 0 }
                 if matches!(inner.as_ref(), Dtype::Pointer { .. }) =>
@@ -582,10 +547,6 @@ impl<'ir> FunctionGenerator<'ir> {
         }
     }
 }
-
-// =============================================================================
-// Boolean Expression Handlers
-// =============================================================================
 
 impl<'ir> FunctionGenerator<'ir> {
     fn handle_bool_expr_as_value(&mut self, expr: &ast::BoolExpr) -> Result<Operand, Error> {
@@ -696,7 +657,6 @@ impl<'ir> FunctionGenerator<'ir> {
                 self.handle_bool_expr_as_branch(expr, true_label, false_label)
             }
             ast::BoolUnitInner::BoolUOpExpr(expr) => {
-                // NOT operator: swap true and false labels
                 self.handle_bool_unit(&expr.cond, false_label, true_label)
             }
         }

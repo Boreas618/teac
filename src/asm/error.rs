@@ -1,10 +1,7 @@
-//! Code generation error types.
-
 use thiserror::Error;
 
 use crate::ir;
 
-/// Errors that can occur during code generation.
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("I/O error: {0}")]

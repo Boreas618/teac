@@ -1,15 +1,9 @@
-//! Display implementations for AST nodes.
-
 use super::expr::*;
 use super::ops::*;
 use super::program::Program;
 use super::tree::DisplayAsTree;
 use super::types::*;
 use std::fmt::{Display, Error, Formatter};
-
-// =============================================================================
-// Types
-// =============================================================================
 
 impl Display for BuiltIn {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
@@ -33,10 +27,6 @@ impl Display for TypeSepcifier {
         write!(f, "{}@{}", self.inner, self.pos)
     }
 }
-
-// =============================================================================
-// Operators
-// =============================================================================
 
 impl Display for ArithBiOp {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
@@ -88,10 +78,6 @@ impl Display for ComOp {
     }
 }
 
-// =============================================================================
-// Arithmetic Expressions
-// =============================================================================
-
 impl Display for ArithBiOpExpr {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         write!(f, "({} {} {})", self.left, self.op, self.right)
@@ -118,10 +104,6 @@ impl Display for ArithExpr {
         write!(f, "{}", self.inner)
     }
 }
-
-// =============================================================================
-// Boolean Expressions
-// =============================================================================
 
 impl Display for ComExpr {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
@@ -172,10 +154,6 @@ impl Display for BoolUnit {
     }
 }
 
-// =============================================================================
-// Values
-// =============================================================================
-
 impl Display for RightValInner {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         match self {
@@ -206,10 +184,6 @@ impl Display for LeftVal {
         write!(f, "{}", self.inner)
     }
 }
-
-// =============================================================================
-// Access Expressions
-// =============================================================================
 
 impl Display for IndexExpr {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
@@ -262,10 +236,6 @@ impl Display for ExprUnit {
         write!(f, "{}", self.inner)
     }
 }
-
-// =============================================================================
-// Program
-// =============================================================================
 
 impl Display for Program {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {

@@ -4,8 +4,6 @@ use std::rc::Rc;
 
 use crate::ast;
 
-/// Parser for the TeaLang programming language.
-/// Uses Pest parser generator with grammar defined in the teapl.pest file
 #[derive(Parser)]
 #[grammar = "tealang.pest"]
 pub struct TeaLangParser;
@@ -116,10 +114,8 @@ fn parse_var_decl(pair: Pair) -> ParseResult<Box<ast::VarDecl>> {
     
     let identifier = inner_pairs[0].as_str().to_string();
     
-    // Check patterns based on number of elements
     match inner_pairs.len() {
         1 => {
-            // identifier only - scalar without type
             Ok(Box::new(ast::VarDecl {
                 identifier,
                 type_specifier: Rc::new(None),
@@ -127,7 +123,6 @@ fn parse_var_decl(pair: Pair) -> ParseResult<Box<ast::VarDecl>> {
             }))
         }
         3 => {
-            // identifier : type_spec - scalar with type
             let type_specifier = parse_type_spec(inner_pairs[2].clone())?;
             Ok(Box::new(ast::VarDecl {
                 identifier,
@@ -136,7 +131,6 @@ fn parse_var_decl(pair: Pair) -> ParseResult<Box<ast::VarDecl>> {
             }))
         }
         4 => {
-            // identifier [ num ] - array without type
             let len = parse_num(inner_pairs[2].clone())? as usize;
             Ok(Box::new(ast::VarDecl {
                 identifier,
@@ -145,8 +139,6 @@ fn parse_var_decl(pair: Pair) -> ParseResult<Box<ast::VarDecl>> {
             }))
         }
         7 => {
-            // identifier : [ type_spec ; num ] - array with type (Rust style)
-            // Pattern: identifier colon lbracket type_spec semicolon num rbracket
             let type_specifier = parse_type_spec(inner_pairs[3].clone())?;
             let len = parse_num(inner_pairs[5].clone())? as usize;
             Ok(Box::new(ast::VarDecl {
@@ -295,10 +287,8 @@ fn parse_bool_expr(pair: Pair) -> ParseResult<Box<ast::BoolExpr>> {
         return Err("Empty bool_expr".to_string());
     }
     
-    // Parse first AND term
     let mut expr = parse_bool_and_term(inner_pairs[0].clone())?;
     
-    // Process OR operations
     let mut i = 1;
     while i < inner_pairs.len() {
         if inner_pairs[i].as_rule() == Rule::op_or {
@@ -327,14 +317,12 @@ fn parse_bool_and_term(pair: Pair) -> ParseResult<Box<ast::BoolExpr>> {
         return Err("Empty bool_and_term".to_string());
     }
     
-    // Parse first atom
     let first_unit = parse_bool_unit_atom(inner_pairs[0].clone())?;
     let mut expr = Box::new(ast::BoolExpr {
         pos: first_unit.pos,
         inner: ast::BoolExprInner::BoolUnit(first_unit),
     });
     
-    // Process AND operations
     let mut i = 1;
     while i < inner_pairs.len() {
         if inner_pairs[i].as_rule() == Rule::op_and {
@@ -365,7 +353,6 @@ fn parse_bool_unit_atom(pair: Pair) -> ParseResult<Box<ast::BoolUnit>> {
     let pos = get_pos(&pair);
     let inner_pairs: Vec<_> = pair.into_inner().collect();
     
-    // Check for NOT operation: op_not ~ bool_unit_atom
     if inner_pairs.len() == 2 && inner_pairs[0].as_rule() == Rule::op_not {
         let cond = parse_bool_unit_atom(inner_pairs[1].clone())?;
         return Ok(Box::new(ast::BoolUnit {
@@ -377,7 +364,6 @@ fn parse_bool_unit_atom(pair: Pair) -> ParseResult<Box<ast::BoolUnit>> {
         }));
     }
     
-    // Check for bool_unit_paren or bool_comparison
     for inner in inner_pairs {
         match inner.as_rule() {
             Rule::bool_unit_paren => {
@@ -397,12 +383,10 @@ fn parse_bool_unit_paren(pair: Pair) -> ParseResult<Box<ast::BoolUnit>> {
     let pos = get_pos(&pair);
     let inner_pairs: Vec<_> = pair.into_inner().collect();
     
-    // Filter out parentheses
     let filtered: Vec<_> = inner_pairs.into_iter()
         .filter(|p| p.as_rule() != Rule::lparen && p.as_rule() != Rule::rparen)
         .collect();
     
-    // Check if it's a bool_expr or a comparison
     if filtered.len() == 1 && filtered[0].as_rule() == Rule::bool_expr {
         return Ok(Box::new(ast::BoolUnit {
             pos,
@@ -410,7 +394,6 @@ fn parse_bool_unit_paren(pair: Pair) -> ParseResult<Box<ast::BoolUnit>> {
         }));
     }
     
-    // Otherwise it's expr_unit ~ comp_op ~ expr_unit
     if filtered.len() == 3 {
         return parse_comparison_to_bool_unit(pos, filtered[0].clone(), filtered[1].clone(), filtered[2].clone());
     }
@@ -422,7 +405,6 @@ fn parse_bool_comparison(pair: Pair) -> ParseResult<Box<ast::BoolUnit>> {
     let pos = get_pos(&pair);
     let inner_pairs: Vec<_> = pair.into_inner().collect();
     
-    // Should be expr_unit ~ comp_op ~ expr_unit
     if inner_pairs.len() == 3 {
         return parse_comparison_to_bool_unit(pos, inner_pairs[0].clone(), inner_pairs[1].clone(), inner_pairs[2].clone());
     }
@@ -467,10 +449,8 @@ fn parse_arith_expr(pair: Pair) -> ParseResult<Box<ast::ArithExpr>> {
         return Err("Empty arith_expr".to_string());
     }
     
-    // Parse first term
     let mut expr = parse_arith_term(inner_pairs[0].clone())?;
     
-    // Process add/sub operations
     let mut i = 1;
     while i < inner_pairs.len() {
         if inner_pairs[i].as_rule() == Rule::arith_add_op {
@@ -501,14 +481,12 @@ fn parse_arith_term(pair: Pair) -> ParseResult<Box<ast::ArithExpr>> {
         return Err("Empty arith_term".to_string());
     }
     
-    // Parse first unit
     let first_unit = parse_expr_unit(inner_pairs[0].clone())?;
     let mut expr = Box::new(ast::ArithExpr {
         pos: first_unit.pos,
         inner: ast::ArithExprInner::ExprUnit(first_unit),
     });
     
-    // Process mul/div operations
     let mut i = 1;
     while i < inner_pairs.len() {
         if inner_pairs[i].as_rule() == Rule::arith_mul_op {
@@ -562,13 +540,11 @@ fn parse_expr_unit(pair: Pair) -> ParseResult<Box<ast::ExprUnit>> {
     let pos = get_pos(&pair);
     let inner_pairs: Vec<_> = pair.into_inner().collect();
     
-    // Filter out delimiters for parenthesized expressions
     let filtered: Vec<_> = inner_pairs.iter()
         .filter(|p| !matches!(p.as_rule(), Rule::lparen | Rule::rparen))
         .cloned()
         .collect();
     
-    // Handle negative number: op_sub ~ num
     if filtered.len() == 2 && filtered[0].as_rule() == Rule::op_sub && filtered[1].as_rule() == Rule::num {
         let num = parse_num(filtered[1].clone())?;
         return Ok(Box::new(ast::ExprUnit {
@@ -577,7 +553,6 @@ fn parse_expr_unit(pair: Pair) -> ParseResult<Box<ast::ExprUnit>> {
         }));
     }
     
-    // Handle parenthesized expression: lparen ~ arith_expr ~ rparen
     if filtered.len() == 1 && filtered[0].as_rule() == Rule::arith_expr {
         return Ok(Box::new(ast::ExprUnit {
             pos,
@@ -585,7 +560,6 @@ fn parse_expr_unit(pair: Pair) -> ParseResult<Box<ast::ExprUnit>> {
         }));
     }
     
-    // Handle function call
     if filtered.len() >= 1 && filtered[0].as_rule() == Rule::fn_call {
         return Ok(Box::new(ast::ExprUnit {
             pos,
@@ -593,7 +567,6 @@ fn parse_expr_unit(pair: Pair) -> ParseResult<Box<ast::ExprUnit>> {
         }));
     }
     
-    // Handle simple number
     if filtered.len() == 1 && filtered[0].as_rule() == Rule::num {
         let num = parse_num(filtered[0].clone())?;
         return Ok(Box::new(ast::ExprUnit {
@@ -602,17 +575,14 @@ fn parse_expr_unit(pair: Pair) -> ParseResult<Box<ast::ExprUnit>> {
         }));
     }
     
-    // Handle identifier with optional suffixes
     if inner_pairs.len() >= 1 && inner_pairs[0].as_rule() == Rule::identifier {
         let id = inner_pairs[0].as_str().to_string();
         
-        // Build base left_val
         let mut base = Box::new(ast::LeftVal {
             pos,
             inner: ast::LeftValInner::Id(id),
         });
         
-        // Process suffixes
         let mut i = 1;
         while i < inner_pairs.len() {
             match inner_pairs[i].as_rule() {
@@ -624,7 +594,6 @@ fn parse_expr_unit(pair: Pair) -> ParseResult<Box<ast::ExprUnit>> {
             }
         }
         
-        // Convert final left_val to expr_unit
         return left_val_to_expr_unit(base);
     }
     
@@ -636,11 +605,8 @@ fn parse_expr_suffix_to_left_val(base: Box<ast::LeftVal>, suffix: Pair) -> Parse
     
     for inner in suffix.into_inner() {
         match inner.as_rule() {
-            Rule::lbracket => continue,
-            Rule::rbracket => continue,
-            Rule::dot => continue,
+            Rule::lbracket | Rule::rbracket | Rule::dot => continue,
             Rule::index_expr => {
-                // Array indexing
                 let idx = parse_index_expr(inner)?;
                 return Ok(Box::new(ast::LeftVal {
                     pos,
@@ -651,7 +617,6 @@ fn parse_expr_suffix_to_left_val(base: Box<ast::LeftVal>, suffix: Pair) -> Parse
                 }));
             }
             Rule::identifier => {
-                // Member access
                 let member_id = inner.as_str().to_string();
                 return Ok(Box::new(ast::LeftVal {
                     pos,
@@ -734,7 +699,6 @@ fn parse_module_prefixed_call(pair: Pair) -> ParseResult<Box<ast::FnCall>> {
     let mut name = String::new();
     let mut vals = Vec::new();
     
-    // Expected pattern: identifier ~ double_colon ~ identifier ~ lparen ~ right_val_list? ~ rparen
     for inner in inner_pairs {
         match inner.as_rule() {
             Rule::identifier => {
@@ -785,13 +749,11 @@ fn parse_left_val(pair: Pair) -> ParseResult<Box<ast::LeftVal>> {
     
     let id = inner_pairs[0].as_str().to_string();
     
-    // Build base left_val
     let mut base = Box::new(ast::LeftVal {
         pos,
         inner: ast::LeftValInner::Id(id),
     });
     
-    // Process suffixes
     let mut i = 1;
     while i < inner_pairs.len() {
         match inner_pairs[i].as_rule() {
@@ -811,11 +773,8 @@ fn parse_left_val_suffix(base: Box<ast::LeftVal>, suffix: Pair) -> ParseResult<B
     
     for inner in suffix.into_inner() {
         match inner.as_rule() {
-            Rule::lbracket => continue,
-            Rule::rbracket => continue,
-            Rule::dot => continue,
+            Rule::lbracket | Rule::rbracket | Rule::dot => continue,
             Rule::index_expr => {
-                // Array indexing
                 let idx = parse_index_expr(inner)?;
                 return Ok(Box::new(ast::LeftVal {
                     pos,
@@ -826,7 +785,6 @@ fn parse_left_val_suffix(base: Box<ast::LeftVal>, suffix: Pair) -> ParseResult<B
                 }));
             }
             Rule::identifier => {
-                // Member access
                 let member_id = inner.as_str().to_string();
                 return Ok(Box::new(ast::LeftVal {
                     pos,
@@ -842,8 +800,6 @@ fn parse_left_val_suffix(base: Box<ast::LeftVal>, suffix: Pair) -> ParseResult<B
     
     Ok(base)
 }
-
-// Function declarations and definitions
 
 fn parse_fn_decl_stmt(pair: Pair) -> ParseResult<Box<ast::FnDeclStmt>> {
     for inner in pair.into_inner() {

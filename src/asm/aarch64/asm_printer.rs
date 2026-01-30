@@ -83,12 +83,10 @@ impl<W: Write> AsmPrinter<W> {
         if imm <= 4095 {
             return true;
         }
-        // 12-bit shifted by 12 (multiple of 4096).
         imm % 4096 == 0 && (imm / 4096) <= 4095
     }
 
     fn is_mem_offset_encodable(&self, offset: i64) -> bool {
-        // Signed 9-bit range (ldur/stur).
         (-256..=255).contains(&offset)
     }
 
@@ -155,7 +153,6 @@ impl<W: Write> AsmPrinter<W> {
                         if self.is_addsub_imm_encodable(imm_abs) {
                             writeln!(self.writer, "\t{op_mn} {dst_s}, {lhs_s}, #{imm_abs}")?;
                         } else if dst != lhs {
-                            // Use dst as temp to avoid clobbering scratch regs.
                             self.emit_mov_imm(&dst_s, imm_abs as u64)?;
                             writeln!(self.writer, "\t{op_mn} {dst_s}, {lhs_s}, {dst_s}")?;
                         } else {
@@ -257,7 +254,6 @@ impl<W: Write> AsmPrinter<W> {
                     writeln!(self.writer, "\t{mnemonic} {reg_s}, [{base_s}, #{offset}]")?;
                 } else {
                     if mnemonic == "ldr" {
-                        // Compute address in the destination register (safe for loads).
                         let addr_s = self.reg_name(reg, RegSize::X64);
                         let (op_mn, imm_abs) = if *offset < 0 {
                             ("sub", -offset)
@@ -274,7 +270,6 @@ impl<W: Write> AsmPrinter<W> {
                             self.emit_add_x_imm_with(scratch, *base, *offset, scratch)?;
                             writeln!(self.writer, "\t{mnemonic} {reg_s}, [{scratch_s}]")?;
                         } else {
-                            // Fallback: save src, compute addr in src reg, restore src into base reg.
                             self.emit_sub_sp(16)?;
                             writeln!(self.writer, "\tstr {reg_s}, [sp]")?;
 
@@ -332,7 +327,6 @@ impl<W: Write> AsmPrinter<W> {
         }
     }
 
-    /// dst = base + index * scale
     fn emit_gep(
         &mut self,
         dst: Reg,
@@ -356,14 +350,12 @@ impl<W: Write> AsmPrinter<W> {
             IndexOperand::Reg(r) => {
                 let idx_s = self.reg_name(r, RegSize::W32);
 
-                // Optimize for power-of-two scales.
                 if let Some(shift) = self.scale_to_shift(scale) {
                     writeln!(
                         self.writer,
                         "\tadd {dst_s}, {base_s}, {idx_s}, sxtw #{shift}"
                     )?;
                 } else {
-                    // General case: sign-extend, multiply, add.
                     if dst != base {
                         let tmp0_s = self.reg_name(dst, RegSize::X64);
                         let tmp1 = self
@@ -434,7 +426,6 @@ impl<W: Write> AsmPrinter<W> {
         Ok(())
     }
 
-    /// Uses movz + movk sequence for values that don't fit in 16 bits.
     fn emit_mov_imm(&mut self, reg: &str, value: u64) -> Result<(), Error> {
         let is_32bit = reg.starts_with('w');
         let value = if is_32bit { value & 0xFFFF_FFFF } else { value };

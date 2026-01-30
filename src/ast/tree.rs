@@ -1,5 +1,3 @@
-//! Tree display implementations for AST nodes.
-
 use super::decl::*;
 use super::expr::*;
 use super::program::*;
