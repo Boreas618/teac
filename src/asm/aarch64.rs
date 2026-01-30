@@ -5,7 +5,7 @@ mod register_allocator;
 mod types;
 
 pub(crate) use inst::Inst;
-pub(crate) use types::{Addr, BinOp, Cond, Operand, Reg};
+pub(crate) use types::{Addr, BinOp, Cond, Operand, Register};
 
 use crate::asm::common::{eliminate_phis, StackFrame, StructLayouts};
 use crate::asm::error::Error;
@@ -101,16 +101,16 @@ impl<'a> AArch64AsmGenerator<'a> {
             if i < 8 {
                 insts.push(Inst::Mov {
                     size,
-                    dst: Reg::V(v),
-                    src: Operand::Reg(Reg::P(i as u8)),
+                    dst: Register::Virtual(v),
+                    src: Operand::Register(Register::Physical(i as u8)),
                 });
             } else {
                 let offset = 16 + ((i - 8) as i64) * 8;
                 insts.push(Inst::Ldr {
                     size,
-                    dst: Reg::V(v),
+                    dst: Register::Virtual(v),
                     addr: Addr::BaseOff {
-                        base: Reg::P(29),
+                        base: Register::Physical(29),
                         offset,
                     },
                 });

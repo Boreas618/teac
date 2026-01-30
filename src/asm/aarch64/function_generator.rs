@@ -1,5 +1,5 @@
 use super::inst::Inst;
-use super::types::{Addr, BinOp, Cond, IndexOperand, Operand, Reg, RegSize, dtype_to_regsize};
+use super::types::{Addr, BinOp, Cond, IndexOperand, Operand, Register, RegSize, dtype_to_regsize};
 use crate::asm::common::{align_up, StackFrame, StackSlot, StructLayouts};
 use crate::asm::error::Error;
 use crate::ast;
@@ -44,19 +44,19 @@ impl<'a> FunctionGenerator<'a> {
         let addr = self.lower_ptr_as_addr(&s.ptr)?;
 
         match src {
-            Operand::Reg(r) => {
+            Operand::Register(r) => {
                 self.insts.push(Inst::Str { size, src: r, addr });
             }
-            Operand::Imm(imm) => {
+            Operand::Immediate(imm) => {
                 let tmp = self.fresh_vreg();
                 self.insts.push(Inst::Mov {
                     size,
-                    dst: Reg::V(tmp),
-                    src: Operand::Imm(imm),
+                    dst: Register::Virtual(tmp),
+                    src: Operand::Immediate(imm),
                 });
                 self.insts.push(Inst::Str {
                     size,
-                    src: Reg::V(tmp),
+                    src: Register::Virtual(tmp),
                     addr,
                 });
             }
@@ -71,7 +71,7 @@ impl<'a> FunctionGenerator<'a> {
         let addr = self.lower_ptr_as_addr(&s.ptr)?;
         self.insts.push(Inst::Ldr {
             size,
-            dst: Reg::V(dst),
+            dst: Register::Virtual(dst),
             addr,
         });
         Ok(())
@@ -87,7 +87,7 @@ impl<'a> FunctionGenerator<'a> {
         self.insts.push(Inst::BinOp {
             op,
             size: RegSize::W32,
-            dst: Reg::V(dst),
+            dst: Register::Virtual(dst),
             lhs,
             rhs,
         });
@@ -203,7 +203,7 @@ impl<'a> FunctionGenerator<'a> {
             let (op, size) = self.lower_value(v)?;
             self.insts.push(Inst::Mov {
                 size,
-                dst: Reg::P(0),
+                dst: Register::Physical(0),
                 src: op,
             });
         }
@@ -253,15 +253,15 @@ impl<'a> FunctionGenerator<'a> {
         match (base_kind, base_slot) {
             (PtrBase::Stack, Some(slot)) => {
                 self.insts.push(Inst::Lea {
-                    dst: Reg::V(new_ptr),
+                    dst: Register::Virtual(new_ptr),
                     addr: Addr::BaseOff {
-                        base: Reg::P(29),
+                        base: Register::Physical(29),
                         offset: slot.offset_from_fp,
                     },
                 });
                 self.insts.push(Inst::Gep {
-                    dst: Reg::V(new_ptr),
-                    base: Reg::V(new_ptr),
+                    dst: Register::Virtual(new_ptr),
+                    base: Register::Virtual(new_ptr),
                     index,
                     scale: elem_size,
                 });
@@ -273,20 +273,20 @@ impl<'a> FunctionGenerator<'a> {
             }
             (PtrBase::Global(sym), _) => {
                 self.insts.push(Inst::Lea {
-                    dst: Reg::V(new_ptr),
+                    dst: Register::Virtual(new_ptr),
                     addr: Addr::Global(sym),
                 });
                 self.insts.push(Inst::Gep {
-                    dst: Reg::V(new_ptr),
-                    base: Reg::V(new_ptr),
+                    dst: Register::Virtual(new_ptr),
+                    base: Register::Virtual(new_ptr),
                     index,
                     scale: elem_size,
                 });
             }
             (PtrBase::Reg(base_v), _) => {
                 self.insts.push(Inst::Gep {
-                    dst: Reg::V(new_ptr),
-                    base: Reg::V(base_v),
+                    dst: Register::Virtual(new_ptr),
+                    base: Register::Virtual(base_v),
                     index,
                     scale: elem_size,
                 });
@@ -305,9 +305,9 @@ impl<'a> FunctionGenerator<'a> {
         match (base_kind, base_slot) {
             (PtrBase::Stack, Some(slot)) => {
                 self.insts.push(Inst::Lea {
-                    dst: Reg::V(dst),
+                    dst: Register::Virtual(dst),
                     addr: Addr::BaseOff {
-                        base: Reg::P(29),
+                        base: Register::Physical(29),
                         offset: slot.offset_from_fp + offset,
                     },
                 });
@@ -319,24 +319,24 @@ impl<'a> FunctionGenerator<'a> {
             }
             (PtrBase::Global(sym), _) => {
                 self.insts.push(Inst::Lea {
-                    dst: Reg::V(dst),
+                    dst: Register::Virtual(dst),
                     addr: Addr::Global(sym),
                 });
                 if offset != 0 {
                     self.insts.push(Inst::BinOp {
                         op: BinOp::Add,
                         size: RegSize::X64,
-                        dst: Reg::V(dst),
-                        lhs: Reg::V(dst),
-                        rhs: Operand::Imm(offset),
+                        dst: Register::Virtual(dst),
+                        lhs: Register::Virtual(dst),
+                        rhs: Operand::Immediate(offset),
                     });
                 }
             }
             (PtrBase::Reg(base_v), _) => {
                 self.insts.push(Inst::Lea {
-                    dst: Reg::V(dst),
+                    dst: Register::Virtual(dst),
                     addr: Addr::BaseOff {
-                        base: Reg::V(base_v),
+                        base: Register::Virtual(base_v),
                         offset,
                     },
                 });
@@ -347,39 +347,39 @@ impl<'a> FunctionGenerator<'a> {
 
     fn handle_call_stack_arg(&mut self, arg: &ir::Operand, stack_offset: i64) -> Result<(), Error> {
         if matches!(arg.dtype(), ir::Dtype::Pointer { .. }) {
-            self.emit_ptr_to_reg(arg, Reg::P(16))?;
+            self.emit_ptr_to_reg(arg, Register::Physical(16))?;
             self.insts.push(Inst::Str {
                 size: RegSize::X64,
-                src: Reg::P(16),
+                src: Register::Physical(16),
                 addr: Addr::BaseOff {
-                    base: Reg::SP,
+                    base: Register::StackPointer,
                     offset: stack_offset,
                 },
             });
         } else {
             let (op, _size) = self.lower_value(arg)?;
             match op {
-                Operand::Imm(imm) => {
+                Operand::Immediate(imm) => {
                     self.insts.push(Inst::Mov {
                         size: RegSize::W32,
-                        dst: Reg::P(16),
-                        src: Operand::Imm(imm),
+                        dst: Register::Physical(16),
+                        src: Operand::Immediate(imm),
                     });
                     self.insts.push(Inst::Str {
                         size: RegSize::W32,
-                        src: Reg::P(16),
+                        src: Register::Physical(16),
                         addr: Addr::BaseOff {
-                            base: Reg::SP,
+                            base: Register::StackPointer,
                             offset: stack_offset,
                         },
                     });
                 }
-                Operand::Reg(r) => {
+                Operand::Register(r) => {
                     self.insts.push(Inst::Str {
                         size: RegSize::W32,
                         src: r,
                         addr: Addr::BaseOff {
-                            base: Reg::SP,
+                            base: Register::StackPointer,
                             offset: stack_offset,
                         },
                     });
@@ -391,12 +391,12 @@ impl<'a> FunctionGenerator<'a> {
 
     fn handle_call_reg_arg(&mut self, arg: &ir::Operand, reg_idx: u8) -> Result<(), Error> {
         if matches!(arg.dtype(), ir::Dtype::Pointer { .. }) {
-            self.emit_ptr_to_reg(arg, Reg::P(reg_idx))?;
+            self.emit_ptr_to_reg(arg, Register::Physical(reg_idx))?;
         } else {
             let (op, _size) = self.lower_value(arg)?;
             self.insts.push(Inst::Mov {
                 size: RegSize::W32,
-                dst: Reg::P(reg_idx),
+                dst: Register::Physical(reg_idx),
                 src: op,
             });
         }
@@ -409,8 +409,8 @@ impl<'a> FunctionGenerator<'a> {
             ir::Dtype::I32 => {
                 self.insts.push(Inst::Mov {
                     size: RegSize::W32,
-                    dst: Reg::V(dst),
-                    src: Operand::Reg(Reg::P(0)),
+                    dst: Register::Virtual(dst),
+                    src: Operand::Register(Register::Physical(0)),
                 });
                 Ok(())
             }
@@ -420,14 +420,14 @@ impl<'a> FunctionGenerator<'a> {
         }
     }
 
-    fn emit_ptr_to_reg(&mut self, arg: &ir::Operand, dst: Reg) -> Result<(), Error> {
+    fn emit_ptr_to_reg(&mut self, arg: &ir::Operand, dst: Register) -> Result<(), Error> {
         let (base_kind, slot) = self.lower_ptr(arg)?;
         match base_kind {
             PtrBase::Reg(v) => {
                 self.insts.push(Inst::Mov {
                     size: RegSize::X64,
                     dst,
-                    src: Operand::Reg(Reg::V(v)),
+                    src: Operand::Register(Register::Virtual(v)),
                 });
             }
             PtrBase::Stack => {
@@ -435,7 +435,7 @@ impl<'a> FunctionGenerator<'a> {
                 self.insts.push(Inst::Lea {
                     dst,
                     addr: Addr::BaseOff {
-                        base: Reg::P(29),
+                        base: Register::Physical(29),
                         offset: slot.offset_from_fp,
                     },
                 });
@@ -452,7 +452,7 @@ impl<'a> FunctionGenerator<'a> {
 
     fn lower_int(&self, val: &ir::Operand) -> Result<Operand, Error> {
         match val {
-            ir::Operand::Integer(i) => Ok(Operand::Imm(i.value as i64)),
+            ir::Operand::Integer(i) => Ok(Operand::Immediate(i.value as i64)),
             ir::Operand::Local(l) => {
                 if !matches!(l.dtype, ir::Dtype::I32) {
                     return Err(Error::UnsupportedDtype {
@@ -464,7 +464,7 @@ impl<'a> FunctionGenerator<'a> {
                         what: format!("int operand references alloca pointer %r{}", l.index),
                     });
                 }
-                Ok(Operand::Reg(Reg::V(l.index)))
+                Ok(Operand::Register(Register::Virtual(l.index)))
             }
             ir::Operand::Global(_) => Err(Error::UnsupportedOperand {
                 what: format!("unsupported int operand: {}", val),
@@ -472,24 +472,24 @@ impl<'a> FunctionGenerator<'a> {
         }
     }
 
-    fn lower_int_to_reg(&mut self, val: &ir::Operand) -> Result<Reg, Error> {
+    fn lower_int_to_reg(&mut self, val: &ir::Operand) -> Result<Register, Error> {
         match self.lower_int(val)? {
-            Operand::Reg(r) => Ok(r),
-            Operand::Imm(imm) => {
+            Operand::Register(r) => Ok(r),
+            Operand::Immediate(imm) => {
                 let tmp = self.fresh_vreg();
                 self.insts.push(Inst::Mov {
                     size: RegSize::W32,
-                    dst: Reg::V(tmp),
-                    src: Operand::Imm(imm),
+                    dst: Register::Virtual(tmp),
+                    src: Operand::Immediate(imm),
                 });
-                Ok(Reg::V(tmp))
+                Ok(Register::Virtual(tmp))
             }
         }
     }
 
     fn lower_value(&self, val: &ir::Operand) -> Result<(Operand, RegSize), Error> {
         match val {
-            ir::Operand::Integer(i) => Ok((Operand::Imm(i.value as i64), RegSize::W32)),
+            ir::Operand::Integer(i) => Ok((Operand::Immediate(i.value as i64), RegSize::W32)),
             ir::Operand::Local(l) => {
                 let size = match &l.dtype {
                     ir::Dtype::I32 => RegSize::W32,
@@ -510,7 +510,7 @@ impl<'a> FunctionGenerator<'a> {
                         })
                     }
                 };
-                Ok((Operand::Reg(Reg::V(l.index)), size))
+                Ok((Operand::Register(Register::Virtual(l.index)), size))
             }
             ir::Operand::Global(_) => Err(Error::UnsupportedOperand {
                 what: "unexpected global variable in value position".into(),
@@ -524,13 +524,13 @@ impl<'a> FunctionGenerator<'a> {
             PtrBase::Stack => {
                 let slot = slot.ok_or_else(|| Error::Internal("missing stack slot".into()))?;
                 Ok(Addr::BaseOff {
-                    base: Reg::P(29),
+                    base: Register::Physical(29),
                     offset: slot.offset_from_fp,
                 })
             }
             PtrBase::Global(sym) => Ok(Addr::Global(sym)),
             PtrBase::Reg(v) => Ok(Addr::BaseOff {
-                base: Reg::V(v),
+                base: Register::Virtual(v),
                 offset: 0,
             }),
         }
@@ -571,7 +571,7 @@ impl<'a> FunctionGenerator<'a> {
                         what: format!("index operand references alloca pointer %r{}", l.index),
                     });
                 }
-                Ok(IndexOperand::Reg(Reg::V(l.index)))
+                Ok(IndexOperand::Reg(Register::Virtual(l.index)))
             }
             ir::Operand::Global(_) => Err(Error::UnsupportedOperand {
                 what: format!("unsupported index operand: {}", val),

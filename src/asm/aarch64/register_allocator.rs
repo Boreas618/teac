@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 
 use super::inst::Inst;
-use super::types::{Addr, IndexOperand, Operand, Reg, RegSize};
+use super::types::{Addr, IndexOperand, Operand, Register, RegSize};
 use crate::asm::common::StackFrame;
 use crate::asm::error::Error;
 
@@ -371,11 +371,11 @@ impl<'a> InstRewriter<'a> {
         self.frame.spill_slot(v).is_some()
     }
 
-    fn map_reg(&self, r: Reg) -> MappedReg {
+    fn map_reg(&self, r: Register) -> MappedReg {
         match r {
-            Reg::V(v) => match self.color_of(v) {
+            Register::Virtual(v) => match self.color_of(v) {
                 Some(p) => MappedReg::Colored {
-                    reg: Reg::P(p),
+                    reg: Register::Physical(p),
                     vreg: v,
                 },
                 None => MappedReg::Spilled { vreg: v },
@@ -392,9 +392,9 @@ impl<'a> InstRewriter<'a> {
 
         self.output.push(Inst::Ldr {
             size,
-            dst: Reg::P(into),
+            dst: Register::Physical(into),
             addr: Addr::BaseOff {
-                base: Reg::P(29),
+                base: Register::Physical(29),
                 offset: slot.offset_from_fp,
             },
         });
@@ -409,29 +409,29 @@ impl<'a> InstRewriter<'a> {
 
         self.output.push(Inst::Str {
             size,
-            src: Reg::P(from),
+            src: Register::Physical(from),
             addr: Addr::BaseOff {
-                base: Reg::P(29),
+                base: Register::Physical(29),
                 offset: slot.offset_from_fp,
             },
         });
         Ok(())
     }
 
-    fn load_src_reg(&mut self, r: Reg, size: RegSize, scratch: u8) -> Result<Reg, Error> {
+    fn load_src_reg(&mut self, r: Register, size: RegSize, scratch: u8) -> Result<Register, Error> {
         match self.map_reg(r) {
             MappedReg::Physical { reg } => Ok(reg),
             MappedReg::Colored { reg, vreg } => {
                 if self.is_spilled(vreg) {
                     self.emit_spill_load(vreg, size, scratch)?;
-                    Ok(Reg::P(scratch))
+                    Ok(Register::Physical(scratch))
                 } else {
                     Ok(reg)
                 }
             }
             MappedReg::Spilled { vreg } => {
                 self.emit_spill_load(vreg, size, scratch)?;
-                Ok(Reg::P(scratch))
+                Ok(Register::Physical(scratch))
             }
         }
     }
@@ -443,8 +443,8 @@ impl<'a> InstRewriter<'a> {
         scratch: u8,
     ) -> Result<Operand, Error> {
         match op {
-            Operand::Imm(i) => Ok(Operand::Imm(i)),
-            Operand::Reg(r) => Ok(Operand::Reg(self.load_src_reg(r, size, scratch)?)),
+            Operand::Immediate(i) => Ok(Operand::Immediate(i)),
+            Operand::Register(r) => Ok(Operand::Register(self.load_src_reg(r, size, scratch)?)),
         }
     }
 
@@ -487,7 +487,7 @@ impl<'a> InstRewriter<'a> {
         Ok(())
     }
 
-    fn rewrite_mov(&mut self, size: RegSize, dst: Reg, src: Operand) -> Result<(), Error> {
+    fn rewrite_mov(&mut self, size: RegSize, dst: Register, src: Operand) -> Result<(), Error> {
         let src_op = self.load_src_operand(src, size, SCRATCH1)?;
 
         match self.map_reg(dst) {
@@ -522,8 +522,8 @@ impl<'a> InstRewriter<'a> {
         &mut self,
         op: crate::asm::aarch64::BinOp,
         size: RegSize,
-        dst: Reg,
-        lhs: Reg,
+        dst: Register,
+        lhs: Register,
         rhs: Operand,
     ) -> Result<(), Error> {
         let lhs_reg = self.load_src_reg(lhs, size, SCRATCH0)?;
@@ -533,7 +533,7 @@ impl<'a> InstRewriter<'a> {
             MappedReg::Physical { reg } | MappedReg::Colored { reg, .. } => {
                 let (final_dst, vreg) = match self.map_reg(dst) {
                     MappedReg::Colored { reg: _, vreg } if self.is_spilled(vreg) => {
-                        (Reg::P(SCRATCH0), Some(vreg))
+                        (Register::Physical(SCRATCH0), Some(vreg))
                     }
                     _ => (reg, None),
                 };
@@ -554,7 +554,7 @@ impl<'a> InstRewriter<'a> {
                 self.output.push(Inst::BinOp {
                     op,
                     size,
-                    dst: Reg::P(SCRATCH0),
+                    dst: Register::Physical(SCRATCH0),
                     lhs: lhs_reg,
                     rhs: rhs_op,
                 });
@@ -564,7 +564,7 @@ impl<'a> InstRewriter<'a> {
         Ok(())
     }
 
-    fn rewrite_cmp(&mut self, size: RegSize, lhs: Reg, rhs: Operand) -> Result<(), Error> {
+    fn rewrite_cmp(&mut self, size: RegSize, lhs: Register, rhs: Operand) -> Result<(), Error> {
         let lhs_reg = self.load_src_reg(lhs, size, SCRATCH0)?;
         let rhs_op = self.load_src_operand(rhs, size, SCRATCH1)?;
 
@@ -576,7 +576,7 @@ impl<'a> InstRewriter<'a> {
         Ok(())
     }
 
-    fn rewrite_ldr(&mut self, size: RegSize, dst: Reg, addr: &Addr) -> Result<(), Error> {
+    fn rewrite_ldr(&mut self, size: RegSize, dst: Register, addr: &Addr) -> Result<(), Error> {
         let (addr_rewritten, base_used_scratch) = self.rewrite_addr(addr, SCRATCH0)?;
 
         let scratch_for_dst = if base_used_scratch {
@@ -597,7 +597,7 @@ impl<'a> InstRewriter<'a> {
                 if self.is_spilled(vreg) {
                     self.output.push(Inst::Ldr {
                         size,
-                        dst: Reg::P(scratch_for_dst),
+                        dst: Register::Physical(scratch_for_dst),
                         addr: addr_rewritten,
                     });
                     self.emit_spill_store(vreg, size, scratch_for_dst)?;
@@ -612,7 +612,7 @@ impl<'a> InstRewriter<'a> {
             MappedReg::Spilled { vreg } => {
                 self.output.push(Inst::Ldr {
                     size,
-                    dst: Reg::P(scratch_for_dst),
+                    dst: Register::Physical(scratch_for_dst),
                     addr: addr_rewritten,
                 });
                 self.emit_spill_store(vreg, size, scratch_for_dst)?;
@@ -621,7 +621,7 @@ impl<'a> InstRewriter<'a> {
         Ok(())
     }
 
-    fn rewrite_str(&mut self, size: RegSize, src: Reg, addr: &Addr) -> Result<(), Error> {
+    fn rewrite_str(&mut self, size: RegSize, src: Register, addr: &Addr) -> Result<(), Error> {
         let (addr_rewritten, base_used_scratch) = self.rewrite_addr(addr, SCRATCH0)?;
 
         let scratch_for_src = if base_used_scratch {
@@ -639,7 +639,7 @@ impl<'a> InstRewriter<'a> {
         Ok(())
     }
 
-    fn rewrite_lea(&mut self, dst: Reg, addr: &Addr) -> Result<(), Error> {
+    fn rewrite_lea(&mut self, dst: Register, addr: &Addr) -> Result<(), Error> {
         let (addr_rewritten, base_used_scratch) = self.rewrite_addr(addr, SCRATCH0)?;
 
         let scratch_for_dst = if base_used_scratch {
@@ -658,7 +658,7 @@ impl<'a> InstRewriter<'a> {
             MappedReg::Colored { reg, vreg } => {
                 if self.is_spilled(vreg) {
                     self.output.push(Inst::Lea {
-                        dst: Reg::P(scratch_for_dst),
+                        dst: Register::Physical(scratch_for_dst),
                         addr: addr_rewritten,
                     });
                     self.emit_spill_store(vreg, RegSize::X64, scratch_for_dst)?;
@@ -671,7 +671,7 @@ impl<'a> InstRewriter<'a> {
             }
             MappedReg::Spilled { vreg } => {
                 self.output.push(Inst::Lea {
-                    dst: Reg::P(scratch_for_dst),
+                    dst: Register::Physical(scratch_for_dst),
                     addr: addr_rewritten,
                 });
                 self.emit_spill_store(vreg, RegSize::X64, scratch_for_dst)?;
@@ -682,13 +682,13 @@ impl<'a> InstRewriter<'a> {
 
     fn rewrite_gep(
         &mut self,
-        dst: Reg,
-        base: Reg,
+        dst: Register,
+        base: Register,
         index: IndexOperand,
         scale: i64,
     ) -> Result<(), Error> {
         let base_reg = self.load_src_reg(base, RegSize::X64, SCRATCH0)?;
-        let base_used_scratch = matches!(base_reg, Reg::P(r) if r == SCRATCH0);
+        let base_used_scratch = matches!(base_reg, Register::Physical(r) if r == SCRATCH0);
 
         let index_scratch = if base_used_scratch {
             SCRATCH1
@@ -720,7 +720,7 @@ impl<'a> InstRewriter<'a> {
             MappedReg::Colored { reg, vreg } => {
                 if self.is_spilled(vreg) {
                     self.output.push(Inst::Gep {
-                        dst: Reg::P(dst_scratch),
+                        dst: Register::Physical(dst_scratch),
                         base: base_reg,
                         index: index_rewritten,
                         scale,
@@ -737,7 +737,7 @@ impl<'a> InstRewriter<'a> {
             }
             MappedReg::Spilled { vreg } => {
                 self.output.push(Inst::Gep {
-                    dst: Reg::P(dst_scratch),
+                    dst: Register::Physical(dst_scratch),
                     base: base_reg,
                     index: index_rewritten,
                     scale,
@@ -752,11 +752,11 @@ impl<'a> InstRewriter<'a> {
         match addr {
             Addr::Global(sym) => Ok((Addr::Global(sym.clone()), false)),
             Addr::BaseOff { base, offset } => match base {
-                Reg::V(v) => {
+                Register::Virtual(v) => {
                     if let Some(p) = self.color_of(*v) {
                         Ok((
                             Addr::BaseOff {
-                                base: Reg::P(p),
+                                base: Register::Physical(p),
                                 offset: *offset,
                             },
                             false,
@@ -765,7 +765,7 @@ impl<'a> InstRewriter<'a> {
                         self.emit_spill_load(*v, RegSize::X64, scratch)?;
                         Ok((
                             Addr::BaseOff {
-                                base: Reg::P(scratch),
+                                base: Register::Physical(scratch),
                                 offset: *offset,
                             },
                             true,
@@ -773,7 +773,7 @@ impl<'a> InstRewriter<'a> {
                     } else {
                         Ok((
                             Addr::BaseOff {
-                                base: Reg::P(scratch),
+                                base: Register::Physical(scratch),
                                 offset: *offset,
                             },
                             true,
@@ -798,23 +798,23 @@ impl<'a> InstRewriter<'a> {
         scratch: u8,
     ) -> Result<u8, Error> {
         match op {
-            Operand::Imm(imm) => {
+            Operand::Immediate(imm) => {
                 self.output.push(Inst::Mov {
                     size,
-                    dst: Reg::P(scratch),
-                    src: Operand::Imm(imm),
+                    dst: Register::Physical(scratch),
+                    src: Operand::Immediate(imm),
                 });
                 Ok(scratch)
             }
-            Operand::Reg(Reg::P(n)) => Ok(n),
-            Operand::Reg(Reg::SP) => Err(Error::Internal("cannot use SP as source".into())),
-            Operand::Reg(Reg::V(_)) => Err(Error::Internal("unexpected vreg in operand".into())),
+            Operand::Register(Register::Physical(n)) => Ok(n),
+            Operand::Register(Register::StackPointer) => Err(Error::Internal("cannot use SP as source".into())),
+            Operand::Register(Register::Virtual(_)) => Err(Error::Internal("unexpected vreg in operand".into())),
         }
     }
 }
 
 enum MappedReg {
-    Physical { reg: Reg },
-    Colored { reg: Reg, vreg: usize },
+    Physical { reg: Register },
+    Colored { reg: Register, vreg: usize },
     Spilled { vreg: usize },
 }

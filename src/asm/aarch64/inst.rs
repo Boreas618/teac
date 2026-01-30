@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use super::types::{Addr, BinOp, Cond, IndexOperand, Operand, Reg, RegSize};
+use super::types::{Addr, BinOp, Cond, IndexOperand, Operand, Register, RegSize};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Inst {
@@ -8,45 +8,45 @@ pub enum Inst {
 
     Mov {
         size: RegSize,
-        dst: Reg,
+        dst: Register,
         src: Operand,
     },
 
     BinOp {
         op: BinOp,
         size: RegSize,
-        dst: Reg,
-        lhs: Reg,
+        dst: Register,
+        lhs: Register,
         rhs: Operand,
     },
 
     Ldr {
         size: RegSize,
-        dst: Reg,
+        dst: Register,
         addr: Addr,
     },
 
     Str {
         size: RegSize,
-        src: Reg,
+        src: Register,
         addr: Addr,
     },
 
     Lea {
-        dst: Reg,
+        dst: Register,
         addr: Addr,
     },
 
     Gep {
-        dst: Reg,
-        base: Reg,
+        dst: Register,
+        base: Register,
         index: IndexOperand,
         scale: i64,
     },
 
     Cmp {
         size: RegSize,
-        lhs: Reg,
+        lhs: Register,
         rhs: Operand,
     },
 
@@ -78,21 +78,21 @@ impl Inst {
     pub fn used_vregs(&self) -> HashSet<usize> {
         let mut used = HashSet::new();
 
-        let add_reg = |s: &mut HashSet<usize>, r: &Reg| {
-            if let Reg::V(v) = r {
+        let add_reg = |s: &mut HashSet<usize>, r: &Register| {
+            if let Register::Virtual(v) = r {
                 s.insert(*v);
             }
         };
 
         let add_operand = |s: &mut HashSet<usize>, op: &Operand| {
-            if let Operand::Reg(Reg::V(v)) = op {
+            if let Operand::Register(Register::Virtual(v)) = op {
                 s.insert(*v);
             }
         };
 
         let add_addr = |s: &mut HashSet<usize>, addr: &Addr| {
             if let Addr::BaseOff {
-                base: Reg::V(v), ..
+                base: Register::Virtual(v), ..
             } = addr
             {
                 s.insert(*v);
@@ -142,7 +142,7 @@ impl Inst {
             | Inst::Ldr { dst, .. }
             | Inst::Lea { dst, .. }
             | Inst::Gep { dst, .. } => {
-                if let Reg::V(v) = dst {
+                if let Register::Virtual(v) = dst {
                     defined.insert(*v);
                 }
             }

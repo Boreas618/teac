@@ -2,10 +2,10 @@ use crate::asm::error::Error;
 use crate::ir;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum Reg {
-    V(usize),
-    P(u8),
-    SP,
+pub enum Register {
+    Virtual(usize),
+    Physical(u8),
+    StackPointer,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -34,19 +34,19 @@ pub enum Cond {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Operand {
-    Reg(Reg),
-    Imm(i64),
+    Register(Register),
+    Immediate(i64),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Addr {
-    BaseOff { base: Reg, offset: i64 },
+    BaseOff { base: Register, offset: i64 },
     Global(String),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum IndexOperand {
-    Reg(Reg),
+    Reg(Register),
     Imm(i64),
 }
 
