@@ -24,9 +24,6 @@ struct GeneratedGlobal {
 }
 
 enum GlobalData {
-    // review: the types are hardcoded; array only supports i64?
-
-
     Word { value: i64 },
     Array { words: Vec<i64>, zero_bytes: i64 },
 }
@@ -91,7 +88,7 @@ impl<'a> AsmGenerator for AArch64AsmGenerator<'a> {
 }
 
 impl<'a> AArch64AsmGenerator<'a> {
-    fn handle_arg_moves(func: &ir::Function) -> Result<Vec<Inst>, Error> {
+    fn handle_arguments(func: &ir::Function) -> Result<Vec<Inst>, Error> {
         let mut insts = Vec::new();
 
         for (i, arg) in func.arguments.iter().enumerate() {
@@ -105,6 +102,11 @@ impl<'a> AArch64AsmGenerator<'a> {
                     src: Operand::Register(Register::Physical(i as u8)),
                 });
             } else {
+                // Stack arguments (9th onward) are above the saved fp/lr pair.
+                // Stack layout after prologue:
+                //   [fp+16]: arg 8, [fp+24]: arg 9, ...
+                //   [fp+8]:  saved lr
+                //   [fp]:    saved fp (frame pointer points here)
                 let offset = 16 + ((i - 8) as i64) * 8;
                 insts.push(Inst::Ldr {
                     size,
@@ -123,7 +125,6 @@ impl<'a> AArch64AsmGenerator<'a> {
     fn handle_global(layouts: &StructLayouts, g: &ir::GlobalVariable) -> Result<GeneratedGlobal, Error> {
         let symbol = g.identifier.clone();
 
-        // see review in GlobalData
         let data = match &g.dtype {
             ir::Dtype::I32 => {
                 let value = g
@@ -204,7 +205,7 @@ impl<'a> AArch64AsmGenerator<'a> {
         let mut next_vreg = func.next_vreg;
         let mut cond_map: HashMap<usize, Cond> = HashMap::new();
         let mut insts: Vec<Inst> = Vec::new();
-        insts.extend(Self::handle_arg_moves(func)?);
+        insts.extend(Self::handle_arguments(func)?);
 
         let mut ctx = FunctionGenerator {
             func_id: &func.identifier,
@@ -219,17 +220,17 @@ impl<'a> AArch64AsmGenerator<'a> {
             for stmt in block.iter() {
                 use ir::stmt::StmtInner::*;
                 match &stmt.inner {
-                    Label(l) => ctx.handle_label(l),
+                    Label(l) => ctx.emit_label(l),
                     Alloca(_) => { /* Stack slots handled by frame layout */ }
-                    Store(s) => ctx.handle_store(s)?,
-                    Load(s) => ctx.handle_load(s)?,
-                    BiOp(s) => ctx.handle_biop(s)?,
-                    Cmp(s) => ctx.handle_cmp(s)?,
-                    CJump(s) => ctx.handle_cjump(s)?,
-                    Jump(s) => ctx.handle_jump(s),
-                    Gep(s) => ctx.handle_gep(s)?,
-                    Call(s) => ctx.handle_call(s)?,
-                    Return(s) => ctx.handle_return(s)?,
+                    Store(s) => ctx.emit_store(s)?,
+                    Load(s) => ctx.emit_load(s)?,
+                    BiOp(s) => ctx.emit_biop(s)?,
+                    Cmp(s) => ctx.emit_cmp(s)?,
+                    CJump(s) => ctx.emit_cjump(s)?,
+                    Jump(s) => ctx.emit_jump(s),
+                    Gep(s) => ctx.emit_gep(s)?,
+                    Call(s) => ctx.emit_call(s)?,
+                    Return(s) => ctx.emit_return(s)?,
                     _ => {
                         return Err(Error::Internal(
                             "unexpected statement in block".into(),

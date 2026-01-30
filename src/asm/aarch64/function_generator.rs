@@ -14,7 +14,7 @@ fn mangle_bb(func: &str, bb: usize) -> String {
 pub(crate) enum PtrBase {
     Stack,
     Global(String),
-    Reg(usize),
+    Register(usize),
 }
 
 pub struct FunctionGenerator<'a> {
@@ -33,13 +33,13 @@ impl<'a> FunctionGenerator<'a> {
         v
     }
 
-    pub fn handle_label(&mut self, l: &ir::stmt::LabelStmt) {
+    pub fn emit_label(&mut self, l: &ir::stmt::LabelStmt) {
         if let ir::BlockLabel::BasicBlock(n) = &l.label {
             self.insts.push(Inst::Label(mangle_bb(self.func_id, *n)));
         }
     }
 
-    pub fn handle_store(&mut self, s: &ir::stmt::StoreStmt) -> Result<(), Error> {
+    pub fn emit_store(&mut self, s: &ir::stmt::StoreStmt) -> Result<(), Error> {
         let (src, size) = self.lower_value(&s.src)?;
         let addr = self.lower_ptr_as_addr(&s.ptr)?;
 
@@ -64,7 +64,7 @@ impl<'a> FunctionGenerator<'a> {
         Ok(())
     }
 
-    pub fn handle_load(&mut self, s: &ir::stmt::LoadStmt) -> Result<(), Error> {
+    pub fn emit_load(&mut self, s: &ir::stmt::LoadStmt) -> Result<(), Error> {
         let dst = Self::operand_vreg(&s.dst)?;
         let size = dtype_to_regsize(s.dst.dtype())?;
 
@@ -77,7 +77,7 @@ impl<'a> FunctionGenerator<'a> {
         Ok(())
     }
 
-    pub fn handle_biop(&mut self, s: &ir::stmt::BiOpStmt) -> Result<(), Error> {
+    pub fn emit_biop(&mut self, s: &ir::stmt::BiOpStmt) -> Result<(), Error> {
         let dst = Self::operand_vreg(&s.dst)?;
 
         let lhs = self.lower_int_to_reg(&s.left)?;
@@ -94,7 +94,7 @@ impl<'a> FunctionGenerator<'a> {
         Ok(())
     }
 
-    pub fn handle_cmp(&mut self, s: &ir::stmt::CmpStmt) -> Result<(), Error> {
+    pub fn emit_cmp(&mut self, s: &ir::stmt::CmpStmt) -> Result<(), Error> {
         let dst = Self::operand_vreg(&s.dst)?;
         let lhs = self.lower_int_to_reg(&s.left)?;
         let rhs = self.lower_int(&s.right)?;
@@ -109,7 +109,7 @@ impl<'a> FunctionGenerator<'a> {
         Ok(())
     }
 
-    pub fn handle_cjump(&mut self, s: &ir::stmt::CJumpStmt) -> Result<(), Error> {
+    pub fn emit_cjump(&mut self, s: &ir::stmt::CJumpStmt) -> Result<(), Error> {
         let cond_v = Self::operand_vreg(&s.dst)?;
         let cond = *self
             .cond_map
@@ -127,12 +127,12 @@ impl<'a> FunctionGenerator<'a> {
         Ok(())
     }
 
-    pub fn handle_jump(&mut self, s: &ir::stmt::JumpStmt) {
+    pub fn emit_jump(&mut self, s: &ir::stmt::JumpStmt) {
         let target = self.mangle_block_label(&s.target);
         self.insts.push(Inst::B { label: target });
     }
 
-    pub fn handle_gep(&mut self, s: &ir::stmt::GepStmt) -> Result<(), Error> {
+    pub fn emit_gep(&mut self, s: &ir::stmt::GepStmt) -> Result<(), Error> {
         let new_ptr = Self::operand_vreg(&s.new_ptr)?;
 
         let (base_kind, base_slot) = self.lower_ptr(&s.base_ptr)?;
@@ -149,10 +149,10 @@ impl<'a> FunctionGenerator<'a> {
                 if is_struct_field_access {
                     if let ir::Dtype::Struct { type_name } = inner.as_ref() {
                         return self
-                            .handle_gep_struct(new_ptr, &s.index, type_name, base_kind, base_slot);
+                            .emit_gep_struct(new_ptr, &s.index, type_name, base_kind, base_slot);
                     }
                 }
-                self.handle_gep_array(new_ptr, &s.index, inner.as_ref(), base_kind, base_slot)
+                self.emit_gep_array(new_ptr, &s.index, inner.as_ref(), base_kind, base_slot)
             }
             other => Err(Error::UnsupportedDtype {
                 dtype: other.clone(),
@@ -160,7 +160,7 @@ impl<'a> FunctionGenerator<'a> {
         }
     }
 
-    pub fn handle_call(&mut self, s: &ir::stmt::CallStmt) -> Result<(), Error> {
+    pub fn emit_call(&mut self, s: &ir::stmt::CallStmt) -> Result<(), Error> {
         self.insts.push(Inst::SaveCallerRegs);
 
         let nargs = s.args.len();
@@ -169,12 +169,12 @@ impl<'a> FunctionGenerator<'a> {
             self.insts.push(Inst::SubSp { imm: stack_bytes });
 
             for (i, arg) in s.args.iter().enumerate().skip(8) {
-                self.handle_call_stack_arg(arg, ((i - 8) as i64) * 8)?;
+                self.emit_call_stack_arg(arg, ((i - 8) as i64) * 8)?;
             }
         }
 
         for (i, arg) in s.args.iter().enumerate().take(8) {
-            self.handle_call_reg_arg(arg, i as u8)?;
+            self.emit_call_reg_arg(arg, i as u8)?;
         }
 
         let func_name = if let Some(pos) = s.func_name.rfind("::") {
@@ -193,12 +193,12 @@ impl<'a> FunctionGenerator<'a> {
         self.insts.push(Inst::RestoreCallerRegs);
 
         if let Some(res) = &s.res {
-            self.handle_call_result(res.as_local().unwrap())?;
+            self.emit_call_result(res.as_local().unwrap())?;
         }
         Ok(())
     }
 
-    pub fn handle_return(&mut self, s: &ir::stmt::ReturnStmt) -> Result<(), Error> {
+    pub fn emit_return(&mut self, s: &ir::stmt::ReturnStmt) -> Result<(), Error> {
         if let Some(v) = &s.val {
             let (op, size) = self.lower_value(v)?;
             self.insts.push(Inst::Mov {
@@ -211,7 +211,7 @@ impl<'a> FunctionGenerator<'a> {
         Ok(())
     }
 
-    fn handle_gep_struct(
+    fn emit_gep_struct(
         &mut self,
         new_ptr: usize,
         idx: &ir::Operand,
@@ -239,7 +239,7 @@ impl<'a> FunctionGenerator<'a> {
         self.emit_ptr_offset(new_ptr, base_kind, base_slot, offset)
     }
 
-    fn handle_gep_array(
+    fn emit_gep_array(
         &mut self,
         new_ptr: usize,
         idx: &ir::Operand,
@@ -283,7 +283,7 @@ impl<'a> FunctionGenerator<'a> {
                     scale: elem_size,
                 });
             }
-            (PtrBase::Reg(base_v), _) => {
+            (PtrBase::Register(base_v), _) => {
                 self.insts.push(Inst::Gep {
                     dst: Register::Virtual(new_ptr),
                     base: Register::Virtual(base_v),
@@ -332,7 +332,7 @@ impl<'a> FunctionGenerator<'a> {
                     });
                 }
             }
-            (PtrBase::Reg(base_v), _) => {
+            (PtrBase::Register(base_v), _) => {
                 self.insts.push(Inst::Lea {
                     dst: Register::Virtual(dst),
                     addr: Addr::BaseOff {
@@ -345,7 +345,7 @@ impl<'a> FunctionGenerator<'a> {
         Ok(())
     }
 
-    fn handle_call_stack_arg(&mut self, arg: &ir::Operand, stack_offset: i64) -> Result<(), Error> {
+    fn emit_call_stack_arg(&mut self, arg: &ir::Operand, stack_offset: i64) -> Result<(), Error> {
         if matches!(arg.dtype(), ir::Dtype::Pointer { .. }) {
             self.emit_ptr_to_reg(arg, Register::Physical(16))?;
             self.insts.push(Inst::Str {
@@ -389,7 +389,7 @@ impl<'a> FunctionGenerator<'a> {
         Ok(())
     }
 
-    fn handle_call_reg_arg(&mut self, arg: &ir::Operand, reg_idx: u8) -> Result<(), Error> {
+    fn emit_call_reg_arg(&mut self, arg: &ir::Operand, reg_idx: u8) -> Result<(), Error> {
         if matches!(arg.dtype(), ir::Dtype::Pointer { .. }) {
             self.emit_ptr_to_reg(arg, Register::Physical(reg_idx))?;
         } else {
@@ -403,7 +403,7 @@ impl<'a> FunctionGenerator<'a> {
         Ok(())
     }
 
-    fn handle_call_result(&mut self, res: &ir::LocalVariable) -> Result<(), Error> {
+    fn emit_call_result(&mut self, res: &ir::LocalVariable) -> Result<(), Error> {
         let dst = res.index;
         match &res.dtype {
             ir::Dtype::I32 => {
@@ -423,7 +423,7 @@ impl<'a> FunctionGenerator<'a> {
     fn emit_ptr_to_reg(&mut self, arg: &ir::Operand, dst: Register) -> Result<(), Error> {
         let (base_kind, slot) = self.lower_ptr(arg)?;
         match base_kind {
-            PtrBase::Reg(v) => {
+            PtrBase::Register(v) => {
                 self.insts.push(Inst::Mov {
                     size: RegSize::X64,
                     dst,
@@ -529,7 +529,7 @@ impl<'a> FunctionGenerator<'a> {
                 })
             }
             PtrBase::Global(sym) => Ok(Addr::Global(sym)),
-            PtrBase::Reg(v) => Ok(Addr::BaseOff {
+            PtrBase::Register(v) => Ok(Addr::BaseOff {
                 base: Register::Virtual(v),
                 offset: 0,
             }),
@@ -539,17 +539,24 @@ impl<'a> FunctionGenerator<'a> {
     fn lower_ptr(&self, val: &ir::Operand) -> Result<(PtrBase, Option<StackSlot>), Error> {
         match val {
             ir::Operand::Local(l) => {
-                let v = l.index;
-                if let Some(slot) = self.frame.alloca_slot(v) {
+                let vreg_index = l.index;
+                // Check if this local is a stack allocation (alloca).
+                // Allocas have their address implicitly defined by their stack slot,
+                // rather than being stored in a register.
+                if let Some(slot) = self.frame.alloca_slot(vreg_index) {
                     return Ok((PtrBase::Stack, Some(slot)));
                 }
+                // Otherwise, if it's a pointer type, the pointer value itself
+                // lives in a virtual register (e.g., result of a GEP or load).
                 if matches!(l.dtype, ir::Dtype::Pointer { .. }) {
-                    return Ok((PtrBase::Reg(v), None));
+                    return Ok((PtrBase::Register(vreg_index), None));
                 }
+                // Non-pointer locals cannot be used as pointer operands.
                 Err(Error::UnsupportedDtype {
                     dtype: l.dtype.clone(),
                 })
             }
+            // Global variables are referenced by their symbol name.
             ir::Operand::Global(g) => Ok((PtrBase::Global(g.identifier.clone()), None)),
             ir::Operand::Integer(_) => Err(Error::UnsupportedOperand {
                 what: format!("unsupported pointer operand: {}", val),
