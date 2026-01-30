@@ -26,6 +26,9 @@ struct GeneratedGlobal {
 }
 
 enum GlobalData {
+    // review: the types are hardcoded; array only supports i64?
+
+
     Word { value: i64 },
     Array { words: Vec<i64>, zero_bytes: i64 },
 }
@@ -65,9 +68,7 @@ impl<'a> AsmGenerator for AArch64AsmGenerator<'a> {
 
         self.functions.clear();
         for func in self.module.function_list.values() {
-            if func.blocks.is_some() {
-                self.functions.push(Self::handle_function(&layouts, func)?);
-            }
+            self.functions.push(Self::handle_function(&layouts, func)?);
         }
 
         Ok(())
@@ -124,6 +125,8 @@ impl<'a> AArch64AsmGenerator<'a> {
     fn handle_global(layouts: &StructLayouts, g: &ir::GlobalVariable) -> Result<GeneratedGlobal, Error> {
         let symbol = g.identifier.clone();
 
+
+        // see review in GlobalData
         let data = match &g.dtype {
             ir::Dtype::I32 => {
                 let value = g
