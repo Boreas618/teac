@@ -7,9 +7,7 @@ mod types;
 pub(crate) use inst::Inst;
 pub(crate) use types::{Addr, BinOp, Cond, Operand, Reg};
 
-use crate::asm::common::{
-    collect_alloca_ptrs, eliminate_phis, size_align_of_alloca, StackFrame, StructLayouts,
-};
+use crate::asm::common::{eliminate_phis, StackFrame, StructLayouts};
 use crate::asm::error::Error;
 use crate::asm::AsmGenerator;
 use crate::ir;
@@ -93,7 +91,7 @@ impl<'a> AsmGenerator for AArch64AsmGenerator<'a> {
 }
 
 impl<'a> AArch64AsmGenerator<'a> {
-    fn gen_arg_moves(func: &ir::Function) -> Result<Vec<Inst>, Error> {
+    fn handle_arg_moves(func: &ir::Function) -> Result<Vec<Inst>, Error> {
         let mut insts = Vec::new();
 
         for (i, arg) in func.arguments.iter().enumerate() {
@@ -124,7 +122,6 @@ impl<'a> AArch64AsmGenerator<'a> {
 
     fn handle_global(layouts: &StructLayouts, g: &ir::GlobalVariable) -> Result<GeneratedGlobal, Error> {
         let symbol = g.identifier.clone();
-
 
         // see review in GlobalData
         let data = match &g.dtype {
@@ -203,20 +200,11 @@ impl<'a> AArch64AsmGenerator<'a> {
             });
         };
         let blocks = &blocks;
-
-        let mut frame = StackFrame::default();
-        let alloca_ptrs = collect_alloca_ptrs(blocks)?;
-        for (vreg, dtype) in alloca_ptrs.iter() {
-            let (size, align) = size_align_of_alloca(dtype, layouts)?;
-            frame.alloc_alloca(*vreg, align, size);
-        }
-
+        let mut frame = StackFrame::from_blocks(blocks, layouts)?;
         let mut next_vreg = func.next_vreg;
-
         let mut cond_map: HashMap<usize, Cond> = HashMap::new();
         let mut insts: Vec<Inst> = Vec::new();
-
-        insts.extend(Self::gen_arg_moves(func)?);
+        insts.extend(Self::handle_arg_moves(func)?);
 
         let mut ctx = FunctionGenerator {
             func_id: &func.identifier,
@@ -231,38 +219,35 @@ impl<'a> AArch64AsmGenerator<'a> {
             for stmt in block.iter() {
                 use ir::stmt::StmtInner::*;
                 match &stmt.inner {
-                    Label(l) => ctx.gen_label(l),
+                    Label(l) => ctx.handle_label(l),
                     Alloca(_) => { /* Stack slots handled by frame layout */ }
-                    Store(s) => ctx.gen_store(s)?,
-                    Load(s) => ctx.gen_load(s)?,
-                    Phi(_) => {
+                    Store(s) => ctx.handle_store(s)?,
+                    Load(s) => ctx.handle_load(s)?,
+                    BiOp(s) => ctx.handle_biop(s)?,
+                    Cmp(s) => ctx.handle_cmp(s)?,
+                    CJump(s) => ctx.handle_cjump(s)?,
+                    Jump(s) => ctx.handle_jump(s),
+                    Gep(s) => ctx.handle_gep(s)?,
+                    Call(s) => ctx.handle_call(s)?,
+                    Return(s) => ctx.handle_return(s)?,
+                    _ => {
                         return Err(Error::Internal(
-                            "phi node reached codegen without lowering".into(),
+                            "unexpected statement in block".into(),
                         ))
                     }
-                    BiOp(s) => ctx.gen_biop(s)?,
-                    Cmp(s) => ctx.gen_cmp(s)?,
-                    CJump(s) => ctx.gen_cjump(s)?,
-                    Jump(s) => ctx.gen_jump(s),
-                    Gep(s) => ctx.gen_gep(s)?,
-                    Call(s) => ctx.gen_call(s)?,
-                    Return(s) => ctx.gen_return(s)?,
                 }
             }
         }
 
         let alloc = register_allocator::allocate(&insts);
-
         for v in alloc.spilled.iter().copied() {
             frame.alloc_spill(v, 8, 8);
         }
-
         let insts = rewrite_insts(&insts, &alloc, &frame)?;
-        let frame_size = frame.frame_size_aligned();
 
         Ok(GeneratedFunction {
             symbol: func.identifier.clone(),
-            frame_size,
+            frame_size: frame.frame_size_aligned(),
             insts,
         })
     }

@@ -16,6 +16,19 @@ pub struct StackFrame {
 }
 
 impl StackFrame {
+    pub fn from_blocks(
+        blocks: &[Vec<ir::stmt::Stmt>],
+        layouts: &StructLayouts,
+    ) -> Result<Self, Error> {
+        let mut frame = Self::default();
+        let alloca_ptrs = collect_alloca_ptrs(blocks)?;
+        for (vreg, dtype) in alloca_ptrs.iter() {
+            let (size, align) = size_align_of_alloca(dtype, layouts)?;
+            frame.alloc_alloca(*vreg, align, size);
+        }
+        Ok(frame)
+    }
+
     pub fn alloc_slot(&mut self, align: i64, size: i64) -> StackSlot {
         let align = align.max(1);
         self.size = align_up(self.size, align);
@@ -54,7 +67,7 @@ impl StackFrame {
     }
 }
 
-pub fn collect_alloca_ptrs(
+fn collect_alloca_ptrs(
     blocks: &[Vec<ir::stmt::Stmt>],
 ) -> Result<HashMap<usize, ir::Dtype>, Error> {
     let mut out = HashMap::new();
@@ -69,7 +82,7 @@ pub fn collect_alloca_ptrs(
     Ok(out)
 }
 
-pub fn size_align_of_alloca(
+fn size_align_of_alloca(
     dtype: &ir::Dtype,
     layouts: &StructLayouts,
 ) -> Result<(i64, i64), Error> {
