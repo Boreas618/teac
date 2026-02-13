@@ -3,14 +3,15 @@
 //! Transforms SSA PHI nodes into explicit load/store operations through
 //! stack slots, making the IR suitable for instruction selection.
 
-use crate::ir::function::BlockLabel;
+use crate::ir::function::{BasicBlock, BlockLabel};
+use crate::ir::opt::cfg::Cfg;
 use crate::ir::stmt::{PhiStmt, Stmt, StmtInner};
 use crate::ir::types::Dtype;
 use crate::ir::value::{LocalVariable, Operand};
 use crate::ir::Function;
 use std::collections::HashMap;
 
-pub fn eliminate_phis(func: &Function) -> Option<Vec<Vec<Stmt>>> {
+pub fn eliminate_phis(func: &Function) -> Option<Vec<BasicBlock>> {
     let blocks = func.blocks.as_ref()?;
 
     if !has_phis(blocks) {
@@ -20,39 +21,42 @@ pub fn eliminate_phis(func: &Function) -> Option<Vec<Vec<Stmt>>> {
     Some(PhiEliminator::new(blocks, func.next_vreg).run())
 }
 
-fn has_phis(blocks: &[Vec<Stmt>]) -> bool {
+fn has_phis(blocks: &[BasicBlock]) -> bool {
     blocks
         .iter()
-        .flatten()
+        .flat_map(|block| block.stmts.iter())
         .any(|s| matches!(s.inner, StmtInner::Phi(_)))
 }
 
 struct PhiEliminator<'a> {
-    blocks: &'a [Vec<Stmt>],
+    blocks: &'a [BasicBlock],
     next_vreg: usize,
 }
 
 impl<'a> PhiEliminator<'a> {
-    fn new(blocks: &'a [Vec<Stmt>], next_vreg: usize) -> Self {
+    fn new(blocks: &'a [BasicBlock], next_vreg: usize) -> Self {
         Self { blocks, next_vreg }
     }
 
-    fn run(mut self) -> Vec<Vec<Stmt>> {
+    fn run(mut self) -> Vec<BasicBlock> {
         let mut parsed = self.parse_blocks();
-        let cfg = Cfg::build(&parsed);
+        let cfg = Cfg::from_blocks(self.blocks);
 
         let mut slots = SlotAllocator::new();
         let phi_loads = self.build_phi_loads(&parsed, &mut slots);
 
-        let mut edges = EdgeSplitter::new(cfg.next_block_id);
+        let mut edges = EdgeSplitter::new(next_basic_block_id(cfg.labels()));
         self.place_phi_stores(&parsed, &cfg, &slots, &mut edges);
-        edges.patch_terminators(&mut parsed, &cfg.labels);
+        edges.patch_terminators(&mut parsed, cfg.labels());
 
-        self.assemble(parsed, cfg.labels, slots, phi_loads, edges)
+        self.assemble(parsed, cfg.labels().to_vec(), slots, phi_loads, edges)
     }
 
     fn parse_blocks(&self) -> Vec<ParsedBlock> {
-        self.blocks.iter().map(|b| ParsedBlock::from_stmts(b)).collect()
+        self.blocks
+            .iter()
+            .map(ParsedBlock::from_block)
+            .collect()
     }
 
     fn build_phi_loads(
@@ -87,13 +91,13 @@ impl<'a> PhiEliminator<'a> {
                 continue;
             }
 
-            for &pred_idx in &cfg.preds[block_idx] {
-                let stores = slots.build_stores(&block.phis, &cfg.labels[pred_idx]);
+            for &pred_idx in cfg.predecessors(block_idx) {
+                let stores = slots.build_stores(&block.phis, cfg.label(pred_idx));
                 if stores.is_empty() {
                     continue;
                 }
 
-                if cfg.succs[pred_idx].len() == 1 {
+                if cfg.successors(pred_idx).len() == 1 {
                     edges.insert_at_pred(pred_idx, stores);
                 } else {
                     edges.split(pred_idx, block_idx, stores);
@@ -109,7 +113,7 @@ impl<'a> PhiEliminator<'a> {
         slots: SlotAllocator,
         phi_loads: Vec<Vec<Stmt>>,
         edges: EdgeSplitter,
-    ) -> Vec<Vec<Stmt>> {
+    ) -> Vec<BasicBlock> {
         let entry_idx = labels
             .iter()
             .position(|l| matches!(l, BlockLabel::Function(_)))
@@ -121,7 +125,6 @@ impl<'a> PhiEliminator<'a> {
 
         for (idx, block) in parsed.into_iter().enumerate() {
             let mut stmts = Vec::new();
-            stmts.push(block.label_stmt);
 
             if idx == entry_idx {
                 stmts.extend(allocas.iter().cloned());
@@ -135,7 +138,10 @@ impl<'a> PhiEliminator<'a> {
                 stmts.extend(block.body);
             }
 
-            result.push(stmts);
+            result.push(BasicBlock {
+                label: block.label,
+                stmts,
+            });
         }
 
         result.extend(edges.materialize_splits(&labels));
@@ -168,106 +174,39 @@ fn insert_before_terminator(out: &mut Vec<Stmt>, body: Vec<Stmt>, inserts: Vec<S
 
 struct ParsedBlock {
     label: BlockLabel,
-    label_stmt: Stmt,
     phis: Vec<PhiStmt>,
     body: Vec<Stmt>,
 }
 
 impl ParsedBlock {
-    fn from_stmts(stmts: &[Stmt]) -> Self {
-        let mut label = None;
-        let mut label_stmt = None;
+    fn from_block(block: &BasicBlock) -> Self {
         let mut phis = Vec::new();
         let mut body = Vec::new();
 
-        for stmt in stmts {
+        for stmt in &block.stmts {
             match &stmt.inner {
-                StmtInner::Label(l) if label.is_none() => {
-                    label = Some(l.label.clone());
-                    label_stmt = Some(stmt.clone());
-                }
                 StmtInner::Phi(p) => phis.push(p.clone()),
                 _ => body.push(stmt.clone()),
             }
         }
 
         Self {
-            label: label.expect("block missing label"),
-            label_stmt: label_stmt.expect("block missing label"),
+            label: block.label.clone(),
             phis,
             body,
         }
     }
 }
 
-struct Cfg {
-    labels: Vec<BlockLabel>,
-    succs: Vec<Vec<usize>>,
-    preds: Vec<Vec<usize>>,
-    next_block_id: usize,
-}
-
-impl Cfg {
-    fn build(blocks: &[ParsedBlock]) -> Self {
-        let labels: Vec<_> = blocks.iter().map(|b| b.label.clone()).collect();
-        let label_map: HashMap<String, usize> = labels
-            .iter()
-            .enumerate()
-            .map(|(i, l)| (l.key(), i))
-            .collect();
-
-        let n = blocks.len();
-        let mut succs = vec![Vec::new(); n];
-        let mut preds = vec![Vec::new(); n];
-
-        for (i, block) in blocks.iter().enumerate() {
-            succs[i] = Self::successors_of(&block.body, i, n, &label_map);
-        }
-
-        for (i, s) in succs.iter().enumerate() {
-            for &succ in s {
-                preds[succ].push(i);
-            }
-        }
-
-        let next_block_id = labels
-            .iter()
-            .filter_map(|l| match l {
-                BlockLabel::BasicBlock(n) => Some(*n + 1),
-                _ => None,
-            })
-            .max()
-            .unwrap_or(1);
-
-        Self {
-            labels,
-            succs,
-            preds,
-            next_block_id,
-        }
-    }
-
-    fn successors_of(
-        body: &[Stmt],
-        idx: usize,
-        n: usize,
-        label_map: &HashMap<String, usize>,
-    ) -> Vec<usize> {
-        let term = body
-            .iter()
-            .rev()
-            .find(|s| !matches!(s.inner, StmtInner::Label(_)));
-
-        match term.map(|s| &s.inner) {
-            Some(StmtInner::Jump(j)) => vec![label_map[&j.target.key()]],
-            Some(StmtInner::CJump(j)) => {
-                vec![label_map[&j.true_label.key()], label_map[&j.false_label.key()]]
-            }
-            Some(StmtInner::Return(_)) => vec![],
-            _ if idx + 1 < n => vec![idx + 1],
-            _ => vec![],
-        }
-    }
+fn next_basic_block_id(labels: &[BlockLabel]) -> usize {
+    labels
+        .iter()
+        .filter_map(|l| match l {
+            BlockLabel::BasicBlock(n) => Some(*n + 1),
+            _ => None,
+        })
+        .max()
+        .unwrap_or(1)
 }
 
 struct SlotAllocator {
@@ -292,7 +231,7 @@ impl SlotAllocator {
                 let idx = *next_vreg;
                 *next_vreg += 1;
                 let ptr = LocalVariable::new(Dtype::ptr_to(phi_dst.dtype().clone()), idx, None);
-                let slot = Operand::Local(ptr);
+                let slot = Operand::from(ptr);
                 self.allocas.push(Stmt::as_alloca(slot.clone()));
                 slot
             })
@@ -378,15 +317,17 @@ impl EdgeSplitter {
         }
     }
 
-    fn materialize_splits(mut self, labels: &[BlockLabel]) -> Vec<Vec<Stmt>> {
+    fn materialize_splits(mut self, labels: &[BlockLabel]) -> Vec<BasicBlock> {
         self.splits
             .into_iter()
             .map(|((pred, succ), new_label)| {
                 let stores = self.split_stores.remove(&(pred, succ)).unwrap_or_default();
-                let mut block = vec![Stmt::as_label(new_label)];
-                block.extend(stores);
-                block.push(Stmt::as_jump(labels[succ].clone()));
-                block
+                let mut stmts = stores;
+                stmts.push(Stmt::as_jump(labels[succ].clone()));
+                BasicBlock {
+                    label: new_label,
+                    stmts,
+                }
             })
             .collect()
     }

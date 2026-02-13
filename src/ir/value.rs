@@ -1,5 +1,3 @@
-#![allow(unused)]
-
 use super::types::Dtype;
 use std::fmt::{Display, Formatter};
 
@@ -11,10 +9,11 @@ pub trait Named {
     fn identifier(&self) -> Option<String>;
 }
 
+/// SSA operand used by IR statements.
 #[derive(Clone)]
 pub enum Operand {
     Integer(Integer),
-    Local(LocalVariable),
+    Local(LocalRef),
     Global(GlobalVariable),
 }
 
@@ -27,15 +26,7 @@ impl Operand {
         }
     }
 
-    pub fn identifier(&self) -> Option<String> {
-        match self {
-            Operand::Integer(i) => i.identifier(),
-            Operand::Local(l) => l.identifier(),
-            Operand::Global(g) => g.identifier(),
-        }
-    }
-
-    pub fn as_local(&self) -> Option<&LocalVariable> {
+    pub fn as_local(&self) -> Option<&LocalRef> {
         match self {
             Operand::Local(l) => Some(l),
             _ => None,
@@ -83,7 +74,13 @@ impl From<Integer> for Operand {
 
 impl From<LocalVariable> for Operand {
     fn from(l: LocalVariable) -> Self {
-        Operand::Local(l)
+        Operand::Local(LocalRef::from(l))
+    }
+}
+
+impl From<&LocalVariable> for Operand {
+    fn from(l: &LocalVariable) -> Self {
+        Operand::Local(LocalRef::from(l))
     }
 }
 
@@ -101,16 +98,12 @@ impl From<i32> for Operand {
 
 #[derive(Clone)]
 pub struct Integer {
-    _dtype: Dtype,
     pub value: i32,
 }
 
 impl From<i32> for Integer {
     fn from(value: i32) -> Self {
-        Self {
-            _dtype: Dtype::I32,
-            value,
-        }
+        Self { value }
     }
 }
 
@@ -132,11 +125,49 @@ impl Display for Integer {
     }
 }
 
+/// Function-local SSA value or stack slot.
 #[derive(Clone)]
 pub struct LocalVariable {
     pub dtype: Dtype,
     pub identifier: Option<String>,
     pub index: usize,
+}
+
+/// Lightweight local SSA reference carried by `Operand`.
+#[derive(Clone)]
+pub struct LocalRef {
+    pub dtype: Dtype,
+    pub index: usize,
+}
+
+impl From<LocalVariable> for LocalRef {
+    fn from(value: LocalVariable) -> Self {
+        Self {
+            dtype: value.dtype,
+            index: value.index,
+        }
+    }
+}
+
+impl From<&LocalVariable> for LocalRef {
+    fn from(value: &LocalVariable) -> Self {
+        Self {
+            dtype: value.dtype.clone(),
+            index: value.index,
+        }
+    }
+}
+
+impl Typed for LocalRef {
+    fn dtype(&self) -> &Dtype {
+        &self.dtype
+    }
+}
+
+impl Display for LocalRef {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "%r{}", self.index)
+    }
 }
 
 impl Typed for LocalVariable {
@@ -167,6 +198,7 @@ impl LocalVariable {
     }
 }
 
+/// Module-scope symbol.
 #[derive(Clone)]
 pub struct GlobalVariable {
     pub dtype: Dtype,

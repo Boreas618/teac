@@ -1,12 +1,14 @@
 use super::cfg::Cfg;
 use super::dominator::DominatorInfo;
 use super::liveness::Liveness;
-use crate::ir::function::{BlockLabel, Function};
+use super::FunctionPass;
+use crate::ir::function::{BasicBlock, BlockLabel, Function};
 use crate::ir::stmt::{Stmt, StmtInner};
 use crate::ir::types::Dtype;
 use crate::ir::value::{LocalVariable, Operand};
 use std::collections::{HashMap, HashSet, VecDeque};
 
+/// Promote stack allocas to SSA registers where safe.
 pub fn mem2reg(func: &mut Function) {
     let next_vreg = func.next_vreg;
     if let Some(pass) = Mem2Reg::new(func, next_vreg) {
@@ -14,8 +16,17 @@ pub fn mem2reg(func: &mut Function) {
     }
 }
 
+/// mem2reg pass adapter for the function pass manager.
+pub struct Mem2RegPass;
+
+impl FunctionPass for Mem2RegPass {
+    fn run(&self, func: &mut Function) {
+        mem2reg(func);
+    }
+}
+
 struct Mem2Reg<'a> {
-    blocks: &'a mut Vec<Vec<Stmt>>,
+    blocks: &'a mut Vec<BasicBlock>,
     #[allow(dead_code)]
     arguments: &'a [LocalVariable],
     cfg: Cfg,
@@ -91,7 +102,7 @@ impl<'a> Mem2Reg<'a> {
 
                     let idx = self.next_vreg;
                     self.next_vreg += 1;
-                    let dst = Operand::Local(LocalVariable::new(Dtype::I32, idx, None));
+                    let dst = Operand::from(LocalVariable::new(Dtype::I32, idx, None));
                     phi_placement.insert_phi(y, var_idx, dst);
 
                     if !info.def_blocks.contains(&y) {
@@ -110,20 +121,18 @@ struct AllocaAnalysis {
 }
 
 impl AllocaAnalysis {
-    fn from_blocks(blocks: &[Vec<Stmt>]) -> Self {
+    fn from_blocks(blocks: &[BasicBlock]) -> Self {
         let candidates = Self::collect_candidates(blocks);
         let usage = Self::analyze_usage(blocks, &candidates);
         Self { candidates, usage }
     }
 
     fn promotable_vars(&self, dom_info: &DominatorInfo) -> HashMap<usize, VarUsage> {
-        let mut out = HashMap::new();
+        let mut multi_def = HashMap::new();
+        let mut single_def = HashMap::new();
 
         for (&var, info) in &self.usage {
             if info.invalid || !info.has_store {
-                continue;
-            }
-            if info.def_blocks.len() <= 1 {
                 continue;
             }
 
@@ -139,20 +148,37 @@ impl AllocaAnalysis {
             }
 
             if ok {
-                out.insert(var, info.clone());
+                if info.def_blocks.len() <= 1 {
+                    single_def.insert(var, info.clone());
+                } else {
+                    multi_def.insert(var, info.clone());
+                }
             }
         }
 
-        out
+        // Promoting single-def variables (defined in exactly one block)
+        // extends live ranges: the stored value stays live from its
+        // definition until its last use, instead of being killed at
+        // the store.  For functions with very many single-def locals
+        // (e.g., stress tests with thousands of variables), this causes
+        // the O(n²) register allocator's interference graph to explode.
+        //
+        // Promote single-def variables only when the count is manageable.
+        const SINGLE_DEF_LIMIT: usize = 256;
+        if single_def.len() <= SINGLE_DEF_LIMIT {
+            multi_def.extend(single_def);
+        }
+
+        multi_def
     }
 
-    fn collect_candidates(blocks: &[Vec<Stmt>]) -> HashSet<usize> {
+    fn collect_candidates(blocks: &[BasicBlock]) -> HashSet<usize> {
         let mut candidates = HashSet::new();
-        for stmt in blocks.iter().flatten() {
+        for stmt in blocks.iter().flat_map(|block| block.stmts.iter()) {
             if let StmtInner::Alloca(a) = &stmt.inner {
                 if let Some(idx) = a.dst.vreg_index() {
-                    if let Dtype::Pointer { inner, length: 0 } = a.dst.dtype() {
-                        if matches!(inner.as_ref(), Dtype::I32) {
+                    if let Dtype::Ptr { pointee } = a.dst.dtype() {
+                        if matches!(pointee.as_ref(), Dtype::I32) {
                             candidates.insert(idx);
                         }
                     }
@@ -162,7 +188,7 @@ impl AllocaAnalysis {
         candidates
     }
 
-    fn analyze_usage(blocks: &[Vec<Stmt>], candidates: &HashSet<usize>) -> HashMap<usize, VarUsage> {
+    fn analyze_usage(blocks: &[BasicBlock], candidates: &HashSet<usize>) -> HashMap<usize, VarUsage> {
         let mut usage: HashMap<usize, VarUsage> = candidates
             .iter()
             .map(|&v| (v, VarUsage::default()))
@@ -171,7 +197,7 @@ impl AllocaAnalysis {
         for (b_idx, block) in blocks.iter().enumerate() {
             let mut store_seen: HashSet<usize> = HashSet::new();
 
-            for stmt in block {
+            for stmt in &block.stmts {
                 match &stmt.inner {
                     StmtInner::Load(s) => {
                         if let Some(ptr_idx) = Self::candidate_index(&s.ptr, candidates) {
@@ -308,7 +334,7 @@ impl PhiPlacement {
 }
 
 struct Renamer<'a> {
-    blocks: &'a [Vec<Stmt>],
+    blocks: &'a [BasicBlock],
     cfg: &'a Cfg,
     dom_info: &'a DominatorInfo,
     phi_placement: &'a mut PhiPlacement,
@@ -320,7 +346,7 @@ struct Renamer<'a> {
 
 impl<'a> Renamer<'a> {
     fn new(
-        blocks: &'a [Vec<Stmt>],
+        blocks: &'a [BasicBlock],
         cfg: &'a Cfg,
         dom_info: &'a DominatorInfo,
         phi_placement: &'a mut PhiPlacement,
@@ -349,24 +375,19 @@ impl<'a> Renamer<'a> {
         }
     }
 
-    fn finish(self) -> Vec<Vec<Stmt>> {
+    fn finish(self) -> Vec<BasicBlock> {
         let mut out = Vec::with_capacity(self.blocks.len());
 
         for (i, block) in self.blocks.iter().enumerate() {
-            let label_stmt = block
-                .iter()
-                .find(|s| matches!(s.inner, StmtInner::Label(_)))
-                .cloned();
-
             let mut stmts = Vec::new();
-            if let Some(label) = label_stmt {
-                stmts.push(label);
-            }
             for phi in self.phi_placement.phis_at(i) {
                 stmts.push(Stmt::as_phi(phi.dst.clone(), phi.incomings.clone()));
             }
             stmts.extend(self.rewritten[i].iter().cloned());
-            out.push(stmts);
+            out.push(BasicBlock {
+                label: block.label.clone(),
+                stmts,
+            });
         }
 
         out
@@ -383,11 +404,7 @@ impl<'a> Renamer<'a> {
             }
         }
 
-        for stmt in &self.blocks[block_idx] {
-            if matches!(stmt.inner, StmtInner::Label(_)) {
-                continue;
-            }
-
+        for stmt in &self.blocks[block_idx].stmts {
             match &stmt.inner {
                 StmtInner::Alloca(a) => {
                     if let Some(idx) = a.dst.vreg_index() {

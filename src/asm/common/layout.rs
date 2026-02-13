@@ -34,8 +34,13 @@ impl StructLayouts {
 
     pub fn size_align_of(&self, dtype: &ir::Dtype) -> Result<(i64, i64), Error> {
         match dtype {
+            ir::Dtype::I1 => Ok((1, 1)),
             ir::Dtype::I32 => Ok((4, 4)),
-            ir::Dtype::Pointer { .. } => Ok((8, 8)),
+            ir::Dtype::Ptr { .. } => Ok((8, 8)),
+            ir::Dtype::Array { element, length } => {
+                let (size, align) = self.size_align_of(element.as_ref())?;
+                Ok(((*length as i64) * size, align))
+            }
             ir::Dtype::Struct { type_name } => {
                 let layout = self
                     .get(type_name)
@@ -52,13 +57,12 @@ impl StructLayouts {
 
     fn size_align_of_member(&self, dtype: &ir::Dtype) -> Result<(i64, i64), Error> {
         match dtype {
+            ir::Dtype::I1 => Ok((1, 1)),
             ir::Dtype::I32 => Ok((4, 4)),
-            ir::Dtype::Pointer { inner, length } => match length {
-                0 => Ok((8, 8)),
-                n => {
-                    let (s, a) = self.size_align_of(inner.as_ref())?;
-                    Ok(((*n as i64) * s, a))
-                }
+            ir::Dtype::Ptr { .. } => Ok((8, 8)),
+            ir::Dtype::Array { element, length } => {
+                let (s, a) = self.size_align_of(element.as_ref())?;
+                Ok(((*length as i64) * s, a))
             },
             ir::Dtype::Struct { type_name } => self
                 .get(type_name)

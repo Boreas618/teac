@@ -7,3 +7,4 @@ tests/*/build/
 .vscode
 *.ll
 .cursor
+.claude

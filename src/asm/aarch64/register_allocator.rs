@@ -5,8 +5,8 @@ use super::types::{Addr, IndexOperand, Operand, Register, RegSize};
 use crate::asm::common::StackFrame;
 use crate::asm::error::Error;
 
-const NUM_COLORS: usize = 7;
-const ALLOCATABLE_REGS: [u8; NUM_COLORS] = [9, 10, 11, 12, 13, 14, 15];
+const NUM_COLORS: usize = 8;
+const ALLOCATABLE_REGS: [u8; NUM_COLORS] = [8, 9, 10, 11, 12, 13, 14, 15];
 
 const SCRATCH0: u8 = 16;
 const SCRATCH1: u8 = 17;

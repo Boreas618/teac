@@ -1,5 +1,3 @@
-#![allow(unused)]
-
 use crate::ast;
 use thiserror::Error;
 
@@ -7,6 +5,12 @@ use thiserror::Error;
 pub enum Error {
     #[error("Initialization of structs not supported")]
     StructInitialization,
+
+    #[error("Division by zero in constant expression")]
+    DivisionByZero,
+
+    #[error("Integer overflow in constant expression")]
+    IntegerOverflow,
 
     #[error("Duplicated definition of variable {symbol}")]
     VariableRedefinition { symbol: String },

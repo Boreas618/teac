@@ -1,5 +1,5 @@
 use crate::ast;
-use crate::ir::function::{Function, FunctionGenerator};
+use crate::ir::function::{BasicBlock, BlockLabel, Function, FunctionGenerator};
 use crate::ir::module::ModuleGenerator;
 use crate::ir::opt;
 use crate::ir::stmt::{Stmt, StmtInner};
@@ -25,16 +25,22 @@ impl ModuleGenerator {
             }
         }
 
+        let pass_manager = opt::FunctionPassManager::with_default_pipeline();
+
         for elem in from.elements.iter() {
             use ast::ProgramElementInner::*;
             if let FnDef(fn_def) = &elem.inner {
-                let mut function_generator = FunctionGenerator::new(self);
-                function_generator.gen(fn_def)?;
+                let (next_vreg, blocks, local_variables, arguments) = {
+                    let mut function_generator =
+                        FunctionGenerator::new(&self.registry, &self.module.global_list);
+                    function_generator.gen(fn_def)?;
 
-                let next_vreg = function_generator.next_vreg;
-                let blocks = Self::harvest_function_irs(function_generator.irs);
-                let local_variables = function_generator.local_variables;
-                let arguments = function_generator.arguments;
+                    let next_vreg = function_generator.next_vreg;
+                    let blocks = Self::harvest_function_irs(function_generator.irs);
+                    let local_variables = function_generator.local_variables;
+                    let arguments = function_generator.arguments;
+                    (next_vreg, blocks, local_variables, arguments)
+                };
 
                 let func = self
                     .module
@@ -46,7 +52,7 @@ impl ModuleGenerator {
                     f.local_variables = Some(local_variables);
                     f.arguments = arguments;
                     f.next_vreg = next_vreg;
-                    opt::mem2reg(f);
+                    pass_manager.run(f);
                 } else {
                     return Err(Error::FunctionNotDefined {
                         symbol: fn_def.fn_decl.identifier.clone(),
@@ -75,7 +81,7 @@ impl ModuleGenerator {
             ("std::timer_stop", vec![("lineno".to_string(), Dtype::I32)], Dtype::Void),
             ("std::putarray", vec![
                 ("n".to_string(), Dtype::I32), 
-                ("a".to_string(), Dtype::Pointer { inner: Box::new(Dtype::I32), length: 0 })
+                ("a".to_string(), Dtype::ptr_to(Dtype::I32))
             ], Dtype::Void),
         ];
         
@@ -89,43 +95,65 @@ impl ModuleGenerator {
         Ok(())
     }
 
-    fn harvest_function_irs(irs: Vec<Stmt>) -> Vec<Vec<Stmt>> {
+    fn harvest_function_irs(irs: Vec<Stmt>) -> Vec<BasicBlock> {
         let mut blocks = Vec::new();
-        let mut insts = Vec::new();
+        let mut label: Option<BlockLabel> = None;
+        let mut stmts = Vec::new();
+        let mut terminated = false;
 
-        let mut flag = false;
         for stmt in irs {
-            if let StmtInner::Label(_) = &stmt.inner {
-                if !insts.is_empty() {
-                    blocks.push(insts);
-                    insts = Vec::new();
+            match &stmt.inner {
+                StmtInner::Label(l) => {
+                    if let Some(prev_label) = label.take() {
+                        blocks.push(BasicBlock {
+                            label: prev_label,
+                            stmts: std::mem::take(&mut stmts),
+                        });
+                    }
+                    label = Some(l.label.clone());
+                    terminated = false;
                 }
-                flag = false;
+                _ => {
+                    if label.is_none() || terminated {
+                        continue;
+                    }
+                    terminated = matches!(
+                        &stmt.inner,
+                        StmtInner::Return(_) | StmtInner::CJump(_) | StmtInner::Jump(_)
+                    );
+                    stmts.push(stmt);
+                }
             }
-            if flag {
-                continue;
-            }
-            if matches!(&stmt.inner, StmtInner::Return(_))
-                || matches!(&stmt.inner, StmtInner::CJump(_))
-                || matches!(&stmt.inner, StmtInner::Jump(_))
-            {
-                flag = true;
-            }
-            insts.push(stmt);
         }
-        if !insts.is_empty() {
-            blocks.push(insts);
+        if let Some(last_label) = label {
+            blocks.push(BasicBlock {
+                label: last_label,
+                stmts,
+            });
         }
 
-        for block_index in 1..blocks.len() {
-            let block = blocks.get(block_index).unwrap();
-            let (allocas, remaining): (Vec<Stmt>, Vec<Stmt>) = block
-                .iter()
-                .cloned()
-                .partition(|x| matches!(x.inner, StmtInner::Alloca(_)));
-            blocks[0].splice(1..1, allocas);
-            blocks[block_index] = remaining;
+        if blocks.is_empty() {
+            return blocks;
         }
+
+        // Hoist all allocas from non-entry blocks to the entry block, right
+        // after the entry label.  This ensures all stack allocations happen in
+        // the entry block (LLVM convention).
+        let mut hoisted_allocas: Vec<Stmt> = Vec::new();
+        for block in blocks.iter_mut().skip(1) {
+            let (allocas, remaining): (Vec<Stmt>, Vec<Stmt>) = block
+                .stmts
+                .drain(..)
+                .partition(|x| matches!(&x.inner, StmtInner::Alloca(_)));
+            hoisted_allocas.extend(allocas);
+            block.stmts = remaining;
+        }
+        // Insert hoisted allocas at the beginning of the entry block.
+        blocks[0].stmts.splice(0..0, hoisted_allocas);
+
+        // Remove blocks that became empty (only a label, no terminator) after
+        // alloca hoisting, as they violate the basic block invariant.
+        blocks.retain(|block| !block.stmts.is_empty());
 
         blocks
     }
@@ -256,15 +284,9 @@ impl ModuleGenerator {
                 StructMember {
                     offset,
                     dtype: match &decl.inner {
-                        ast::VarDeclInner::Scalar(_) => base_dtype,
-                        ast::VarDeclInner::Array(array) => Dtype::Pointer {
-                            inner: Box::new(base_dtype),
-                            length: array.len,
-                        },
-                        ast::VarDeclInner::Slice(_) => Dtype::Pointer {
-                            inner: Box::new(base_dtype),
-                            length: 0,
-                        },
+                        ast::VarDeclInner::Scalar => base_dtype,
+                        ast::VarDeclInner::Array(array) => Dtype::array_of(base_dtype, array.len),
+                        ast::VarDeclInner::Slice => Dtype::ptr_to(base_dtype),
                     },
                 },
             ));

@@ -11,6 +11,7 @@ use std::{
     fs::File,
     io::{self, BufWriter, Read, Write},
     path::{Path, PathBuf},
+    sync::LazyLock,
 };
 
 #[derive(Copy, Clone, Debug, PartialEq, ValueEnum)]
@@ -34,6 +35,9 @@ struct Cli {
     output: Option<String>,
 }
 
+static USE_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r#"(?m)^\s*use\s+([A-Za-z0-9_]+)\s*;?\s*$"#).unwrap());
+
 fn preprocess_file(path: &Path, visited: &mut HashSet<PathBuf>) -> io::Result<String> {
     let key = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
     if !visited.insert(key.clone()) {
@@ -46,7 +50,7 @@ fn preprocess_file(path: &Path, visited: &mut HashSet<PathBuf>) -> io::Result<St
     let mut src = String::new();
     File::open(path)?.read_to_string(&mut src)?;
 
-    let re = Regex::new(r#"(?m)^\s*use\s+([A-Za-z0-9_]+)\s*;?\s*$"#).unwrap();
+    let re = &*USE_RE;
 
     let mut out = String::with_capacity(src.len());
     let mut last = 0usize;
@@ -83,7 +87,10 @@ fn preprocess_file(path: &Path, visited: &mut HashSet<PathBuf>) -> io::Result<St
     }
 
     out.push_str(&src[last..]);
-    visited.remove(&key);
+    // Keep `key` in `visited` so that the same file is not included more than
+    // once (C-style include-guard semantics).  The previous `visited.remove()`
+    // turned this into a mere recursion guard, allowing duplicate inclusion in
+    // diamond dependency patterns (A→B,C; B→D, C→D).
 
     Ok(out)
 }
@@ -114,7 +121,7 @@ fn write_output<W: Write>(
                 std::process::exit(1);
             });
         }
-        DumpMode::AST => unreachable!(),
+        DumpMode::AST => {}
     }
 }
 

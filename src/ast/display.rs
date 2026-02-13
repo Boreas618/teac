@@ -22,7 +22,7 @@ impl Display for TypeSpecifierInner {
     }
 }
 
-impl Display for TypeSepcifier {
+impl Display for TypeSpecifier {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         write!(f, "{}@{}", self.inner, self.pos)
     }

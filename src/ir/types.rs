@@ -1,29 +1,30 @@
-#![allow(unused)]
-
 use crate::ast;
 use std::fmt::{self, Display, Formatter};
 
-#[derive(Clone, PartialEq, PartialOrd, Debug)]
+/// Core IR types used by Teac's mid-end and back-end.
+#[derive(Clone, PartialEq, Debug)]
 pub enum Dtype {
     Void,
+    I1,
     I32,
     Struct { type_name: String },
-    /// `length == 0`: scalar pointer, `length > 0`: array
-    Pointer { inner: Box<Dtype>, length: usize },
+    /// Opaque pointer type (`ptr`) with explicit pointee metadata.
+    Ptr { pointee: Box<Dtype> },
+    /// First-class LLVM array type (`[N x T]`).
+    Array { element: Box<Dtype>, length: usize },
     Undecided,
 }
 
 impl Dtype {
     pub fn ptr_to(inner: Self) -> Self {
-        Self::Pointer {
-            inner: Box::new(inner),
-            length: 0,
+        Self::Ptr {
+            pointee: Box::new(inner),
         }
     }
 
     pub fn array_of(elem: Self, len: usize) -> Self {
-        Self::Pointer {
-            inner: Box::new(elem),
+        Self::Array {
+            element: Box::new(elem),
             length: len,
         }
     }
@@ -31,7 +32,8 @@ impl Dtype {
     pub fn struct_type_name(&self) -> Option<&String> {
         match self {
             Dtype::Struct { type_name } => Some(type_name),
-            Dtype::Pointer { inner, .. } => inner.struct_type_name(),
+            Dtype::Ptr { pointee } => pointee.struct_type_name(),
+            Dtype::Array { element, .. } => element.struct_type_name(),
             _ => None,
         }
     }
@@ -40,16 +42,12 @@ impl Dtype {
 impl Display for Dtype {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
+            Dtype::I1 => write!(f, "i1"),
             Dtype::I32 => write!(f, "i32"),
             Dtype::Void => write!(f, "void"),
             Dtype::Struct { type_name } => write!(f, "%{}", type_name),
-            Dtype::Pointer { inner, length } => {
-                if *length == 0 {
-                    write!(f, "{}", inner.as_ref())
-                } else {
-                    write!(f, "[{} x {}]", length, inner.as_ref())
-                }
-            }
+            Dtype::Ptr { .. } => write!(f, "ptr"),
+            Dtype::Array { element, length } => write!(f, "[{} x {}]", length, element.as_ref()),
             Dtype::Undecided => write!(f, "?"),
         }
     }
@@ -76,7 +74,7 @@ impl PartialEq<ast::FnDecl> for FunctionType {
             .return_dtype
             .as_ref()
             .as_ref()
-            .and_then(|ty| Some(Dtype::from(ty)))
+            .map(|ty| Dtype::from(ty))
         {
             Some(dtype) => dtype,
             None => Dtype::Void,

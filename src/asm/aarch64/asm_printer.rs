@@ -86,7 +86,18 @@ impl<W: Write> AsmPrinter<W> {
         imm % 4096 == 0 && (imm / 4096) <= 4095
     }
 
-    fn is_mem_offset_encodable(&self, offset: i64) -> bool {
+    fn is_ldr_str_offset_encodable(&self, size: RegSize, offset: i64) -> bool {
+        if offset < 0 {
+            return false;
+        }
+        let scale = match size {
+            RegSize::W32 => 4,
+            RegSize::X64 => 8,
+        };
+        offset % scale == 0 && (offset / scale) <= 4095
+    }
+
+    fn is_ldur_stur_offset_encodable(&self, offset: i64) -> bool {
         (-256..=255).contains(&offset)
     }
 
@@ -250,8 +261,11 @@ impl<W: Write> AsmPrinter<W> {
                 let base_s = self.reg_name(*base, RegSize::X64);
                 if *offset == 0 {
                     writeln!(self.writer, "\t{mnemonic} {reg_s}, [{base_s}]")?;
-                } else if self.is_mem_offset_encodable(*offset) {
+                } else if self.is_ldr_str_offset_encodable(size, *offset) {
                     writeln!(self.writer, "\t{mnemonic} {reg_s}, [{base_s}, #{offset}]")?;
+                } else if self.is_ldur_stur_offset_encodable(*offset) {
+                    let unscaled = if mnemonic == "ldr" { "ldur" } else { "stur" };
+                    writeln!(self.writer, "\t{unscaled} {reg_s}, [{base_s}, #{offset}]")?;
                 } else {
                     if mnemonic == "ldr" {
                         let addr_s = self.reg_name(reg, RegSize::X64);
@@ -525,10 +539,12 @@ impl<W: Write> AsmPrinter<W> {
         writeln!(self.writer, "\tstp x13, x14, [sp, #-16]!")?;
         writeln!(self.writer, "\tstp x11, x12, [sp, #-16]!")?;
         writeln!(self.writer, "\tstp x9,  x10, [sp, #-16]!")?;
+        writeln!(self.writer, "\tstr x8,  [sp, #-16]!")?;
         Ok(())
     }
 
     fn emit_restore_caller_regs(&mut self) -> Result<(), Error> {
+        writeln!(self.writer, "\tldr x8,  [sp], #16")?;
         writeln!(self.writer, "\tldp x9,  x10, [sp], #16")?;
         writeln!(self.writer, "\tldp x11, x12, [sp], #16")?;
         writeln!(self.writer, "\tldp x13, x14, [sp], #16")?;

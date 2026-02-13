@@ -2,7 +2,6 @@ use super::inst::Inst;
 use super::types::{Addr, BinOp, Cond, IndexOperand, Operand, Register, RegSize, dtype_to_regsize};
 use crate::asm::common::{align_up, StackFrame, StackSlot, StructLayouts};
 use crate::asm::error::Error;
-use crate::ast;
 use crate::ir;
 use std::collections::HashMap;
 
@@ -33,8 +32,8 @@ impl<'a> FunctionGenerator<'a> {
         v
     }
 
-    pub fn emit_label(&mut self, l: &ir::stmt::LabelStmt) {
-        if let ir::BlockLabel::BasicBlock(n) = &l.label {
+    pub fn emit_label(&mut self, label: &ir::BlockLabel) {
+        if let ir::BlockLabel::BasicBlock(n) = label {
             self.insts.push(Inst::Label(mangle_bb(self.func_id, *n)));
         }
     }
@@ -138,21 +137,27 @@ impl<'a> FunctionGenerator<'a> {
         let (base_kind, base_slot) = self.lower_ptr(&s.base_ptr)?;
 
         match s.base_ptr.dtype() {
-            ir::Dtype::Pointer { inner, length } => {
+            ir::Dtype::Ptr { pointee } => {
                 // Distinguish between array access and struct field access:
                 // - Array access: new_ptr.dtype() == base_ptr.dtype() (indexing into array/slice)
                 // - Struct field access: new_ptr.dtype() != base_ptr.dtype() (accessing a field)
-                let is_struct_field_access = *length == 0
-                    && matches!(inner.as_ref(), ir::Dtype::Struct { .. })
+                let is_struct_field_access = matches!(pointee.as_ref(), ir::Dtype::Struct { .. })
                     && s.new_ptr.dtype() != s.base_ptr.dtype();
 
                 if is_struct_field_access {
-                    if let ir::Dtype::Struct { type_name } = inner.as_ref() {
+                    if let ir::Dtype::Struct { type_name } = pointee.as_ref() {
                         return self
                             .emit_gep_struct(new_ptr, &s.index, type_name, base_kind, base_slot);
                     }
                 }
-                self.emit_gep_array(new_ptr, &s.index, inner.as_ref(), base_kind, base_slot)
+                let elem = match pointee.as_ref() {
+                    ir::Dtype::Array { element, .. } => element.as_ref(),
+                    other => other,
+                };
+                self.emit_gep_array(new_ptr, &s.index, elem, base_kind, base_slot)
+            }
+            ir::Dtype::Array { element, .. } => {
+                self.emit_gep_array(new_ptr, &s.index, element.as_ref(), base_kind, base_slot)
             }
             other => Err(Error::UnsupportedDtype {
                 dtype: other.clone(),
@@ -346,7 +351,7 @@ impl<'a> FunctionGenerator<'a> {
     }
 
     fn emit_call_stack_arg(&mut self, arg: &ir::Operand, stack_offset: i64) -> Result<(), Error> {
-        if matches!(arg.dtype(), ir::Dtype::Pointer { .. }) {
+        if matches!(arg.dtype(), ir::Dtype::Ptr { .. } | ir::Dtype::Array { .. }) {
             self.emit_ptr_to_reg(arg, Register::Physical(16))?;
             self.insts.push(Inst::Str {
                 size: RegSize::X64,
@@ -390,7 +395,7 @@ impl<'a> FunctionGenerator<'a> {
     }
 
     fn emit_call_reg_arg(&mut self, arg: &ir::Operand, reg_idx: u8) -> Result<(), Error> {
-        if matches!(arg.dtype(), ir::Dtype::Pointer { .. }) {
+        if matches!(arg.dtype(), ir::Dtype::Ptr { .. } | ir::Dtype::Array { .. }) {
             self.emit_ptr_to_reg(arg, Register::Physical(reg_idx))?;
         } else {
             let (op, _size) = self.lower_value(arg)?;
@@ -403,7 +408,7 @@ impl<'a> FunctionGenerator<'a> {
         Ok(())
     }
 
-    fn emit_call_result(&mut self, res: &ir::LocalVariable) -> Result<(), Error> {
+    fn emit_call_result(&mut self, res: &ir::LocalRef) -> Result<(), Error> {
         let dst = res.index;
         match &res.dtype {
             ir::Dtype::I32 => {
@@ -454,7 +459,7 @@ impl<'a> FunctionGenerator<'a> {
         match val {
             ir::Operand::Integer(i) => Ok(Operand::Immediate(i.value as i64)),
             ir::Operand::Local(l) => {
-                if !matches!(l.dtype, ir::Dtype::I32) {
+                if !matches!(l.dtype, ir::Dtype::I1 | ir::Dtype::I32) {
                     return Err(Error::UnsupportedDtype {
                         dtype: l.dtype.clone(),
                     });
@@ -492,8 +497,8 @@ impl<'a> FunctionGenerator<'a> {
             ir::Operand::Integer(i) => Ok((Operand::Immediate(i.value as i64), RegSize::W32)),
             ir::Operand::Local(l) => {
                 let size = match &l.dtype {
-                    ir::Dtype::I32 => RegSize::W32,
-                    ir::Dtype::Pointer { .. } => {
+                    ir::Dtype::I1 | ir::Dtype::I32 => RegSize::W32,
+                    ir::Dtype::Ptr { .. } => {
                         if self.frame.has_alloca(l.index) {
                             return Err(Error::UnsupportedOperand {
                                 what: format!(
@@ -548,7 +553,7 @@ impl<'a> FunctionGenerator<'a> {
                 }
                 // Otherwise, if it's a pointer type, the pointer value itself
                 // lives in a virtual register (e.g., result of a GEP or load).
-                if matches!(l.dtype, ir::Dtype::Pointer { .. }) {
+                if matches!(l.dtype, ir::Dtype::Ptr { .. }) {
                     return Ok((PtrBase::Register(vreg_index), None));
                 }
                 // Non-pointer locals cannot be used as pointer operands.
@@ -568,7 +573,7 @@ impl<'a> FunctionGenerator<'a> {
         match val {
             ir::Operand::Integer(i) => Ok(IndexOperand::Imm(i.value as i64)),
             ir::Operand::Local(l) => {
-                if !matches!(l.dtype, ir::Dtype::I32) {
+                if !matches!(l.dtype, ir::Dtype::I1 | ir::Dtype::I32) {
                     return Err(Error::UnsupportedDtype {
                         dtype: l.dtype.clone(),
                     });
@@ -609,22 +614,22 @@ impl<'a> FunctionGenerator<'a> {
     }
 }
 
-fn arith_op_to_binop(op: &ast::ArithBiOp) -> BinOp {
+fn arith_op_to_binop(op: &ir::stmt::ArithBinOp) -> BinOp {
     match op {
-        ast::ArithBiOp::Add => BinOp::Add,
-        ast::ArithBiOp::Sub => BinOp::Sub,
-        ast::ArithBiOp::Mul => BinOp::Mul,
-        ast::ArithBiOp::Div => BinOp::SDiv,
+        ir::stmt::ArithBinOp::Add => BinOp::Add,
+        ir::stmt::ArithBinOp::Sub => BinOp::Sub,
+        ir::stmt::ArithBinOp::Mul => BinOp::Mul,
+        ir::stmt::ArithBinOp::SDiv => BinOp::SDiv,
     }
 }
 
-fn cmp_op_to_cond(op: &ast::ComOp) -> Cond {
+fn cmp_op_to_cond(op: &ir::stmt::CmpPredicate) -> Cond {
     match op {
-        ast::ComOp::Eq => Cond::Eq,
-        ast::ComOp::Ne => Cond::Ne,
-        ast::ComOp::Lt => Cond::Lt,
-        ast::ComOp::Le => Cond::Le,
-        ast::ComOp::Gt => Cond::Gt,
-        ast::ComOp::Ge => Cond::Ge,
+        ir::stmt::CmpPredicate::Eq => Cond::Eq,
+        ir::stmt::CmpPredicate::Ne => Cond::Ne,
+        ir::stmt::CmpPredicate::Slt => Cond::Lt,
+        ir::stmt::CmpPredicate::Sle => Cond::Le,
+        ir::stmt::CmpPredicate::Sgt => Cond::Gt,
+        ir::stmt::CmpPredicate::Sge => Cond::Ge,
     }
 }

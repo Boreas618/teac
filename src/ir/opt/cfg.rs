@@ -1,5 +1,5 @@
-use crate::ir::function::BlockLabel;
-use crate::ir::stmt::{Stmt, StmtInner};
+use crate::ir::function::{BasicBlock, BlockLabel};
+use crate::ir::stmt::StmtInner;
 use std::collections::HashMap;
 
 #[allow(dead_code)]
@@ -12,7 +12,7 @@ pub struct Cfg {
 
 #[allow(dead_code)]
 impl Cfg {
-    pub fn from_blocks(blocks: &[Vec<Stmt>]) -> Self {
+    pub fn from_blocks(blocks: &[BasicBlock]) -> Self {
         let labels = Self::collect_labels(blocks);
         let label_map = Self::build_label_map(&labels);
         let (succs, preds) = Self::build_edges(blocks, &label_map);
@@ -57,19 +57,8 @@ impl Cfg {
         &self.preds
     }
 
-    fn collect_labels(blocks: &[Vec<Stmt>]) -> Vec<BlockLabel> {
-        blocks
-            .iter()
-            .map(|block| {
-                block
-                    .iter()
-                    .find_map(|stmt| match &stmt.inner {
-                        StmtInner::Label(l) => Some(l.label.clone()),
-                        _ => None,
-                    })
-                    .expect("block missing label")
-            })
-            .collect()
+    fn collect_labels(blocks: &[BasicBlock]) -> Vec<BlockLabel> {
+        blocks.iter().map(|block| block.label.clone()).collect()
     }
 
     fn build_label_map(labels: &[BlockLabel]) -> HashMap<String, usize> {
@@ -81,7 +70,7 @@ impl Cfg {
     }
 
     fn build_edges(
-        blocks: &[Vec<Stmt>],
+        blocks: &[BasicBlock],
         label_map: &HashMap<String, usize>,
     ) -> (Vec<Vec<usize>>, Vec<Vec<usize>>) {
         let n = blocks.len();
@@ -102,15 +91,12 @@ impl Cfg {
     }
 
     fn compute_successors(
-        block: &[Stmt],
+        block: &BasicBlock,
         block_idx: usize,
         num_blocks: usize,
         label_map: &HashMap<String, usize>,
     ) -> Vec<usize> {
-        let term = block
-            .iter()
-            .rev()
-            .find(|s| !matches!(s.inner, StmtInner::Label(_)));
+        let term = block.stmts.iter().rev().next();
 
         match term.map(|s| &s.inner) {
             Some(StmtInner::Jump(j)) => vec![label_map[&j.target.key()]],

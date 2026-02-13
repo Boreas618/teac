@@ -7,7 +7,7 @@ pub mod stmt;
 pub mod tree;
 pub mod types;
 
-pub use types::{BuiltIn, TypeSepcifier, TypeSpecifierInner};
+pub use types::{BuiltIn, TypeSpecifier, TypeSpecifierInner};
 
 pub use ops::{ArithBiOp, ArithUOp, BoolBiOp, BoolUOp, ComOp};
 

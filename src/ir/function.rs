@@ -1,14 +1,12 @@
-#![allow(unused)]
-
 use super::error::Error;
-use super::stmt::Stmt;
+use super::module::Registry;
+use super::stmt::{ArithBinOp, CmpPredicate, Stmt};
 use super::types::Dtype;
-use super::value::{LocalVariable, Operand};
-use crate::ast;
+use super::value::{GlobalVariable, LocalVariable, Operand};
 use indexmap::IndexMap;
 use std::fmt::{Display, Formatter};
-use std::rc::Rc;
 
+/// IR basic-block label.
 #[derive(Clone)]
 pub enum BlockLabel {
     BasicBlock(usize),
@@ -31,17 +29,28 @@ impl BlockLabel {
     }
 }
 
+/// First-class IR basic block.
+#[derive(Clone)]
+pub struct BasicBlock {
+    pub label: BlockLabel,
+    pub stmts: Vec<Stmt>,
+}
+
+/// Function-level IR container.
 pub struct Function {
     pub identifier: String,
-    pub local_variables: Option<IndexMap<String, Rc<LocalVariable>>>,
-    pub blocks: Option<Vec<Vec<Stmt>>>,
+    pub local_variables: Option<IndexMap<String, LocalVariable>>,
+    pub blocks: Option<Vec<BasicBlock>>,
     pub arguments: Vec<LocalVariable>,
     pub next_vreg: usize,
 }
 
+/// Function-level IR builder.
 pub struct FunctionGenerator<'ir> {
-    pub module_generator: &'ir mut super::module::ModuleGenerator,
-    pub local_variables: IndexMap<String, Rc<LocalVariable>>,
+    pub registry: &'ir Registry,
+    pub global_variables: &'ir IndexMap<String, GlobalVariable>,
+    pub local_variables: IndexMap<String, LocalVariable>,
+    scope_locals: Vec<Vec<String>>,
     pub irs: Vec<Stmt>,
     pub arguments: Vec<LocalVariable>,
     pub next_vreg: usize,
@@ -49,13 +58,18 @@ pub struct FunctionGenerator<'ir> {
 }
 
 impl<'ir> FunctionGenerator<'ir> {
-    pub fn new(module_generator: &'ir mut super::module::ModuleGenerator) -> Self {
+    pub fn new(
+        registry: &'ir Registry,
+        global_variables: &'ir IndexMap<String, GlobalVariable>,
+    ) -> Self {
         Self {
-            module_generator,
+            registry,
+            global_variables,
             local_variables: IndexMap::new(),
+            scope_locals: Vec::new(),
             irs: Vec::new(),
             arguments: Vec::new(),
-            next_vreg: 100,
+            next_vreg: 0,
             next_basic_block: 1,
         }
     }
@@ -67,7 +81,7 @@ impl<'ir> FunctionGenerator<'ir> {
     }
 
     pub fn alloc_temporary(&mut self, dtype: Dtype) -> Operand {
-        Operand::Local(LocalVariable::new(dtype, self.alloc_vreg(), None))
+        Operand::from(LocalVariable::new(dtype, self.alloc_vreg(), None))
     }
 
     pub fn alloc_basic_block(&mut self) -> BlockLabel {
@@ -78,13 +92,31 @@ impl<'ir> FunctionGenerator<'ir> {
 
     pub fn lookup_variable(&self, id: &str) -> Result<Operand, Error> {
         if let Some(local) = self.local_variables.get(id) {
-            Ok(Operand::Local(local.as_ref().clone()))
-        } else if let Some(global) = self.module_generator.module.global_list.get(id) {
+            Ok(Operand::from(local))
+        } else if let Some(global) = self.global_variables.get(id) {
             Ok(Operand::Global(global.clone()))
         } else {
             Err(Error::VariableNotDefined {
                 symbol: id.to_string(),
             })
+        }
+    }
+
+    pub fn enter_scope(&mut self) {
+        self.scope_locals.push(Vec::new());
+    }
+
+    pub fn exit_scope(&mut self) {
+        if let Some(locals) = self.scope_locals.pop() {
+            for id in locals {
+                self.local_variables.shift_remove(&id);
+            }
+        }
+    }
+
+    pub fn record_scoped_local(&mut self, id: String) {
+        if let Some(scope) = self.scope_locals.last_mut() {
+            scope.push(id);
         }
     }
 }
@@ -107,11 +139,11 @@ impl FunctionGenerator<'_> {
         self.irs.push(Stmt::as_gep(new_ptr, base_ptr, index));
     }
 
-    pub fn emit_biop(&mut self, op: ast::ArithBiOp, left: Operand, right: Operand, dst: Operand) {
+    pub fn emit_biop(&mut self, op: ArithBinOp, left: Operand, right: Operand, dst: Operand) {
         self.irs.push(Stmt::as_biop(op, left, right, dst));
     }
 
-    pub fn emit_cmp(&mut self, op: ast::ComOp, left: Operand, right: Operand, dst: Operand) {
+    pub fn emit_cmp(&mut self, op: CmpPredicate, left: Operand, right: Operand, dst: Operand) {
         self.irs.push(Stmt::as_cmp(op, left, right, dst));
     }
 

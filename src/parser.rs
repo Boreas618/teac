@@ -110,70 +110,58 @@ fn parse_var_decl_list(pair: Pair) -> ParseResult<Vec<ast::VarDecl>> {
 }
 
 fn parse_var_decl(pair: Pair) -> ParseResult<Box<ast::VarDecl>> {
-    let inner_pairs: Vec<_> = pair.into_inner().collect();
-    
-    let identifier = inner_pairs[0].as_str().to_string();
-    
-    match inner_pairs.len() {
-        1 => {
-            Ok(Box::new(ast::VarDecl {
-                identifier,
-                type_specifier: Rc::new(None),
-                inner: ast::VarDeclInner::Scalar(()),
-            }))
+    let mut identifier: Option<String> = None;
+    let mut type_specifier: Rc<Option<ast::TypeSpecifier>> = Rc::new(None);
+    let mut array_len: Option<usize> = None;
+    let mut is_slice = false;
+
+    for inner in pair.into_inner() {
+        match inner.as_rule() {
+            Rule::identifier if identifier.is_none() => {
+                identifier = Some(inner.as_str().to_string());
+            }
+            Rule::type_spec => {
+                type_specifier = parse_type_spec(inner)?;
+            }
+            Rule::num => {
+                array_len = Some(parse_num(inner)? as usize);
+            }
+            Rule::ampersand => {
+                is_slice = true;
+            }
+            _ => {}
         }
-        3 => {
-            let type_specifier = parse_type_spec(inner_pairs[2].clone())?;
-            Ok(Box::new(ast::VarDecl {
-                identifier,
-                type_specifier,
-                inner: ast::VarDeclInner::Scalar(()),
-            }))
-        }
-        4 => {
-            let len = parse_num(inner_pairs[2].clone())? as usize;
-            Ok(Box::new(ast::VarDecl {
-                identifier,
-                type_specifier: Rc::new(None),
-                inner: ast::VarDeclInner::Array(Box::new(ast::VarDeclArray { len })),
-            }))
-        }
-        6 => {
-            // Slice type: identifier ~ colon ~ ampersand ~ lbracket ~ type_spec ~ rbracket
-            // e.g., "input: &[i32]"
-            let type_specifier = parse_type_spec(inner_pairs[4].clone())?;
-            Ok(Box::new(ast::VarDecl {
-                identifier,
-                type_specifier,
-                inner: ast::VarDeclInner::Slice(()),
-            }))
-        }
-        7 => {
-            let type_specifier = parse_type_spec(inner_pairs[3].clone())?;
-            let len = parse_num(inner_pairs[5].clone())? as usize;
-            Ok(Box::new(ast::VarDecl {
-                identifier,
-                type_specifier,
-                inner: ast::VarDeclInner::Array(Box::new(ast::VarDeclArray { len })),
-            }))
-        }
-        _ => Err(format!("Invalid var_decl pattern with {} elements", inner_pairs.len()))
     }
+
+    let identifier = identifier.ok_or_else(|| "Missing identifier in var_decl".to_string())?;
+    let inner = if is_slice {
+        ast::VarDeclInner::Slice
+    } else if let Some(len) = array_len {
+        ast::VarDeclInner::Array(Box::new(ast::VarDeclArray { len }))
+    } else {
+        ast::VarDeclInner::Scalar
+    };
+
+    Ok(Box::new(ast::VarDecl {
+        identifier,
+        type_specifier,
+        inner,
+    }))
 }
 
-fn parse_type_spec(pair: Pair) -> ParseResult<Rc<Option<ast::TypeSepcifier>>> {
+fn parse_type_spec(pair: Pair) -> ParseResult<Rc<Option<ast::TypeSpecifier>>> {
     let pos = get_pos(&pair);
     
     for inner in pair.into_inner() {
         match inner.as_rule() {
             Rule::kw_int => {
-                return Ok(Rc::new(Some(ast::TypeSepcifier {
+                return Ok(Rc::new(Some(ast::TypeSpecifier {
                     pos,
                     inner: ast::TypeSpecifierInner::BuiltIn(ast::BuiltIn::Int),
                 })));
             }
             Rule::identifier => {
-                return Ok(Rc::new(Some(ast::TypeSepcifier {
+                return Ok(Rc::new(Some(ast::TypeSpecifier {
                     pos,
                     inner: ast::TypeSpecifierInner::Composite(inner.as_str().to_string()),
                 })));

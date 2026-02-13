@@ -136,15 +136,9 @@ impl<'a> AArch64AsmGenerator<'a> {
                     .unwrap_or(0);
                 GlobalData::Word { value }
             }
-            ir::Dtype::Pointer { inner, length } => {
-                if *length == 0 {
-                    return Err(Error::UnsupportedDtype {
-                        dtype: g.dtype.clone(),
-                    });
-                }
+            ir::Dtype::Array { element, length } => {
                 let len = *length;
-
-                let (elem_size, _) = layouts.size_align_of(inner.as_ref())?;
+                let (elem_size, _) = layouts.size_align_of(element.as_ref())?;
 
                 if let Some(inits) = &g.initializers {
                     let words: Vec<i64> = inits.iter().take(len).map(|&v| v as i64).collect();
@@ -217,10 +211,11 @@ impl<'a> AArch64AsmGenerator<'a> {
         };
 
         for block in blocks.iter() {
-            for stmt in block.iter() {
+            ctx.emit_label(&block.label);
+            for stmt in &block.stmts {
                 use ir::stmt::StmtInner::*;
                 match &stmt.inner {
-                    Label(l) => ctx.emit_label(l),
+                    Label(l) => ctx.emit_label(&l.label),
                     Alloca(_) => { /* Stack slots handled by frame layout */ }
                     Store(s) => ctx.emit_store(s)?,
                     Load(s) => ctx.emit_load(s)?,

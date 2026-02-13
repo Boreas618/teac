@@ -5,28 +5,12 @@ mod static_eval;
 use crate::ast;
 use crate::ir::types::Dtype;
 
-pub trait BaseDtype {
-    fn type_specifier(&self) -> &Option<ast::TypeSepcifier>;
-
-    fn base_dtype(&self) -> Dtype {
-        match self.type_specifier().as_ref().as_ref().map(|t| &t.inner) {
-            Some(ast::TypeSpecifierInner::Composite(name)) => Dtype::Struct {
-                type_name: name.to_string(),
-            },
-            Some(ast::TypeSpecifierInner::BuiltIn(_)) | None => Dtype::I32,
-        }
-    }
-}
-
-impl BaseDtype for ast::VarDecl {
-    fn type_specifier(&self) -> &Option<ast::TypeSepcifier> {
-        &self.type_specifier
-    }
-}
-
-impl BaseDtype for ast::VarDef {
-    fn type_specifier(&self) -> &Option<ast::TypeSepcifier> {
-        &self.type_specifier
+fn base_dtype(type_specifier: &Option<ast::TypeSpecifier>) -> Dtype {
+    match type_specifier.as_ref().map(|t| &t.inner) {
+        Some(ast::TypeSpecifierInner::Composite(name)) => Dtype::Struct {
+            type_name: name.to_string(),
+        },
+        Some(ast::TypeSpecifierInner::BuiltIn(_)) | None => Dtype::I32,
     }
 }
 
@@ -53,14 +37,14 @@ impl Named for ast::VarDeclStmt {
     }
 }
 
-impl From<ast::TypeSepcifier> for Dtype {
-    fn from(a: ast::TypeSepcifier) -> Self {
+impl From<ast::TypeSpecifier> for Dtype {
+    fn from(a: ast::TypeSpecifier) -> Self {
         Self::from(&a)
     }
 }
 
-impl From<&ast::TypeSepcifier> for Dtype {
-    fn from(a: &ast::TypeSepcifier) -> Self {
+impl From<&ast::TypeSpecifier> for Dtype {
+    fn from(a: &ast::TypeSpecifier) -> Self {
         match &a.inner {
             ast::TypeSpecifierInner::BuiltIn(_) => Self::I32,
             ast::TypeSpecifierInner::Composite(name) => Self::Struct {
@@ -74,17 +58,12 @@ impl TryFrom<&ast::VarDecl> for Dtype {
     type Error = crate::ir::Error;
 
     fn try_from(decl: &ast::VarDecl) -> Result<Self, Self::Error> {
-        let base_dtype = decl.base_dtype();
+        let base_dtype = base_dtype(&decl.type_specifier);
         match &decl.inner {
-            ast::VarDeclInner::Array(decl) => Ok(Dtype::Pointer {
-                inner: Box::new(base_dtype),
-                length: decl.len,
-            }),
-            ast::VarDeclInner::Slice(_) => Ok(Dtype::Pointer {
-                inner: Box::new(base_dtype),
-                length: 0, // Slice is a pointer with no length info
-            }),
-            ast::VarDeclInner::Scalar(_) => Ok(decl.base_dtype()),
+            ast::VarDeclInner::Array(decl) => Ok(Dtype::array_of(base_dtype, decl.len)),
+            // Slice is a pointer to the first element (no length info in dtype).
+            ast::VarDeclInner::Slice => Ok(Dtype::ptr_to(base_dtype)),
+            ast::VarDeclInner::Scalar => Ok(base_dtype),
         }
     }
 }
@@ -93,15 +72,12 @@ impl TryFrom<&ast::VarDef> for Dtype {
     type Error = crate::ir::Error;
 
     fn try_from(def: &ast::VarDef) -> Result<Self, Self::Error> {
-        if let Dtype::Struct { .. } = &def.base_dtype() {
+        if let Dtype::Struct { .. } = &base_dtype(&def.type_specifier) {
             return Err(crate::ir::Error::StructInitialization);
         }
-        let base_dtype = def.base_dtype();
+        let base_dtype = base_dtype(&def.type_specifier);
         match &def.inner {
-            ast::VarDefInner::Array(def) => Ok(Dtype::Pointer {
-                inner: Box::new(base_dtype),
-                length: def.len,
-            }),
+            ast::VarDefInner::Array(def) => Ok(Dtype::array_of(base_dtype, def.len)),
             ast::VarDefInner::Scalar(_) => Ok(base_dtype),
         }
     }

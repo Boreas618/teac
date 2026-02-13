@@ -5,6 +5,75 @@ use super::types::Dtype;
 use super::value::Operand;
 use std::fmt::{self, Display, Formatter};
 
+/// IR arithmetic binary operation kind.
+#[derive(Clone)]
+pub enum ArithBinOp {
+    Add,
+    Sub,
+    Mul,
+    SDiv,
+}
+
+impl From<ast::ArithBiOp> for ArithBinOp {
+    fn from(value: ast::ArithBiOp) -> Self {
+        match value {
+            ast::ArithBiOp::Add => ArithBinOp::Add,
+            ast::ArithBiOp::Sub => ArithBinOp::Sub,
+            ast::ArithBiOp::Mul => ArithBinOp::Mul,
+            ast::ArithBiOp::Div => ArithBinOp::SDiv,
+        }
+    }
+}
+
+impl Display for ArithBinOp {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            ArithBinOp::Add => write!(f, "add"),
+            ArithBinOp::Sub => write!(f, "sub"),
+            ArithBinOp::Mul => write!(f, "mul"),
+            ArithBinOp::SDiv => write!(f, "sdiv"),
+        }
+    }
+}
+
+/// IR integer comparison predicate.
+#[derive(Clone)]
+pub enum CmpPredicate {
+    Eq,
+    Ne,
+    Sgt,
+    Sge,
+    Slt,
+    Sle,
+}
+
+impl From<ast::ComOp> for CmpPredicate {
+    fn from(value: ast::ComOp) -> Self {
+        match value {
+            ast::ComOp::Eq => CmpPredicate::Eq,
+            ast::ComOp::Ne => CmpPredicate::Ne,
+            ast::ComOp::Gt => CmpPredicate::Sgt,
+            ast::ComOp::Ge => CmpPredicate::Sge,
+            ast::ComOp::Lt => CmpPredicate::Slt,
+            ast::ComOp::Le => CmpPredicate::Sle,
+        }
+    }
+}
+
+impl Display for CmpPredicate {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            CmpPredicate::Eq => write!(f, "eq"),
+            CmpPredicate::Ne => write!(f, "ne"),
+            CmpPredicate::Sgt => write!(f, "sgt"),
+            CmpPredicate::Sge => write!(f, "sge"),
+            CmpPredicate::Slt => write!(f, "slt"),
+            CmpPredicate::Sle => write!(f, "sle"),
+        }
+    }
+}
+
+/// A single IR statement.
 #[derive(Clone)]
 pub enum StmtInner {
     Call(CallStmt),
@@ -21,6 +90,7 @@ pub enum StmtInner {
     Return(ReturnStmt),
 }
 
+/// Thin wrapper around `StmtInner`.
 #[derive(Clone)]
 pub struct Stmt {
     pub inner: StmtInner,
@@ -49,7 +119,7 @@ impl Stmt {
         }
     }
 
-    pub fn as_biop(kind: ast::ArithBiOp, left: Operand, right: Operand, dst: Operand) -> Self {
+    pub fn as_biop(kind: ArithBinOp, left: Operand, right: Operand, dst: Operand) -> Self {
         Self {
             inner: StmtInner::BiOp(BiOpStmt {
                 kind,
@@ -66,7 +136,7 @@ impl Stmt {
         }
     }
 
-    pub fn as_cmp(kind: ast::ComOp, left: Operand, right: Operand, dst: Operand) -> Self {
+    pub fn as_cmp(kind: CmpPredicate, left: Operand, right: Operand, dst: Operand) -> Self {
         Self {
             inner: StmtInner::Cmp(CmpStmt {
                 kind,
@@ -166,7 +236,7 @@ pub struct PhiStmt {
 
 #[derive(Clone)]
 pub struct BiOpStmt {
-    pub kind: ast::ArithBiOp,
+    pub kind: ArithBinOp,
     pub left: Operand,
     pub right: Operand,
     pub dst: Operand,
@@ -179,7 +249,7 @@ pub struct AllocaStmt {
 
 #[derive(Clone)]
 pub struct CmpStmt {
-    pub kind: ast::ComOp,
+    pub kind: CmpPredicate,
     pub left: Operand,
     pub right: Operand,
     pub dst: Operand,
@@ -226,7 +296,7 @@ impl Display for CallStmt {
             .args
             .iter()
             .map(|a| {
-                if matches!(a.dtype(), Dtype::Pointer { .. }) {
+                if matches!(a.dtype(), Dtype::Ptr { .. } | Dtype::Array { .. }) {
                     format!("ptr {}", a)
                 } else {
                     format!("{} {}", a.dtype(), a)
@@ -290,10 +360,7 @@ impl Display for StoreStmt {
 impl Display for AllocaStmt {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self.dst.dtype() {
-            Dtype::Pointer { inner, length } => match length {
-                0 => write!(f, "{} = alloca {}, align 4", self.dst, inner),
-                _ => write!(f, "{} = alloca {}, align 4", self.dst, self.dst.dtype()),
-            },
+            Dtype::Ptr { pointee } => write!(f, "{} = alloca {}, align 4", self.dst, pointee),
             _ => write!(f, "{} = alloca {}, align 4", self.dst, self.dst.dtype()),
         }
     }
@@ -352,25 +419,43 @@ impl Display for LabelStmt {
 impl Display for GepStmt {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self.base_ptr.dtype() {
-            Dtype::Pointer { length, .. } => match length {
-                0 => write!(
-                    f,
-                    "{} = getelementptr {}, ptr {}, i32 {}",
-                    self.new_ptr,
-                    self.base_ptr.dtype(),
-                    self.base_ptr,
-                    self.index,
-                ),
-                _ => write!(
+            Dtype::Ptr { pointee } => match pointee.as_ref() {
+                Dtype::Array { .. } => write!(
                     f,
                     "{} = getelementptr {}, ptr {}, i32 {}, i32 {}",
                     self.new_ptr,
-                    self.base_ptr.dtype(),
+                    pointee,
                     self.base_ptr,
                     0,
                     self.index,
                 ),
+                Dtype::Struct { .. } => write!(
+                    f,
+                    "{} = getelementptr {}, ptr {}, i32 {}, i32 {}",
+                    self.new_ptr,
+                    pointee,
+                    self.base_ptr,
+                    0,
+                    self.index,
+                ),
+                _ => write!(
+                    f,
+                    "{} = getelementptr {}, ptr {}, i32 {}",
+                    self.new_ptr,
+                    pointee,
+                    self.base_ptr,
+                    self.index,
+                ),
             },
+            Dtype::Array { .. } => write!(
+                f,
+                "{} = getelementptr {}, ptr {}, i32 {}, i32 {}",
+                self.new_ptr,
+                self.base_ptr.dtype(),
+                self.base_ptr,
+                0,
+                self.index,
+            ),
             _ => Err(fmt::Error),
         }
     }

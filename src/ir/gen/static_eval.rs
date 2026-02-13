@@ -27,10 +27,10 @@ impl ModuleGenerator {
         let left = Self::handle_arith_expr_static(&expr.left)?;
         let right = Self::handle_arith_expr_static(&expr.right)?;
         match &expr.op {
-            ast::ArithBiOp::Add => Ok(left + right),
-            ast::ArithBiOp::Sub => Ok(left - right),
-            ast::ArithBiOp::Mul => Ok(left * right),
-            ast::ArithBiOp::Div => Ok(left / right),
+            ast::ArithBiOp::Add => left.checked_add(right).ok_or(Error::IntegerOverflow),
+            ast::ArithBiOp::Sub => left.checked_sub(right).ok_or(Error::IntegerOverflow),
+            ast::ArithBiOp::Mul => left.checked_mul(right).ok_or(Error::IntegerOverflow),
+            ast::ArithBiOp::Div => left.checked_div(right).ok_or(Error::DivisionByZero),
         }
     }
 

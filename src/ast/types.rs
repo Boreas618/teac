@@ -14,9 +14,9 @@ pub enum TypeSpecifierInner {
 }
 
 #[derive(Debug, Clone)]
-pub struct TypeSepcifier {
+pub struct TypeSpecifier {
     pub pos: Pos,
     pub inner: TypeSpecifierInner,
 }
 
-pub type SharedTypeSpec = Rc<Option<TypeSepcifier>>;
+pub type SharedTypeSpec = Rc<Option<TypeSpecifier>>;
