@@ -17,16 +17,16 @@ Build the compiler:
 cargo build --release
 ```
 
-Compile a TeaLang program to LLVM IR:
+Compile a TeaLang program to AArch64 assembly (default):
 
 ```bash
-cargo run -- tests/dfs/dfs.tea
+cargo run -- tests/dfs/dfs.tea -o dfs.s
 ```
 
-Compile to AArch64 assembly:
+Compile to LLVM IR:
 
 ```bash
-cargo run -- tests/dfs/dfs.tea -d s -o dfs.s
+cargo run -- tests/dfs/dfs.tea --emit ir -o dfs.ll
 ```
 
 ## Usage
@@ -38,9 +38,9 @@ Arguments:
   <FILE>  Input file (.tea source)
 
 Options:
-  -d <MODE>        Dump mode: ast, ir (default), or s (assembly)
-  -o <FILE>        Output file (default: input with .ll or .s extension)
-  -h, --help       Print help
+  --emit <MODE>            Emit target: ast, ir, or asm (default)
+  -o, --output <FILE>  Output file (default: stdout)
+  -h, --help           Print help
 ```
 
 ### Examples
@@ -49,11 +49,11 @@ Options:
 # Dump AST
 cargo run -- program.tea -d ast
 
-# Generate LLVM IR (default)
-cargo run -- program.tea -o program.ll
+# Generate LLVM IR
+cargo run -- program.tea --emit ir -o program.ll
 
-# Generate AArch64 assembly
-cargo run -- program.tea -d s -o program.s
+# Generate AArch64 assembly (default)
+cargo run -- program.tea -o program.s
 ```
 
 ## Project Structure

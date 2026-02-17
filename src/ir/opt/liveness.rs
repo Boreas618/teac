@@ -1,20 +1,20 @@
-use super::cfg::Cfg;
+use super::cfg::Graph;
 use std::collections::HashSet;
 
-#[allow(dead_code)]
+
 pub struct Liveness {
     live_in: Vec<bool>,
     live_out: Vec<bool>,
 }
 
-#[allow(dead_code)]
+
 impl Liveness {
     pub fn compute(
         use_blocks: &HashSet<usize>,
         def_blocks: &HashSet<usize>,
-        cfg: &Cfg,
+        graph: &Graph,
     ) -> Self {
-        let n = cfg.num_blocks();
+        let n = graph.num_nodes();
         let mut live_in = vec![false; n];
         let mut live_out = vec![false; n];
 
@@ -24,7 +24,7 @@ impl Liveness {
             for b in (0..n).rev() {
                 // live_out[b] = ∪ live_in[s] for all successors s
                 let mut out = false;
-                for &s in cfg.successors(b) {
+                for &s in graph.successors(b) {
                     if live_in[s] {
                         out = true;
                         break;

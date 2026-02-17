@@ -122,7 +122,7 @@ pub enum ExprUnitInner {
     FnCall(Box<FnCall>),
     ArrayExpr(Box<ArrayExpr>),
     MemberExpr(Box<MemberExpr>),
-    #[allow(dead_code)]
+    
     ArithUExpr(Box<ArithUExpr>),
 }
 

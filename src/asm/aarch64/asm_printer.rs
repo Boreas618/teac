@@ -19,7 +19,7 @@ pub trait AsmPrint {
 
     fn emit_sub_sp(&mut self, imm: i64) -> Result<(), Error>;
 
-    #[allow(dead_code)]
+    
     fn emit_raw(&mut self, line: &str) -> Result<(), Error>;
 
     fn emit_global(&mut self, sym: &str) -> Result<(), Error>;
@@ -40,12 +40,12 @@ impl<W: Write> AsmPrinter<W> {
         Self { writer }
     }
 
-    #[allow(dead_code)]
+    
     pub fn into_inner(self) -> W {
         self.writer
     }
 
-    #[allow(dead_code)]
+    
     pub fn writer_mut(&mut self) -> &mut W {
         &mut self.writer
     }

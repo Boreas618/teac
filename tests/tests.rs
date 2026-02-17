@@ -183,8 +183,8 @@ fn launch(dir: &PathBuf, input_file: &str, output_file: &str) -> Output {
     let tool = Path::new(env!("CARGO_BIN_EXE_teac"));
     Command::new(tool)
         .arg(input_file)
-        .arg("-d")
-        .arg("s")
+        .arg("--emit")
+        .arg("asm")
         .arg("-o")
         .arg(output_file)
         .current_dir(dir)

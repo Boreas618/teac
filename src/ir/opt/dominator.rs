@@ -1,4 +1,4 @@
-use super::cfg::Cfg;
+use super::cfg::Graph;
 use std::collections::HashSet;
 
 pub struct DominatorInfo {
@@ -8,11 +8,11 @@ pub struct DominatorInfo {
     frontiers: Vec<HashSet<usize>>,
 }
 
-#[allow(dead_code)]
+
 impl DominatorInfo {
-    pub fn compute(cfg: &Cfg) -> Self {
-        let preds = cfg.preds_vec();
-        let succs = cfg.succs_vec();
+    pub fn compute(graph: &Graph) -> Self {
+        let preds = graph.preds_vec();
+        let succs = graph.succs_vec();
 
         let dom = Self::compute_dominators(preds);
         let idom = Self::compute_idom(preds, succs);

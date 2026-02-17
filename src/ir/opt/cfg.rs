@@ -2,39 +2,65 @@ use crate::ir::function::{BasicBlock, BlockLabel};
 use crate::ir::stmt::StmtInner;
 use std::collections::HashMap;
 
-#[allow(dead_code)]
-pub struct Cfg {
-    labels: Vec<BlockLabel>,
-    label_map: HashMap<String, usize>,
+
+pub struct Graph {
     succs: Vec<Vec<usize>>,
     preds: Vec<Vec<usize>>,
 }
 
-#[allow(dead_code)]
+
+impl Graph {
+    pub fn num_nodes(&self) -> usize {
+        self.succs.len()
+    }
+
+    pub fn successors(&self, node: usize) -> &[usize] {
+        &self.succs[node]
+    }
+
+    pub fn predecessors(&self, node: usize) -> &[usize] {
+        &self.preds[node]
+    }
+
+    pub fn succs_vec(&self) -> &[Vec<usize>] {
+        &self.succs
+    }
+
+    pub fn preds_vec(&self) -> &[Vec<usize>] {
+        &self.preds
+    }
+}
+
+
+pub struct Cfg {
+    labels: Vec<BlockLabel>,
+    graph: Graph,
+}
+
+
 impl Cfg {
     pub fn from_blocks(blocks: &[BasicBlock]) -> Self {
         let labels = Self::collect_labels(blocks);
         let label_map = Self::build_label_map(&labels);
-        let (succs, preds) = Self::build_edges(blocks, &label_map);
+        let graph = Self::build_graph(blocks, &label_map);
 
-        Self {
-            labels,
-            label_map,
-            succs,
-            preds,
-        }
+        Self { labels, graph }
+    }
+
+    pub fn graph(&self) -> &Graph {
+        &self.graph
     }
 
     pub fn num_blocks(&self) -> usize {
-        self.labels.len()
+        self.graph.num_nodes()
     }
 
     pub fn successors(&self, block: usize) -> &[usize] {
-        &self.succs[block]
+        self.graph.successors(block)
     }
 
     pub fn predecessors(&self, block: usize) -> &[usize] {
-        &self.preds[block]
+        self.graph.predecessors(block)
     }
 
     pub fn label(&self, block: usize) -> &BlockLabel {
@@ -43,18 +69,6 @@ impl Cfg {
 
     pub fn labels(&self) -> &[BlockLabel] {
         &self.labels
-    }
-
-    pub fn block_index(&self, label: &BlockLabel) -> Option<usize> {
-        self.label_map.get(&label.key()).copied()
-    }
-
-    pub(crate) fn succs_vec(&self) -> &[Vec<usize>] {
-        &self.succs
-    }
-
-    pub(crate) fn preds_vec(&self) -> &[Vec<usize>] {
-        &self.preds
     }
 
     fn collect_labels(blocks: &[BasicBlock]) -> Vec<BlockLabel> {
@@ -69,10 +83,10 @@ impl Cfg {
             .collect()
     }
 
-    fn build_edges(
+    fn build_graph(
         blocks: &[BasicBlock],
         label_map: &HashMap<String, usize>,
-    ) -> (Vec<Vec<usize>>, Vec<Vec<usize>>) {
+    ) -> Graph {
         let n = blocks.len();
         let mut succs: Vec<Vec<usize>> = vec![Vec::new(); n];
         let mut preds: Vec<Vec<usize>> = vec![Vec::new(); n];
@@ -87,7 +101,7 @@ impl Cfg {
             }
         }
 
-        (succs, preds)
+        Graph { succs, preds }
     }
 
     fn compute_successors(
@@ -115,4 +129,3 @@ impl Cfg {
         }
     }
 }
-

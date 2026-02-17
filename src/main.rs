@@ -5,20 +5,17 @@ mod parser;
 
 use asm::AsmGenerator;
 use clap::{Parser, ValueEnum};
-use regex::Regex;
 use std::{
-    collections::HashSet,
-    fs::File,
-    io::{self, BufWriter, Read, Write},
-    path::{Path, PathBuf},
-    sync::LazyLock,
+    fs::{self, File},
+    io::{self, BufWriter, Write},
+    path::Path,
 };
 
 #[derive(Copy, Clone, Debug, PartialEq, ValueEnum)]
-enum DumpMode {
-    AST,
-    IR,
-    S,
+enum EmitTarget {
+    Ast,
+    Ir,
+    Asm,
 }
 
 #[derive(Parser, Debug)]
@@ -28,90 +25,28 @@ struct Cli {
     #[clap(value_name = "FILE")]
     input: String,
 
-    #[arg(short = 'd', value_enum, ignore_case = true, default_value = "s")]
-    dump: DumpMode,
+    #[arg(long, value_enum, ignore_case = true, default_value = "asm")]
+    emit: EmitTarget,
 
     #[clap(short, long, value_name = "FILE")]
     output: Option<String>,
 }
 
-static USE_RE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r#"(?m)^\s*use\s+([A-Za-z0-9_]+)\s*;?\s*$"#).unwrap());
-
-fn preprocess_file(path: &Path, visited: &mut HashSet<PathBuf>) -> io::Result<String> {
-    let key = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
-    if !visited.insert(key.clone()) {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidData,
-            format!("include cycle detected at: {}", key.to_string_lossy()),
-        ));
-    }
-
-    let mut src = String::new();
-    File::open(path)?.read_to_string(&mut src)?;
-
-    let re = &*USE_RE;
-
-    let mut out = String::with_capacity(src.len());
-    let mut last = 0usize;
-
-    for caps in re.captures_iter(&src) {
-        let m = caps.get(0).unwrap();
-        let module = caps.get(1).unwrap().as_str();
-
-        out.push_str(&src[last..m.start()]);
-
-        if module == "std" {
-            out.push_str(m.as_str());
-            last = m.end();
-            continue;
-        }
-
-        let base_dir = path.parent().unwrap_or(Path::new("."));
-        let header_path = base_dir.join(format!("{module}.teah"));
-
-        let header_expanded = preprocess_file(&header_path, visited).map_err(|e| {
-            io::Error::new(
-                e.kind(),
-                format!(
-                    "while expanding use {} in {}: {}",
-                    module,
-                    path.to_string_lossy(),
-                    e
-                ),
-            )
-        })?;
-
-        out.push_str(&header_expanded);
-        last = m.end();
-    }
-
-    out.push_str(&src[last..]);
-    // Keep `key` in `visited` so that the same file is not included more than
-    // once (C-style include-guard semantics).  The previous `visited.remove()`
-    // turned this into a mere recursion guard, allowing duplicate inclusion in
-    // diamond dependency patterns (A→B,C; B→D, C→D).
-
-    Ok(out)
-}
-
 fn write_output<W: Write>(
-    dump_mode: DumpMode,
+    emit_target: EmitTarget,
     module_generator: &ir::ModuleGenerator,
     writer: &mut W,
 ) {
-    match dump_mode {
-        DumpMode::IR => {
+    match emit_target {
+        EmitTarget::Ir => {
             module_generator.output(writer).unwrap_or_else(|e| {
                 eprintln!("Encountered error outputting: {e}");
                 std::process::exit(1);
             });
         }
-        DumpMode::S => {
-            let mut asm_gen = asm::AArch64AsmGenerator::new(
-                &module_generator.module,
-                &module_generator.registry,
-            );
+        EmitTarget::Asm => {
+            let mut asm_gen =
+                asm::AArch64AsmGenerator::new(&module_generator.module, &module_generator.registry);
             asm_gen.generate().unwrap_or_else(|e| {
                 eprintln!("Encountered error while generating assembly: {e}");
                 std::process::exit(1);
@@ -121,7 +56,7 @@ fn write_output<W: Write>(
                 std::process::exit(1);
             });
         }
-        DumpMode::AST => {}
+        EmitTarget::Ast => {}
     }
 }
 
@@ -129,11 +64,8 @@ fn main() {
     let cli = Cli::parse();
     let input_path = cli.input;
 
-    let mut visited = HashSet::new();
-    let prog = preprocess_file(Path::new(&input_path), &mut visited).unwrap_or_else(|e| {
-        eprintln!("Error: Failed to preprocess input file '{input_path}': {e}");
-        eprintln!("\nUsage: teac [OPTIONS] <FILE>");
-        eprintln!("Try 'teac --help' for more information.");
+    let prog = fs::read_to_string(input_path).unwrap_or_else(|e| {
+        eprintln!("Encountered error while reading input file: {e}");
         std::process::exit(1);
     });
 
@@ -142,7 +74,7 @@ fn main() {
         std::process::exit(1);
     });
 
-    if cli.dump == DumpMode::AST {
+    if cli.emit == EmitTarget::Ast {
         print!("{}", ast);
         return;
     }
@@ -174,11 +106,11 @@ fn main() {
                 );
                 std::process::exit(1);
             }));
-            write_output(cli.dump, &module_generator, &mut writer);
+            write_output(cli.emit, &module_generator, &mut writer);
         }
         None => {
             let mut writer = BufWriter::new(io::stdout());
-            write_output(cli.dump, &module_generator, &mut writer);
+            write_output(cli.emit, &module_generator, &mut writer);
         }
     }
 }

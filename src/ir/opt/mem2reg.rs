@@ -8,106 +8,76 @@ use crate::ir::types::Dtype;
 use crate::ir::value::{LocalVariable, Operand};
 use std::collections::{HashMap, HashSet, VecDeque};
 
-/// Promote stack allocas to SSA registers where safe.
-pub fn mem2reg(func: &mut Function) {
-    let next_vreg = func.next_vreg;
-    if let Some(pass) = Mem2Reg::new(func, next_vreg) {
-        func.next_vreg = pass.run();
-    }
-}
-
-/// mem2reg pass adapter for the function pass manager.
 pub struct Mem2RegPass;
 
 impl FunctionPass for Mem2RegPass {
     fn run(&self, func: &mut Function) {
-        mem2reg(func);
-    }
-}
+        let Function {
+            blocks: ref mut blocks_opt,
+            ref mut next_vreg,
+            ..
+        } = *func;
 
-struct Mem2Reg<'a> {
-    blocks: &'a mut Vec<BasicBlock>,
-    #[allow(dead_code)]
-    arguments: &'a [LocalVariable],
-    cfg: Cfg,
-    dom_info: DominatorInfo,
-    next_vreg: usize,
-}
-
-impl<'a> Mem2Reg<'a> {
-    fn new(func: &'a mut Function, next_vreg: usize) -> Option<Self> {
-        let blocks = func.blocks.as_mut()?;
+        let Some(blocks) = blocks_opt.as_mut() else { return };
         if blocks.is_empty() {
-            return None;
+            return;
         }
 
         let cfg = Cfg::from_blocks(blocks);
-        let dom_info = DominatorInfo::compute(&cfg);
+        let dom_info = DominatorInfo::compute(cfg.graph());
+        let analysis = AllocaAnalysis::from_blocks(blocks);
+        let promotable = analysis.promotable_vars(&dom_info);
 
-        Some(Self {
-            blocks,
-            arguments: &func.arguments,
-            cfg,
-            dom_info,
-            next_vreg,
-        })
+        if !promotable.is_empty() {
+            let mut phis = PhiPlacement::new(cfg.num_blocks());
+            place_phis(&promotable, &mut phis, &cfg, &dom_info, next_vreg);
+
+            let mut renamer = Renamer::new(
+                blocks,
+                &cfg,
+                &dom_info,
+                &mut phis,
+                promotable.keys().copied().collect(),
+            );
+            renamer.run();
+            *blocks = renamer.finish();
+        }
     }
+}
 
-    fn run(mut self) -> usize {
-        let analysis = AllocaAnalysis::from_blocks(self.blocks);
-        let promotable = analysis.promotable_vars(&self.dom_info);
-
-        if promotable.is_empty() {
-            return self.next_vreg;
+fn place_phis(
+    promotable: &HashMap<usize, VarUsage>,
+    phi_placement: &mut PhiPlacement,
+    cfg: &Cfg,
+    dom_info: &DominatorInfo,
+    next_vreg: &mut usize,
+) {
+    for (&var_idx, info) in promotable.iter() {
+        if !info.has_load {
+            continue;
         }
 
-        let mut phi_placement = PhiPlacement::new(self.cfg.num_blocks());
-        self.place_phis(&promotable, &mut phi_placement);
+        let liveness =
+            Liveness::compute(&info.load_before_store_blocks, &info.def_blocks, cfg.graph());
 
-        let mut renamer = Renamer::new(
-            self.blocks,
-            &self.cfg,
-            &self.dom_info,
-            &mut phi_placement,
-            promotable.keys().copied().collect(),
-        );
-        renamer.run();
-        *self.blocks = renamer.finish();
+        let mut worklist: VecDeque<usize> = info.def_blocks.iter().copied().collect();
 
-        self.next_vreg
-    }
+        while let Some(b) = worklist.pop_front() {
+            for &y in dom_info.dominance_frontier(b) {
+                if !liveness.is_live_in(y) {
+                    continue;
+                }
+                if phi_placement.has_phi(y, var_idx) {
+                    continue;
+                }
 
-    fn place_phis(&mut self, promotable: &HashMap<usize, VarUsage>, phi_placement: &mut PhiPlacement) {
-        for (&var_idx, info) in promotable.iter() {
-            if !info.has_load {
-                continue;
-            }
+                let idx = *next_vreg;
+                *next_vreg += 1;
+                let dst = Operand::from(LocalVariable::new(Dtype::I32, idx, None));
+                phi_placement.insert_phi(y, var_idx, dst);
 
-            let liveness = Liveness::compute(
-                &info.load_before_store_blocks,
-                &info.def_blocks,
-                &self.cfg,
-            );
-
-            let mut worklist: VecDeque<usize> = info.def_blocks.iter().copied().collect();
-
-            while let Some(b) = worklist.pop_front() {
-                for &y in self.dom_info.dominance_frontier(b) {
-                    if !liveness.is_live_in(y) {
-                        continue;
-                    }
-                    if phi_placement.has_phi(y, var_idx) {
-                        continue;
-                    }
-
-                    let idx = self.next_vreg;
-                    self.next_vreg += 1;
-                    let dst = Operand::from(LocalVariable::new(Dtype::I32, idx, None));
-                    phi_placement.insert_phi(y, var_idx, dst);
-
-                    if !info.def_blocks.contains(&y) {
-                        worklist.push_back(y);
-                    }
+                if !info.def_blocks.contains(&y) {
+                    worklist.push_back(y);
                 }
             }
         }
@@ -115,7 +85,7 @@ impl<'a> Mem2Reg<'a> {
 }
 
 struct AllocaAnalysis {
-    #[allow(dead_code)]
+    
     candidates: HashSet<usize>,
     usage: HashMap<usize, VarUsage>,
 }
@@ -138,9 +108,10 @@ impl AllocaAnalysis {
 
             let mut ok = true;
             for &block in &info.load_before_store_blocks {
-                let has_dom_def = info.def_blocks.iter().any(|&def_block| {
-                    def_block != block && dom_info.dominates(def_block, block)
-                });
+                let has_dom_def = info
+                    .def_blocks
+                    .iter()
+                    .any(|&def_block| def_block != block && dom_info.dominates(def_block, block));
                 if !has_dom_def {
                     ok = false;
                     break;
@@ -188,7 +159,10 @@ impl AllocaAnalysis {
         candidates
     }
 
-    fn analyze_usage(blocks: &[BasicBlock], candidates: &HashSet<usize>) -> HashMap<usize, VarUsage> {
+    fn analyze_usage(
+        blocks: &[BasicBlock],
+        candidates: &HashSet<usize>,
+    ) -> HashMap<usize, VarUsage> {
         let mut usage: HashMap<usize, VarUsage> = candidates
             .iter()
             .map(|&v| (v, VarUsage::default()))

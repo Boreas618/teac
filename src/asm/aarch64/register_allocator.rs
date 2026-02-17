@@ -110,7 +110,7 @@ impl ControlFlowGraph {
 }
 
 struct LivenessAnalysis {
-    #[allow(dead_code)]
+    
     live_in: Vec<HashSet<usize>>,
     live_out: Vec<HashSet<usize>>,
 }
