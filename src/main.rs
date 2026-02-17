@@ -32,85 +32,69 @@ struct Cli {
     output: Option<String>,
 }
 
-fn write_output<W: Write>(
-    emit_target: EmitTarget,
-    module_generator: &ir::ModuleGenerator,
-    writer: &mut W,
-) {
-    match emit_target {
-        EmitTarget::Ir => {
-            module_generator.output(writer).unwrap_or_else(|e| {
-                eprintln!("Encountered error outputting: {e}");
-                std::process::exit(1);
-            });
+fn open_writer(output: &Option<String>) -> Result<Box<dyn Write>, String> {
+    match output {
+        Some(path) => {
+            let out_path = Path::new(path);
+            if let Some(parent) = out_path.parent() {
+                if !parent.as_os_str().is_empty() {
+                    fs::create_dir_all(parent).map_err(|e| {
+                        format!(
+                            "failed to create output directory '{}': {e}",
+                            parent.display()
+                        )
+                    })?;
+                }
+            }
+            let file = File::create(out_path).map_err(|e| {
+                format!("failed to create output file '{}': {e}", out_path.display())
+            })?;
+            Ok(Box::new(BufWriter::new(file)))
         }
-        EmitTarget::Asm => {
-            let mut asm_gen =
-                asm::AArch64AsmGenerator::new(&module_generator.module, &module_generator.registry);
-            asm_gen.generate().unwrap_or_else(|e| {
-                eprintln!("Encountered error while generating assembly: {e}");
-                std::process::exit(1);
-            });
-            asm_gen.output(writer).unwrap_or_else(|e| {
-                eprintln!("Encountered error while generating assembly: {e}");
-                std::process::exit(1);
-            });
-        }
-        EmitTarget::Ast => {}
+        None => Ok(Box::new(BufWriter::new(io::stdout()))),
     }
 }
 
-fn main() {
+fn run() -> Result<(), String> {
     let cli = Cli::parse();
-    let input_path = cli.input;
+    let source = fs::read_to_string(&cli.input)
+        .map_err(|e| format!("failed to read input file '{}': {e}", cli.input))?;
+    let ast = parser::parse(&source)?;
+    let mut writer = open_writer(&cli.output)?;
+    
+    match cli.emit {
+        EmitTarget::Ast => {
+            write!(writer, "{ast}").map_err(|e| format!("failed to write AST output: {e}"))?;
+        }
+        EmitTarget::Ir | EmitTarget::Asm => {
+            let mut module_gen = ir::ModuleGenerator::new();
+            module_gen
+                .generate(&ast)
+                .map_err(|e| format!("IR generation failed: {e}"))?;
 
-    let prog = fs::read_to_string(input_path).unwrap_or_else(|e| {
-        eprintln!("Encountered error while reading input file: {e}");
-        std::process::exit(1);
-    });
-
-    let ast = parser::parse(&prog).unwrap_or_else(|e| {
-        eprintln!("Encountered error while parsing: {e}");
-        std::process::exit(1);
-    });
-
-    if cli.emit == EmitTarget::Ast {
-        print!("{}", ast);
-        return;
+            if cli.emit == EmitTarget::Ir {
+                module_gen
+                    .output(&mut writer)
+                    .map_err(|e| format!("failed to write IR output: {e}"))?;
+            } else {
+                let mut asm_gen =
+                    asm::AArch64AsmGenerator::new(&module_gen.module, &module_gen.registry);
+                asm_gen
+                    .generate()
+                    .map_err(|e| format!("assembly generation failed: {e}"))?;
+                asm_gen
+                    .output(&mut writer)
+                    .map_err(|e| format!("failed to write assembly output: {e}"))?;
+            }
+        }
     }
 
-    let mut module_generator = ir::ModuleGenerator::new();
-    module_generator.generate(&ast).unwrap_or_else(|e| {
-        eprintln!("Encountered error while generating IR from AST: {e}");
-        std::process::exit(1);
-    });
+    Ok(())
+}
 
-    match &cli.output {
-        Some(output_path) => {
-            let out_path = Path::new(output_path);
-            if let Some(parent) = out_path.parent() {
-                if !parent.as_os_str().is_empty() {
-                    std::fs::create_dir_all(parent).unwrap_or_else(|e| {
-                        eprintln!(
-                            "Failed to create output directory {}: {e}",
-                            parent.to_string_lossy()
-                        );
-                        std::process::exit(1);
-                    });
-                }
-            }
-            let mut writer = BufWriter::new(File::create(out_path).unwrap_or_else(|e| {
-                eprintln!(
-                    "Failed to create output file {}: {e}",
-                    out_path.to_string_lossy()
-                );
-                std::process::exit(1);
-            }));
-            write_output(cli.emit, &module_generator, &mut writer);
-        }
-        None => {
-            let mut writer = BufWriter::new(io::stdout());
-            write_output(cli.emit, &module_generator, &mut writer);
-        }
+fn main() {
+    if let Err(e) = run() {
+        eprintln!("Error: {e}");
+        std::process::exit(1);
     }
 }
