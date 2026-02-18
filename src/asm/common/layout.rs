@@ -63,7 +63,7 @@ impl StructLayouts {
             ir::Dtype::Array { element, length } => {
                 let (s, a) = self.size_align_of(element.as_ref())?;
                 Ok(((*length as i64) * s, a))
-            },
+            }
             ir::Dtype::Struct { type_name } => self
                 .get(type_name)
                 .map(|l| (l.size, l.align))
@@ -106,4 +106,3 @@ pub fn align_up(x: i64, align: i64) -> i64 {
         ((x + align - 1) / align) * align
     }
 }
-

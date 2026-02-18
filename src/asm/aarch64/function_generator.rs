@@ -1,5 +1,5 @@
 use super::inst::Inst;
-use super::types::{Addr, BinOp, Cond, IndexOperand, Operand, Register, RegSize, dtype_to_regsize};
+use super::types::{dtype_to_regsize, Addr, BinOp, Cond, IndexOperand, Operand, RegSize, Register};
 use crate::asm::common::{align_up, StackFrame, StackSlot, StructLayouts};
 use crate::asm::error::Error;
 use crate::ir;

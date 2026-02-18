@@ -75,23 +75,46 @@ impl ModuleGenerator {
         let std_functions = vec![
             ("std::getint", vec![], Dtype::I32),
             ("std::getch", vec![], Dtype::I32),
-            ("std::putint", vec![("a".to_string(), Dtype::I32)], Dtype::Void),
-            ("std::putch", vec![("a".to_string(), Dtype::I32)], Dtype::Void),
-            ("std::timer_start", vec![("lineno".to_string(), Dtype::I32)], Dtype::Void),
-            ("std::timer_stop", vec![("lineno".to_string(), Dtype::I32)], Dtype::Void),
-            ("std::putarray", vec![
-                ("n".to_string(), Dtype::I32), 
-                ("a".to_string(), Dtype::ptr_to(Dtype::I32))
-            ], Dtype::Void),
+            (
+                "std::putint",
+                vec![("a".to_string(), Dtype::I32)],
+                Dtype::Void,
+            ),
+            (
+                "std::putch",
+                vec![("a".to_string(), Dtype::I32)],
+                Dtype::Void,
+            ),
+            (
+                "std::timer_start",
+                vec![("lineno".to_string(), Dtype::I32)],
+                Dtype::Void,
+            ),
+            (
+                "std::timer_stop",
+                vec![("lineno".to_string(), Dtype::I32)],
+                Dtype::Void,
+            ),
+            (
+                "std::putarray",
+                vec![
+                    ("n".to_string(), Dtype::I32),
+                    ("a".to_string(), Dtype::ptr_to(Dtype::I32)),
+                ],
+                Dtype::Void,
+            ),
         ];
-        
+
         for (name, arguments, return_dtype) in std_functions {
             self.registry.function_types.insert(
                 name.to_string(),
-                FunctionType { return_dtype, arguments }
+                FunctionType {
+                    return_dtype,
+                    arguments,
+                },
             );
         }
-        
+
         Ok(())
     }
 

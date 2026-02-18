@@ -61,7 +61,7 @@ fn run() -> Result<(), String> {
         .map_err(|e| format!("failed to read input file '{}': {e}", cli.input))?;
     let ast = parser::parse(&source)?;
     let mut writer = open_writer(&cli.output)?;
-    
+
     match cli.emit {
         EmitTarget::Ast => {
             write!(writer, "{ast}").map_err(|e| format!("failed to write AST output: {e}"))?;

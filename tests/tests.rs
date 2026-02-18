@@ -134,12 +134,10 @@ fn ensure_std() {
         let o_path = get_std_o_path();
 
         let needs_build = match (fs::metadata(&c_path), fs::metadata(&o_path)) {
-            (Ok(c_meta), Ok(o_meta)) => {
-                match (c_meta.modified(), o_meta.modified()) {
-                    (Ok(c_m), Ok(o_m)) => c_m > o_m,
-                    _ => true,
-                }
-            }
+            (Ok(c_meta), Ok(o_meta)) => match (c_meta.modified(), o_meta.modified()) {
+                (Ok(c_m), Ok(o_m)) => c_m > o_m,
+                _ => true,
+            },
             (Ok(_), Err(_)) => true,
             _ => {
                 panic!("✗ Missing tests/std/std.c at {}", c_path.display());
@@ -532,32 +530,148 @@ fn test_single(test_name: &str) {
     }
 }
 
-#[test] fn dfs() { ensure_std(); test_single("dfs"); }
-#[test] fn bfs() { ensure_std(); test_single("bfs"); }
-#[test] fn big_int_mul() { ensure_std(); test_single("big_int_mul"); }
-#[test] fn bin_search() { ensure_std(); test_single("bin_search"); }
-#[test] fn brainfk() { ensure_std(); test_single("brainfk"); }
-#[test] fn conv() { ensure_std(); test_single("conv"); }
-#[test] fn dijkstra() { ensure_std(); test_single("dijkstra"); }
-#[test] fn expr_eval() { ensure_std(); test_single("expr_eval"); }
-#[test] fn full_conn() { ensure_std(); test_single("full_conn"); }
-#[test] fn hanoi() { ensure_std(); test_single("hanoi"); }
-#[test] fn insert_order() { ensure_std(); test_single("insert_order"); }
-#[test] fn int_io() { ensure_std(); test_single("int_io"); }
-#[test] fn int_split() { ensure_std(); test_single("int_split"); }
-#[test] fn jump_game() { ensure_std(); test_single("jump_game"); }
-#[test] fn line_search() { ensure_std(); test_single("line_search"); }
-#[test] fn long_code() { ensure_std(); test_single("long_code"); }
-#[test] fn long_code2() { ensure_std(); test_single("long_code2"); }
-#[test] fn many_globals() { ensure_std(); test_single("many_globals"); }
-#[test] fn many_locals2() { ensure_std(); test_single("many_locals2"); }
-#[test] fn matrix_mul() { ensure_std(); test_single("matrix_mul"); }
-#[test] fn nested_calls() { ensure_std(); test_single("nested_calls"); }
-#[test] fn nested_loops() { ensure_std(); test_single("nested_loops"); }
-#[test] fn palindrome_number() { ensure_std(); test_single("palindrome_number"); }
-#[test] fn register_alloca() { ensure_std(); test_single("register_alloca"); }
-#[test] fn short_circuit3() { ensure_std(); test_single("short_circuit3"); }
-#[test] fn sort_test5() { ensure_std(); test_single("sort_test5"); }
-#[test] fn sort_test7() { ensure_std(); test_single("sort_test7"); }
-#[test] fn sort() { ensure_std(); test_single("sort"); }
-#[test] fn unique_path() { ensure_std(); test_single("unique_path"); }
+#[test]
+fn dfs() {
+    ensure_std();
+    test_single("dfs");
+}
+#[test]
+fn bfs() {
+    ensure_std();
+    test_single("bfs");
+}
+#[test]
+fn big_int_mul() {
+    ensure_std();
+    test_single("big_int_mul");
+}
+#[test]
+fn bin_search() {
+    ensure_std();
+    test_single("bin_search");
+}
+#[test]
+fn brainfk() {
+    ensure_std();
+    test_single("brainfk");
+}
+#[test]
+fn conv() {
+    ensure_std();
+    test_single("conv");
+}
+#[test]
+fn dijkstra() {
+    ensure_std();
+    test_single("dijkstra");
+}
+#[test]
+fn expr_eval() {
+    ensure_std();
+    test_single("expr_eval");
+}
+#[test]
+fn full_conn() {
+    ensure_std();
+    test_single("full_conn");
+}
+#[test]
+fn hanoi() {
+    ensure_std();
+    test_single("hanoi");
+}
+#[test]
+fn insert_order() {
+    ensure_std();
+    test_single("insert_order");
+}
+#[test]
+fn int_io() {
+    ensure_std();
+    test_single("int_io");
+}
+#[test]
+fn int_split() {
+    ensure_std();
+    test_single("int_split");
+}
+#[test]
+fn jump_game() {
+    ensure_std();
+    test_single("jump_game");
+}
+#[test]
+fn line_search() {
+    ensure_std();
+    test_single("line_search");
+}
+#[test]
+fn long_code() {
+    ensure_std();
+    test_single("long_code");
+}
+#[test]
+fn long_code2() {
+    ensure_std();
+    test_single("long_code2");
+}
+#[test]
+fn many_globals() {
+    ensure_std();
+    test_single("many_globals");
+}
+#[test]
+fn many_locals2() {
+    ensure_std();
+    test_single("many_locals2");
+}
+#[test]
+fn matrix_mul() {
+    ensure_std();
+    test_single("matrix_mul");
+}
+#[test]
+fn nested_calls() {
+    ensure_std();
+    test_single("nested_calls");
+}
+#[test]
+fn nested_loops() {
+    ensure_std();
+    test_single("nested_loops");
+}
+#[test]
+fn palindrome_number() {
+    ensure_std();
+    test_single("palindrome_number");
+}
+#[test]
+fn register_alloca() {
+    ensure_std();
+    test_single("register_alloca");
+}
+#[test]
+fn short_circuit3() {
+    ensure_std();
+    test_single("short_circuit3");
+}
+#[test]
+fn sort_test5() {
+    ensure_std();
+    test_single("sort_test5");
+}
+#[test]
+fn sort_test7() {
+    ensure_std();
+    test_single("sort_test7");
+}
+#[test]
+fn sort() {
+    ensure_std();
+    test_single("sort");
+}
+#[test]
+fn unique_path() {
+    ensure_std();
+    test_single("unique_path");
+}

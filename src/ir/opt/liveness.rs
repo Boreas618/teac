@@ -1,12 +1,10 @@
 use super::cfg::Graph;
 use std::collections::HashSet;
 
-
 pub struct Liveness {
     live_in: Vec<bool>,
     live_out: Vec<bool>,
 }
-
 
 impl Liveness {
     pub fn compute(

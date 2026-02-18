@@ -122,7 +122,10 @@ impl<'a> AArch64AsmGenerator<'a> {
         Ok(insts)
     }
 
-    fn handle_global(layouts: &StructLayouts, g: &ir::GlobalVariable) -> Result<GeneratedGlobal, Error> {
+    fn handle_global(
+        layouts: &StructLayouts,
+        g: &ir::GlobalVariable,
+    ) -> Result<GeneratedGlobal, Error> {
         let symbol = g.identifier.clone();
 
         let data = match &g.dtype {
@@ -226,11 +229,7 @@ impl<'a> AArch64AsmGenerator<'a> {
                     Gep(s) => ctx.emit_gep(s)?,
                     Call(s) => ctx.emit_call(s)?,
                     Return(s) => ctx.emit_return(s)?,
-                    _ => {
-                        return Err(Error::Internal(
-                            "unexpected statement in block".into(),
-                        ))
-                    }
+                    _ => return Err(Error::Internal("unexpected statement in block".into())),
                 }
             }
         }

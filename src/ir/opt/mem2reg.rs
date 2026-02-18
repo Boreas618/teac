@@ -3,7 +3,7 @@ use super::dominator::DominatorInfo;
 use super::liveness::Liveness;
 use super::FunctionPass;
 use crate::ir::function::{BasicBlock, BlockLabel, Function};
-use crate::ir::stmt::{Stmt, StmtInner};
+use crate::ir::stmt::{OperandRole, Stmt, StmtInner};
 use crate::ir::types::Dtype;
 use crate::ir::value::{LocalVariable, Operand};
 use std::collections::{HashMap, HashSet, VecDeque};
@@ -18,7 +18,9 @@ impl FunctionPass for Mem2RegPass {
             ..
         } = *func;
 
-        let Some(blocks) = blocks_opt.as_mut() else { return };
+        let Some(blocks) = blocks_opt.as_mut() else {
+            return;
+        };
         if blocks.is_empty() {
             return;
         }
@@ -30,7 +32,7 @@ impl FunctionPass for Mem2RegPass {
 
         if !promotable.is_empty() {
             let mut phis = PhiPlacement::new(cfg.num_blocks());
-            place_phis(&promotable, &mut phis, &cfg, &dom_info, next_vreg);
+            Self::place_phis(&promotable, &mut phis, &cfg, &dom_info, next_vreg);
 
             let mut renamer = Renamer::new(
                 blocks,
@@ -45,39 +47,44 @@ impl FunctionPass for Mem2RegPass {
     }
 }
 
-fn place_phis(
-    promotable: &HashMap<usize, VarUsage>,
-    phi_placement: &mut PhiPlacement,
-    cfg: &Cfg,
-    dom_info: &DominatorInfo,
-    next_vreg: &mut usize,
-) {
-    for (&var_idx, info) in promotable.iter() {
-        if !info.has_load {
-            continue;
-        }
+impl Mem2RegPass {
+    fn place_phis(
+        promotable: &HashMap<usize, VarUsage>,
+        phi_placement: &mut PhiPlacement,
+        cfg: &Cfg,
+        dom_info: &DominatorInfo,
+        next_vreg: &mut usize,
+    ) {
+        for (&var_idx, info) in promotable.iter() {
+            if !info.has_load {
+                continue;
+            }
 
-        let liveness =
-            Liveness::compute(&info.load_before_store_blocks, &info.def_blocks, cfg.graph());
+            let liveness = Liveness::compute(
+                &info.load_before_store_blocks,
+                &info.def_blocks,
+                cfg.graph(),
+            );
 
-        let mut worklist: VecDeque<usize> = info.def_blocks.iter().copied().collect();
+            let mut worklist: VecDeque<usize> = info.def_blocks.iter().copied().collect();
 
-        while let Some(b) = worklist.pop_front() {
-            for &y in dom_info.dominance_frontier(b) {
-                if !liveness.is_live_in(y) {
-                    continue;
-                }
-                if phi_placement.has_phi(y, var_idx) {
-                    continue;
-                }
+            while let Some(b) = worklist.pop_front() {
+                for &y in dom_info.dominance_frontier(b) {
+                    if !liveness.is_live_in(y) {
+                        continue;
+                    }
+                    if phi_placement.has_phi(y, var_idx) {
+                        continue;
+                    }
 
-                let idx = *next_vreg;
-                *next_vreg += 1;
-                let dst = Operand::from(LocalVariable::new(Dtype::I32, idx, None));
-                phi_placement.insert_phi(y, var_idx, dst);
+                    let idx = *next_vreg;
+                    *next_vreg += 1;
+                    let dst = Operand::from(LocalVariable::new(Dtype::I32, idx, None));
+                    phi_placement.insert_phi(y, var_idx, dst);
 
-                if !info.def_blocks.contains(&y) {
-                    worklist.push_back(y);
+                    if !info.def_blocks.contains(&y) {
+                        worklist.push_back(y);
+                    }
                 }
             }
         }
@@ -85,7 +92,6 @@ fn place_phis(
 }
 
 struct AllocaAnalysis {
-    candidates: HashSet<usize>,
     usage: HashMap<usize, VarUsage>,
 }
 
@@ -93,7 +99,7 @@ impl AllocaAnalysis {
     fn from_blocks(blocks: &[BasicBlock]) -> Self {
         let candidates = Self::collect_candidates(blocks);
         let usage = Self::analyze_usage(blocks, &candidates);
-        Self { candidates, usage }
+        Self { usage }
     }
 
     fn promotable_vars(&self, dom_info: &DominatorInfo) -> HashMap<usize, VarUsage> {
@@ -171,86 +177,35 @@ impl AllocaAnalysis {
             let mut store_seen: HashSet<usize> = HashSet::new();
 
             for stmt in &block.stmts {
-                match &stmt.inner {
-                    StmtInner::Load(s) => {
-                        if let Some(ptr_idx) = Self::candidate_index(&s.ptr, candidates) {
-                            if !store_seen.contains(&ptr_idx) {
-                                if let Some(info) = usage.get_mut(&ptr_idx) {
-                                    info.load_before_store_blocks.insert(b_idx);
-                                }
+                for op_ref in stmt.operands() {
+                    let Some(idx) = op_ref.operand.vreg_index() else {
+                        continue;
+                    };
+                    let Some(info) = usage.get_mut(&idx) else {
+                        continue;
+                    };
+                    match op_ref.role {
+                        OperandRole::LoadPtr => {
+                            if !store_seen.contains(&idx) {
+                                info.load_before_store_blocks.insert(b_idx);
                             }
-                            if let Some(info) = usage.get_mut(&ptr_idx) {
-                                info.has_load = true;
-                            }
+                            info.has_load = true;
                         }
-                        Self::mark_invalid_if_candidate(&mut usage, candidates, &s.dst);
-                    }
-                    StmtInner::Store(s) => {
-                        if let Some(ptr_idx) = Self::candidate_index(&s.ptr, candidates) {
-                            store_seen.insert(ptr_idx);
-                            if let Some(info) = usage.get_mut(&ptr_idx) {
-                                info.has_store = true;
-                                info.def_blocks.insert(b_idx);
-                            }
+                        OperandRole::StorePtr => {
+                            store_seen.insert(idx);
+                            info.has_store = true;
+                            info.def_blocks.insert(b_idx);
                         }
-                        Self::mark_invalid_if_candidate(&mut usage, candidates, &s.src);
-                    }
-                    StmtInner::BiOp(s) => {
-                        Self::mark_invalid_if_candidate(&mut usage, candidates, &s.left);
-                        Self::mark_invalid_if_candidate(&mut usage, candidates, &s.right);
-                    }
-                    StmtInner::Cmp(s) => {
-                        Self::mark_invalid_if_candidate(&mut usage, candidates, &s.left);
-                        Self::mark_invalid_if_candidate(&mut usage, candidates, &s.right);
-                    }
-                    StmtInner::CJump(s) => {
-                        Self::mark_invalid_if_candidate(&mut usage, candidates, &s.dst);
-                    }
-                    StmtInner::Call(s) => {
-                        if let Some(res) = &s.res {
-                            Self::mark_invalid_if_candidate(&mut usage, candidates, res);
-                        }
-                        for arg in &s.args {
-                            Self::mark_invalid_if_candidate(&mut usage, candidates, arg);
+                        OperandRole::Def => {}
+                        OperandRole::Use => {
+                            info.invalid = true;
                         }
                     }
-                    StmtInner::Gep(s) => {
-                        Self::mark_invalid_if_candidate(&mut usage, candidates, &s.base_ptr);
-                        Self::mark_invalid_if_candidate(&mut usage, candidates, &s.index);
-                    }
-                    StmtInner::Return(s) => {
-                        if let Some(val) = &s.val {
-                            Self::mark_invalid_if_candidate(&mut usage, candidates, val);
-                        }
-                    }
-                    StmtInner::Phi(s) => {
-                        Self::mark_invalid_if_candidate(&mut usage, candidates, &s.dst);
-                        for (_, val) in &s.incomings {
-                            Self::mark_invalid_if_candidate(&mut usage, candidates, val);
-                        }
-                    }
-                    StmtInner::Alloca(_) | StmtInner::Label(_) | StmtInner::Jump(_) => {}
                 }
             }
         }
 
         usage
-    }
-
-    fn candidate_index(op: &Operand, candidates: &HashSet<usize>) -> Option<usize> {
-        op.vreg_index().filter(|idx| candidates.contains(idx))
-    }
-
-    fn mark_invalid_if_candidate(
-        usage: &mut HashMap<usize, VarUsage>,
-        candidates: &HashSet<usize>,
-        op: &Operand,
-    ) {
-        if let Some(idx) = Self::candidate_index(op, candidates) {
-            if let Some(info) = usage.get_mut(&idx) {
-                info.invalid = true;
-            }
-        }
     }
 }
 
@@ -486,47 +441,6 @@ impl<'a> Renamer<'a> {
     }
 
     fn rewrite_stmt(&self, stmt: &Stmt) -> Stmt {
-        match &stmt.inner {
-            StmtInner::Call(s) => {
-                let args = s.args.iter().map(|a| self.resolve_alias(a)).collect();
-                Stmt::as_call(s.func_name.clone(), s.res.clone(), args)
-            }
-            StmtInner::Load(s) => {
-                let ptr = self.resolve_alias(&s.ptr);
-                Stmt::as_load(s.dst.clone(), ptr)
-            }
-            StmtInner::BiOp(s) => {
-                let left = self.resolve_alias(&s.left);
-                let right = self.resolve_alias(&s.right);
-                Stmt::as_biop(s.kind.clone(), left, right, s.dst.clone())
-            }
-            StmtInner::Alloca(s) => Stmt::as_alloca(s.dst.clone()),
-            StmtInner::Cmp(s) => {
-                let left = self.resolve_alias(&s.left);
-                let right = self.resolve_alias(&s.right);
-                Stmt::as_cmp(s.kind.clone(), left, right, s.dst.clone())
-            }
-            StmtInner::CJump(s) => {
-                let cond = self.resolve_alias(&s.dst);
-                Stmt::as_cjump(cond, s.true_label.clone(), s.false_label.clone())
-            }
-            StmtInner::Label(s) => Stmt::as_label(s.label.clone()),
-            StmtInner::Store(s) => {
-                let src = self.resolve_alias(&s.src);
-                let ptr = self.resolve_alias(&s.ptr);
-                Stmt::as_store(src, ptr)
-            }
-            StmtInner::Jump(s) => Stmt::as_jump(s.target.clone()),
-            StmtInner::Gep(s) => {
-                let base_ptr = self.resolve_alias(&s.base_ptr);
-                let index = self.resolve_alias(&s.index);
-                Stmt::as_gep(s.new_ptr.clone(), base_ptr, index)
-            }
-            StmtInner::Return(s) => {
-                let val = s.val.as_ref().map(|v| self.resolve_alias(v));
-                Stmt::as_return(val)
-            }
-            StmtInner::Phi(s) => Stmt::as_phi(s.dst.clone(), s.incomings.clone()),
-        }
+        stmt.map_use_operands(|op| self.resolve_alias(op))
     }
 }

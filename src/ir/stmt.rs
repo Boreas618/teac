@@ -96,6 +96,25 @@ pub struct Stmt {
     pub inner: StmtInner,
 }
 
+/// Describes how an operand is used within a statement.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum OperandRole {
+    /// Instruction defines (writes) this value.
+    Def,
+    /// General use (read) of a value.
+    Use,
+    /// Pointer operand of a `load` instruction.
+    LoadPtr,
+    /// Pointer operand of a `store` instruction.
+    StorePtr,
+}
+
+/// Borrowed reference to an operand together with its role.
+pub struct OperandRef<'a> {
+    pub operand: &'a Operand,
+    pub role: OperandRole,
+}
+
 impl Stmt {
     pub fn as_call(func_name: String, res: Option<Operand>, args: Vec<Operand>) -> Self {
         Self {
@@ -423,28 +442,17 @@ impl Display for GepStmt {
                 Dtype::Array { .. } => write!(
                     f,
                     "{} = getelementptr {}, ptr {}, i32 {}, i32 {}",
-                    self.new_ptr,
-                    pointee,
-                    self.base_ptr,
-                    0,
-                    self.index,
+                    self.new_ptr, pointee, self.base_ptr, 0, self.index,
                 ),
                 Dtype::Struct { .. } => write!(
                     f,
                     "{} = getelementptr {}, ptr {}, i32 {}, i32 {}",
-                    self.new_ptr,
-                    pointee,
-                    self.base_ptr,
-                    0,
-                    self.index,
+                    self.new_ptr, pointee, self.base_ptr, 0, self.index,
                 ),
                 _ => write!(
                     f,
                     "{} = getelementptr {}, ptr {}, i32 {}",
-                    self.new_ptr,
-                    pointee,
-                    self.base_ptr,
-                    self.index,
+                    self.new_ptr, pointee, self.base_ptr, self.index,
                 ),
             },
             Dtype::Array { .. } => write!(
@@ -466,6 +474,166 @@ impl Display for ReturnStmt {
         match &self.val {
             Some(v) => write!(f, "ret {} {}", v.dtype(), v),
             None => write!(f, "ret void"),
+        }
+    }
+}
+
+// =============================================================================
+// Generic operand access
+// =============================================================================
+
+impl Stmt {
+    /// Yields every operand together with its [`OperandRole`].
+    pub fn operands(&self) -> Vec<OperandRef<'_>> {
+        use OperandRole::*;
+        let mut ops = Vec::new();
+        match &self.inner {
+            StmtInner::Alloca(s) => {
+                ops.push(OperandRef {
+                    operand: &s.dst,
+                    role: Def,
+                });
+            }
+            StmtInner::Load(s) => {
+                ops.push(OperandRef {
+                    operand: &s.dst,
+                    role: Def,
+                });
+                ops.push(OperandRef {
+                    operand: &s.ptr,
+                    role: LoadPtr,
+                });
+            }
+            StmtInner::Store(s) => {
+                ops.push(OperandRef {
+                    operand: &s.src,
+                    role: Use,
+                });
+                ops.push(OperandRef {
+                    operand: &s.ptr,
+                    role: StorePtr,
+                });
+            }
+            StmtInner::BiOp(s) => {
+                ops.push(OperandRef {
+                    operand: &s.dst,
+                    role: Def,
+                });
+                ops.push(OperandRef {
+                    operand: &s.left,
+                    role: Use,
+                });
+                ops.push(OperandRef {
+                    operand: &s.right,
+                    role: Use,
+                });
+            }
+            StmtInner::Cmp(s) => {
+                ops.push(OperandRef {
+                    operand: &s.dst,
+                    role: Def,
+                });
+                ops.push(OperandRef {
+                    operand: &s.left,
+                    role: Use,
+                });
+                ops.push(OperandRef {
+                    operand: &s.right,
+                    role: Use,
+                });
+            }
+            StmtInner::CJump(s) => {
+                ops.push(OperandRef {
+                    operand: &s.dst,
+                    role: Use,
+                });
+            }
+            StmtInner::Call(s) => {
+                if let Some(res) = &s.res {
+                    ops.push(OperandRef {
+                        operand: res,
+                        role: Def,
+                    });
+                }
+                for arg in &s.args {
+                    ops.push(OperandRef {
+                        operand: arg,
+                        role: Use,
+                    });
+                }
+            }
+            StmtInner::Gep(s) => {
+                ops.push(OperandRef {
+                    operand: &s.new_ptr,
+                    role: Def,
+                });
+                ops.push(OperandRef {
+                    operand: &s.base_ptr,
+                    role: Use,
+                });
+                ops.push(OperandRef {
+                    operand: &s.index,
+                    role: Use,
+                });
+            }
+            StmtInner::Return(s) => {
+                if let Some(val) = &s.val {
+                    ops.push(OperandRef {
+                        operand: val,
+                        role: Use,
+                    });
+                }
+            }
+            StmtInner::Phi(s) => {
+                ops.push(OperandRef {
+                    operand: &s.dst,
+                    role: Def,
+                });
+                for (_, val) in &s.incomings {
+                    ops.push(OperandRef {
+                        operand: val,
+                        role: Use,
+                    });
+                }
+            }
+            StmtInner::Label(_) | StmtInner::Jump(_) => {}
+        }
+        ops
+    }
+
+    /// Rebuild this statement with `f` applied to every use-position operand.
+    ///
+    /// Def-position operands (instruction destinations) are preserved as-is.
+    pub fn map_use_operands(&self, f: impl Fn(&Operand) -> Operand) -> Stmt {
+        match &self.inner {
+            StmtInner::Alloca(s) => Stmt::as_alloca(s.dst.clone()),
+            StmtInner::Load(s) => Stmt::as_load(s.dst.clone(), f(&s.ptr)),
+            StmtInner::Store(s) => Stmt::as_store(f(&s.src), f(&s.ptr)),
+            StmtInner::BiOp(s) => {
+                Stmt::as_biop(s.kind.clone(), f(&s.left), f(&s.right), s.dst.clone())
+            }
+            StmtInner::Cmp(s) => {
+                Stmt::as_cmp(s.kind.clone(), f(&s.left), f(&s.right), s.dst.clone())
+            }
+            StmtInner::CJump(s) => {
+                Stmt::as_cjump(f(&s.dst), s.true_label.clone(), s.false_label.clone())
+            }
+            StmtInner::Call(s) => {
+                let args = s.args.iter().map(|a| f(a)).collect();
+                Stmt::as_call(s.func_name.clone(), s.res.clone(), args)
+            }
+            StmtInner::Gep(s) => Stmt::as_gep(s.new_ptr.clone(), f(&s.base_ptr), f(&s.index)),
+            StmtInner::Return(s) => Stmt::as_return(s.val.as_ref().map(|v| f(v))),
+            StmtInner::Phi(s) => {
+                let incomings = s
+                    .incomings
+                    .iter()
+                    .map(|(label, val)| (label.clone(), f(val)))
+                    .collect();
+                Stmt::as_phi(s.dst.clone(), incomings)
+            }
+            StmtInner::Label(s) => Stmt::as_label(s.label.clone()),
+            StmtInner::Jump(s) => Stmt::as_jump(s.target.clone()),
         }
     }
 }

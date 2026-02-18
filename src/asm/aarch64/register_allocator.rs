@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 
 use super::inst::Inst;
-use super::types::{Addr, IndexOperand, Operand, Register, RegSize};
+use super::types::{Addr, IndexOperand, Operand, RegSize, Register};
 use crate::asm::common::StackFrame;
 use crate::asm::error::Error;
 
@@ -110,7 +110,6 @@ impl ControlFlowGraph {
 }
 
 struct LivenessAnalysis {
-    
     live_in: Vec<HashSet<usize>>,
     live_out: Vec<HashSet<usize>>,
 }
@@ -807,8 +806,12 @@ impl<'a> InstRewriter<'a> {
                 Ok(scratch)
             }
             Operand::Register(Register::Physical(n)) => Ok(n),
-            Operand::Register(Register::StackPointer) => Err(Error::Internal("cannot use SP as source".into())),
-            Operand::Register(Register::Virtual(_)) => Err(Error::Internal("unexpected vreg in operand".into())),
+            Operand::Register(Register::StackPointer) => {
+                Err(Error::Internal("cannot use SP as source".into()))
+            }
+            Operand::Register(Register::Virtual(_)) => {
+                Err(Error::Internal("unexpected vreg in operand".into()))
+            }
         }
     }
 }

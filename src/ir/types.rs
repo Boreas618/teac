@@ -7,11 +7,18 @@ pub enum Dtype {
     Void,
     I1,
     I32,
-    Struct { type_name: String },
+    Struct {
+        type_name: String,
+    },
     /// Opaque pointer type (`ptr`) with explicit pointee metadata.
-    Ptr { pointee: Box<Dtype> },
+    Ptr {
+        pointee: Box<Dtype>,
+    },
     /// First-class LLVM array type (`[N x T]`).
-    Array { element: Box<Dtype>, length: usize },
+    Array {
+        element: Box<Dtype>,
+        length: usize,
+    },
     Undecided,
 }
 
@@ -70,12 +77,7 @@ pub struct FunctionType {
 
 impl PartialEq<ast::FnDecl> for FunctionType {
     fn eq(&self, rhs: &ast::FnDecl) -> bool {
-        let rhs_dtype = match rhs
-            .return_dtype
-            .as_ref()
-            .as_ref()
-            .map(|ty| Dtype::from(ty))
-        {
+        let rhs_dtype = match rhs.return_dtype.as_ref().as_ref().map(|ty| Dtype::from(ty)) {
             Some(dtype) => dtype,
             None => Dtype::Void,
         };

@@ -1,7 +1,7 @@
 use std::io::Write;
 
 use super::inst::Inst;
-use super::types::{Addr, BinOp, Cond, IndexOperand, Operand, Register, RegSize};
+use super::types::{Addr, BinOp, Cond, IndexOperand, Operand, RegSize, Register};
 use crate::asm::error::Error;
 
 const SCRATCH0: u8 = 16;
@@ -19,7 +19,6 @@ pub trait AsmPrint {
 
     fn emit_sub_sp(&mut self, imm: i64) -> Result<(), Error>;
 
-    
     fn emit_raw(&mut self, line: &str) -> Result<(), Error>;
 
     fn emit_global(&mut self, sym: &str) -> Result<(), Error>;
@@ -40,12 +39,10 @@ impl<W: Write> AsmPrinter<W> {
         Self { writer }
     }
 
-    
     pub fn into_inner(self) -> W {
         self.writer
     }
 
-    
     pub fn writer_mut(&mut self) -> &mut W {
         &mut self.writer
     }
@@ -61,7 +58,9 @@ impl<W: Write> AsmPrinter<W> {
                 RegSize::W32 => format!("w{n}"),
                 RegSize::X64 => format!("x{n}"),
             },
-            Register::Virtual(_) => unreachable!("virtual regs should be eliminated before emission"),
+            Register::Virtual(_) => {
+                unreachable!("virtual regs should be eliminated before emission")
+            }
         }
     }
 
@@ -112,7 +111,8 @@ impl<W: Write> AsmPrinter<W> {
     }
 
     fn scratch_in_use(regs: &[Register], scratch: u8) -> bool {
-        regs.iter().any(|r| matches!(r, Register::Physical(n) if *n == scratch))
+        regs.iter()
+            .any(|r| matches!(r, Register::Physical(n) if *n == scratch))
     }
 
     fn pick_scratch_reg(&self, regs: &[Register]) -> Option<Register> {
@@ -151,89 +151,83 @@ impl<W: Write> AsmPrinter<W> {
         let lhs_s = self.reg_name(lhs, size);
 
         match op {
-            BinOp::Add | BinOp::Sub => {
-                match rhs {
-                    Operand::Immediate(imm) => {
-                        let (op_mn, imm_abs) = match (op, imm < 0) {
-                            (BinOp::Add, true) => ("sub", -imm),
-                            (BinOp::Sub, true) => ("add", -imm),
-                            (BinOp::Add, false) => ("add", imm),
-                            (BinOp::Sub, false) => ("sub", imm),
-                            _ => unreachable!(),
+            BinOp::Add | BinOp::Sub => match rhs {
+                Operand::Immediate(imm) => {
+                    let (op_mn, imm_abs) = match (op, imm < 0) {
+                        (BinOp::Add, true) => ("sub", -imm),
+                        (BinOp::Sub, true) => ("add", -imm),
+                        (BinOp::Add, false) => ("add", imm),
+                        (BinOp::Sub, false) => ("sub", imm),
+                        _ => unreachable!(),
+                    };
+                    if self.is_addsub_imm_encodable(imm_abs) {
+                        writeln!(self.writer, "\t{op_mn} {dst_s}, {lhs_s}, #{imm_abs}")?;
+                    } else if dst != lhs {
+                        self.emit_mov_imm(&dst_s, imm_abs as u64)?;
+                        writeln!(self.writer, "\t{op_mn} {dst_s}, {lhs_s}, {dst_s}")?;
+                    } else {
+                        let scratch_reg = if matches!(dst, Register::Physical(r) if r == SCRATCH0) {
+                            Register::Physical(SCRATCH1)
+                        } else {
+                            Register::Physical(SCRATCH0)
                         };
-                        if self.is_addsub_imm_encodable(imm_abs) {
-                            writeln!(self.writer, "\t{op_mn} {dst_s}, {lhs_s}, #{imm_abs}")?;
-                        } else if dst != lhs {
-                            self.emit_mov_imm(&dst_s, imm_abs as u64)?;
-                            writeln!(self.writer, "\t{op_mn} {dst_s}, {lhs_s}, {dst_s}")?;
-                        } else {
-                            let scratch_reg = if matches!(dst, Register::Physical(r) if r == SCRATCH0) {
-                                Register::Physical(SCRATCH1)
-                            } else {
-                                Register::Physical(SCRATCH0)
-                            };
-                            let scratch = self.reg_name(scratch_reg, size);
-                            self.emit_mov_imm(&scratch, imm_abs as u64)?;
-                            writeln!(self.writer, "\t{op_mn} {dst_s}, {lhs_s}, {scratch}")?;
-                        }
+                        let scratch = self.reg_name(scratch_reg, size);
+                        self.emit_mov_imm(&scratch, imm_abs as u64)?;
+                        writeln!(self.writer, "\t{op_mn} {dst_s}, {lhs_s}, {scratch}")?;
                     }
-                    Operand::Register(r) => {
-                        let rhs_s = self.reg_name(r, size);
-                        let op_mn = match op {
-                            BinOp::Add => "add",
-                            BinOp::Sub => "sub",
-                            _ => unreachable!(),
+                }
+                Operand::Register(r) => {
+                    let rhs_s = self.reg_name(r, size);
+                    let op_mn = match op {
+                        BinOp::Add => "add",
+                        BinOp::Sub => "sub",
+                        _ => unreachable!(),
+                    };
+                    writeln!(self.writer, "\t{op_mn} {dst_s}, {lhs_s}, {rhs_s}")?;
+                }
+            },
+            BinOp::Mul => match rhs {
+                Operand::Register(r) => {
+                    let rhs_s = self.reg_name(r, size);
+                    writeln!(self.writer, "\tmul {dst_s}, {lhs_s}, {rhs_s}")?;
+                }
+                Operand::Immediate(imm) => {
+                    if dst != lhs {
+                        self.emit_mov_imm(&dst_s, imm as u64)?;
+                        writeln!(self.writer, "\tmul {dst_s}, {lhs_s}, {dst_s}")?;
+                    } else {
+                        let scratch_reg = if matches!(dst, Register::Physical(r) if r == SCRATCH0) {
+                            Register::Physical(SCRATCH1)
+                        } else {
+                            Register::Physical(SCRATCH0)
                         };
-                        writeln!(self.writer, "\t{op_mn} {dst_s}, {lhs_s}, {rhs_s}")?;
+                        let scratch = self.reg_name(scratch_reg, size);
+                        self.emit_mov_imm(&scratch, imm as u64)?;
+                        writeln!(self.writer, "\tmul {dst_s}, {lhs_s}, {scratch}")?;
                     }
                 }
-            }
-            BinOp::Mul => {
-                match rhs {
-                    Operand::Register(r) => {
-                        let rhs_s = self.reg_name(r, size);
-                        writeln!(self.writer, "\tmul {dst_s}, {lhs_s}, {rhs_s}")?;
-                    }
-                    Operand::Immediate(imm) => {
-                        if dst != lhs {
-                            self.emit_mov_imm(&dst_s, imm as u64)?;
-                            writeln!(self.writer, "\tmul {dst_s}, {lhs_s}, {dst_s}")?;
+            },
+            BinOp::SDiv => match rhs {
+                Operand::Register(r) => {
+                    let rhs_s = self.reg_name(r, size);
+                    writeln!(self.writer, "\tsdiv {dst_s}, {lhs_s}, {rhs_s}")?;
+                }
+                Operand::Immediate(imm) => {
+                    if dst != lhs {
+                        self.emit_mov_imm(&dst_s, imm as u64)?;
+                        writeln!(self.writer, "\tsdiv {dst_s}, {lhs_s}, {dst_s}")?;
+                    } else {
+                        let scratch_reg = if matches!(dst, Register::Physical(r) if r == SCRATCH0) {
+                            Register::Physical(SCRATCH1)
                         } else {
-                            let scratch_reg = if matches!(dst, Register::Physical(r) if r == SCRATCH0) {
-                                Register::Physical(SCRATCH1)
-                            } else {
-                                Register::Physical(SCRATCH0)
-                            };
-                            let scratch = self.reg_name(scratch_reg, size);
-                            self.emit_mov_imm(&scratch, imm as u64)?;
-                            writeln!(self.writer, "\tmul {dst_s}, {lhs_s}, {scratch}")?;
-                        }
+                            Register::Physical(SCRATCH0)
+                        };
+                        let scratch = self.reg_name(scratch_reg, size);
+                        self.emit_mov_imm(&scratch, imm as u64)?;
+                        writeln!(self.writer, "\tsdiv {dst_s}, {lhs_s}, {scratch}")?;
                     }
                 }
-            }
-            BinOp::SDiv => {
-                match rhs {
-                    Operand::Register(r) => {
-                        let rhs_s = self.reg_name(r, size);
-                        writeln!(self.writer, "\tsdiv {dst_s}, {lhs_s}, {rhs_s}")?;
-                    }
-                    Operand::Immediate(imm) => {
-                        if dst != lhs {
-                            self.emit_mov_imm(&dst_s, imm as u64)?;
-                            writeln!(self.writer, "\tsdiv {dst_s}, {lhs_s}, {dst_s}")?;
-                        } else {
-                            let scratch_reg = if matches!(dst, Register::Physical(r) if r == SCRATCH0) {
-                                Register::Physical(SCRATCH1)
-                            } else {
-                                Register::Physical(SCRATCH0)
-                            };
-                            let scratch = self.reg_name(scratch_reg, size);
-                            self.emit_mov_imm(&scratch, imm as u64)?;
-                            writeln!(self.writer, "\tsdiv {dst_s}, {lhs_s}, {scratch}")?;
-                        }
-                    }
-                }
-            }
+            },
         }
 
         Ok(())
@@ -415,7 +409,9 @@ impl<W: Write> AsmPrinter<W> {
     fn emit_cmp(&mut self, size: RegSize, lhs: Register, rhs: Operand) -> Result<(), Error> {
         let lhs_s = self.reg_name(lhs, size);
         match rhs {
-            Operand::Register(r) => writeln!(self.writer, "\tcmp {lhs_s}, {}", self.reg_name(r, size))?,
+            Operand::Register(r) => {
+                writeln!(self.writer, "\tcmp {lhs_s}, {}", self.reg_name(r, size))?
+            }
             Operand::Immediate(imm) if self.is_addsub_imm_encodable(imm) => {
                 writeln!(self.writer, "\tcmp {lhs_s}, #{imm}")?
             }

@@ -65,10 +65,8 @@ impl ModuleGenerator {
                 (None, _) => "zeroinitializer".to_string(),
                 (Some(inits), Dtype::Array { element, .. }) => {
                     // Array initializer: [i32 1, i32 2, i32 3]
-                    let elems: Vec<String> = inits
-                        .iter()
-                        .map(|v| format!("{} {}", element, v))
-                        .collect();
+                    let elems: Vec<String> =
+                        inits.iter().map(|v| format!("{} {}", element, v)).collect();
                     format!("[{}]", elems.join(", "))
                 }
                 (Some(inits), _) if inits.len() == 1 => {
@@ -76,10 +74,7 @@ impl ModuleGenerator {
                 }
                 (Some(inits), _) => {
                     // Fallback for other multi-value initializers
-                    let elems: Vec<String> = inits
-                        .iter()
-                        .map(|v| format!("i32 {}", v))
-                        .collect();
+                    let elems: Vec<String> = inits.iter().map(|v| format!("i32 {}", v)).collect();
                     format!("[{}]", elems.join(", "))
                 }
             };

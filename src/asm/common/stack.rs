@@ -16,10 +16,7 @@ pub struct StackFrame {
 }
 
 impl StackFrame {
-    pub fn from_blocks(
-        blocks: &[ir::BasicBlock],
-        layouts: &StructLayouts,
-    ) -> Result<Self, Error> {
+    pub fn from_blocks(blocks: &[ir::BasicBlock], layouts: &StructLayouts) -> Result<Self, Error> {
         let mut frame = Self::default();
         let alloca_ptrs = collect_alloca_ptrs(blocks)?;
         for (vreg, dtype) in alloca_ptrs.iter() {
@@ -67,25 +64,23 @@ impl StackFrame {
     }
 }
 
-fn collect_alloca_ptrs(
-    blocks: &[ir::BasicBlock],
-) -> Result<HashMap<usize, ir::Dtype>, Error> {
+fn collect_alloca_ptrs(blocks: &[ir::BasicBlock]) -> Result<HashMap<usize, ir::Dtype>, Error> {
     let mut out = HashMap::new();
     for stmt in blocks.iter().flat_map(|block| block.stmts.iter()) {
         if let ir::stmt::StmtInner::Alloca(a) = &stmt.inner {
-            let vreg = a.dst.vreg_index().ok_or_else(|| Error::UnsupportedOperand {
-                what: format!("alloca destination is not a local variable: {}", a.dst),
-            })?;
+            let vreg = a
+                .dst
+                .vreg_index()
+                .ok_or_else(|| Error::UnsupportedOperand {
+                    what: format!("alloca destination is not a local variable: {}", a.dst),
+                })?;
             out.insert(vreg, a.dst.dtype().clone());
         }
     }
     Ok(out)
 }
 
-fn size_align_of_alloca(
-    dtype: &ir::Dtype,
-    layouts: &StructLayouts,
-) -> Result<(i64, i64), Error> {
+fn size_align_of_alloca(dtype: &ir::Dtype, layouts: &StructLayouts) -> Result<(i64, i64), Error> {
     match dtype {
         ir::Dtype::Ptr { pointee } => layouts.size_align_of(pointee.as_ref()),
         ir::Dtype::Array { .. } => layouts.size_align_of(dtype),

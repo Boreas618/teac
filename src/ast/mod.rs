@@ -19,12 +19,13 @@ pub use expr::{
 };
 
 pub use stmt::{
-    AssignmentStmt, BreakStmt, CallStmt, CodeBlockStmt, CodeBlockStmtInner,
-    ContinueStmt, IfStmt, NullStmt, ReturnStmt, WhileStmt,
+    AssignmentStmt, BreakStmt, CallStmt, CodeBlockStmt, CodeBlockStmtInner, ContinueStmt, IfStmt,
+    NullStmt, ReturnStmt, WhileStmt,
 };
 
 pub use decl::{
-    FnDecl, FnDeclStmt, FnDef, ParamDecl, StructDef, VarDecl, VarDeclArray, VarDeclInner, VarDeclStmt, VarDeclStmtInner, VarDef, VarDefArray, VarDefInner,     VarDefScalar,
+    FnDecl, FnDeclStmt, FnDef, ParamDecl, StructDef, VarDecl, VarDeclArray, VarDeclInner,
+    VarDeclStmt, VarDeclStmtInner, VarDef, VarDefArray, VarDefInner, VarDefScalar,
 };
 
 pub use program::{Program, ProgramElement, ProgramElementInner, UseStmt};

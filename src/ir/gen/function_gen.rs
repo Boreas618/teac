@@ -18,11 +18,7 @@ impl<'ir> FunctionGenerator<'ir> {
                 return Err(Error::VariableRedefinition { symbol: id.clone() });
             }
 
-            let var = LocalVariable::new(
-                dtype.clone(),
-                self.alloc_vreg(),
-                Some(id.to_string()),
-            );
+            let var = LocalVariable::new(dtype.clone(), self.alloc_vreg(), Some(id.to_string()));
             self.arguments.push(var.clone());
 
             let ptr = LocalVariable::new(
@@ -106,9 +102,7 @@ impl<'ir> FunctionGenerator<'ir> {
             self.emit_alloca(left.clone());
 
             let local_name = left_name.ok_or(Error::SymbolMissing)?;
-            let inserted = self
-                .local_variables
-                .insert(local_name.clone(), local_val);
+            let inserted = self.local_variables.insert(local_name.clone(), local_val);
             if inserted.is_none() {
                 self.record_scoped_local(local_name);
             }
@@ -148,11 +142,7 @@ impl<'ir> FunctionGenerator<'ir> {
             _ => return Err(Error::LocalVarDefinitionUnsupported),
         };
 
-        let variable = LocalVariable::new(
-            var_dtype,
-            self.alloc_vreg(),
-            Some(identifier.clone()),
-        );
+        let variable = LocalVariable::new(var_dtype, self.alloc_vreg(), Some(identifier.clone()));
 
         if needs_alloca {
             self.emit_alloca(Operand::from(variable.clone()));
@@ -217,15 +207,13 @@ impl<'ir> FunctionGenerator<'ir> {
             ast::VarDefInner::Array(array) => {
                 let (var_dtype, needs_init) = match &dtype {
                     None => (Dtype::ptr_to(Dtype::array_of(Dtype::I32, array.len)), true),
-                    Some(Dtype::I32) => (Dtype::ptr_to(Dtype::array_of(Dtype::I32, array.len)), true),
+                    Some(Dtype::I32) => {
+                        (Dtype::ptr_to(Dtype::array_of(Dtype::I32, array.len)), true)
+                    }
                     _ => return Err(Error::LocalVarDefinitionUnsupported),
                 };
 
-                let v = LocalVariable::new(
-                    var_dtype,
-                    self.alloc_vreg(),
-                    Some(identifier.clone()),
-                );
+                let v = LocalVariable::new(var_dtype, self.alloc_vreg(), Some(identifier.clone()));
 
                 if needs_init {
                     self.emit_alloca(Operand::from(v.clone()));
@@ -261,11 +249,7 @@ impl<'ir> FunctionGenerator<'ir> {
             args.push(right_val);
         }
 
-        match self
-            .registry
-            .function_types
-            .get(&function_name)
-        {
+        match self.registry.function_types.get(&function_name) {
             None => Err(Error::FunctionNotDefined {
                 symbol: function_name,
             }),
@@ -377,7 +361,12 @@ impl<'ir> FunctionGenerator<'ir> {
         let right = self.handle_expr_unit(&expr.right)?;
 
         let dst = self.alloc_temporary(Dtype::I1);
-        self.emit_cmp(CmpPredicate::from(expr.op.clone()), left, right, dst.clone());
+        self.emit_cmp(
+            CmpPredicate::from(expr.op.clone()),
+            left,
+            right,
+            dst.clone(),
+        );
         self.emit_cjump(dst, true_label, false_label);
 
         Ok(())

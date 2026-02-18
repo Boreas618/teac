@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use super::types::{Addr, BinOp, Cond, IndexOperand, Operand, Register, RegSize};
+use super::types::{Addr, BinOp, Cond, IndexOperand, Operand, RegSize, Register};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Inst {
@@ -92,7 +92,8 @@ impl Inst {
 
         let add_addr = |s: &mut HashSet<usize>, addr: &Addr| {
             if let Addr::BaseOff {
-                base: Register::Virtual(v), ..
+                base: Register::Virtual(v),
+                ..
             } = addr
             {
                 s.insert(*v);

@@ -12,12 +12,12 @@ type ParseResult<T> = Result<T, String>;
 type Pair<'a> = pest::iterators::Pair<'a, Rule>;
 
 pub fn parse(input: &str) -> ParseResult<Box<ast::Program>> {
-    let pairs = TeaLangParser::parse(Rule::program, input)
-        .map_err(|e| format!("Parse error: {}", e))?;
-    
+    let pairs =
+        TeaLangParser::parse(Rule::program, input).map_err(|e| format!("Parse error: {}", e))?;
+
     let mut use_stmts = Vec::new();
     let mut elements = Vec::new();
-    
+
     for pair in pairs {
         if pair.as_rule() == Rule::program {
             for inner in pair.into_inner() {
@@ -36,8 +36,11 @@ pub fn parse(input: &str) -> ParseResult<Box<ast::Program>> {
             }
         }
     }
-    
-    Ok(Box::new(ast::Program { use_stmts, elements }))
+
+    Ok(Box::new(ast::Program {
+        use_stmts,
+        elements,
+    }))
 }
 
 fn get_pos(pair: &Pair) -> usize {
@@ -87,7 +90,7 @@ fn parse_program_element(pair: Pair) -> ParseResult<Option<Box<ast::ProgramEleme
 fn parse_struct_def(pair: Pair) -> ParseResult<Box<ast::StructDef>> {
     let mut identifier = String::new();
     let mut decls = Vec::new();
-    
+
     for inner in pair.into_inner() {
         match inner.as_rule() {
             Rule::identifier => identifier = inner.as_str().to_string(),
@@ -95,7 +98,7 @@ fn parse_struct_def(pair: Pair) -> ParseResult<Box<ast::StructDef>> {
             _ => {}
         }
     }
-    
+
     Ok(Box::new(ast::StructDef { identifier, decls }))
 }
 
@@ -151,7 +154,7 @@ fn parse_var_decl(pair: Pair) -> ParseResult<Box<ast::VarDecl>> {
 
 fn parse_type_spec(pair: Pair) -> ParseResult<Rc<Option<ast::TypeSpecifier>>> {
     let pos = get_pos(&pair);
-    
+
     for inner in pair.into_inner() {
         match inner.as_rule() {
             Rule::kw_int => {
@@ -169,12 +172,13 @@ fn parse_type_spec(pair: Pair) -> ParseResult<Rc<Option<ast::TypeSpecifier>>> {
             _ => {}
         }
     }
-    
+
     Ok(Rc::new(None))
 }
 
 fn parse_num(pair: Pair) -> ParseResult<i32> {
-    pair.as_str().parse::<i32>()
+    pair.as_str()
+        .parse::<i32>()
         .map_err(|e| format!("Failed to parse number: {}", e))
 }
 
@@ -194,35 +198,50 @@ fn parse_var_decl_stmt(pair: Pair) -> ParseResult<Box<ast::VarDeclStmt>> {
             _ => {}
         }
     }
-    
+
     Err("Invalid var_decl_stmt".to_string())
 }
 
 fn parse_var_def(pair: Pair) -> ParseResult<Box<ast::VarDef>> {
     let inner_pairs: Vec<_> = pair.into_inner().collect();
-    
+
     let identifier = inner_pairs[0].as_str().to_string();
-    
+
     // Determine pattern based on structure
     // Look for lbracket to detect array
     let has_bracket = inner_pairs.iter().any(|p| p.as_rule() == Rule::lbracket);
     let has_colon = inner_pairs.iter().any(|p| p.as_rule() == Rule::colon);
-    
+
     if has_bracket {
         // Array definition
-        let len = parse_num(inner_pairs.iter().find(|p| p.as_rule() == Rule::num)
-            .ok_or("Missing array length")?.clone())? as usize;
-        
+        let len = parse_num(
+            inner_pairs
+                .iter()
+                .find(|p| p.as_rule() == Rule::num)
+                .ok_or("Missing array length")?
+                .clone(),
+        )? as usize;
+
         let type_specifier = if has_colon {
-            parse_type_spec(inner_pairs.iter().find(|p| p.as_rule() == Rule::type_spec)
-                .ok_or("Missing type specifier")?.clone())?
+            parse_type_spec(
+                inner_pairs
+                    .iter()
+                    .find(|p| p.as_rule() == Rule::type_spec)
+                    .ok_or("Missing type specifier")?
+                    .clone(),
+            )?
         } else {
             Rc::new(None)
         };
-        
-        let vals = parse_right_val_list(inner_pairs.iter().find(|p| p.as_rule() == Rule::right_val_list)
-            .ok_or("Missing value list")?.clone())?;
-        
+
+        let vals = parse_right_val_list(
+            inner_pairs
+                .iter()
+                .find(|p| p.as_rule() == Rule::right_val_list)
+                .ok_or("Missing value list")?
+                .clone(),
+        )?;
+
         Ok(Box::new(ast::VarDef {
             identifier,
             type_specifier,
@@ -231,15 +250,25 @@ fn parse_var_def(pair: Pair) -> ParseResult<Box<ast::VarDef>> {
     } else {
         // Scalar definition
         let type_specifier = if has_colon {
-            parse_type_spec(inner_pairs.iter().find(|p| p.as_rule() == Rule::type_spec)
-                .ok_or("Missing type specifier")?.clone())?
+            parse_type_spec(
+                inner_pairs
+                    .iter()
+                    .find(|p| p.as_rule() == Rule::type_spec)
+                    .ok_or("Missing type specifier")?
+                    .clone(),
+            )?
         } else {
             Rc::new(None)
         };
-        
-        let val = parse_right_val(inner_pairs.iter().find(|p| p.as_rule() == Rule::right_val)
-            .ok_or("Missing value")?.clone())?;
-        
+
+        let val = parse_right_val(
+            inner_pairs
+                .iter()
+                .find(|p| p.as_rule() == Rule::right_val)
+                .ok_or("Missing value")?
+                .clone(),
+        )?;
+
         Ok(Box::new(ast::VarDef {
             identifier,
             type_specifier,
@@ -274,19 +303,19 @@ fn parse_right_val(pair: Pair) -> ParseResult<Box<ast::RightVal>> {
             _ => {}
         }
     }
-    
+
     Err("Invalid right_val".to_string())
 }
 
 fn parse_bool_expr(pair: Pair) -> ParseResult<Box<ast::BoolExpr>> {
     let inner_pairs: Vec<_> = pair.into_inner().collect();
-    
+
     if inner_pairs.is_empty() {
         return Err("Empty bool_expr".to_string());
     }
-    
+
     let mut expr = parse_bool_and_term(inner_pairs[0].clone())?;
-    
+
     let mut i = 1;
     while i < inner_pairs.len() {
         if inner_pairs[i].as_rule() == Rule::op_or {
@@ -304,23 +333,23 @@ fn parse_bool_expr(pair: Pair) -> ParseResult<Box<ast::BoolExpr>> {
             i += 1;
         }
     }
-    
+
     Ok(expr)
 }
 
 fn parse_bool_and_term(pair: Pair) -> ParseResult<Box<ast::BoolExpr>> {
     let inner_pairs: Vec<_> = pair.into_inner().collect();
-    
+
     if inner_pairs.is_empty() {
         return Err("Empty bool_and_term".to_string());
     }
-    
+
     let first_unit = parse_bool_unit_atom(inner_pairs[0].clone())?;
     let mut expr = Box::new(ast::BoolExpr {
         pos: first_unit.pos,
         inner: ast::BoolExprInner::BoolUnit(first_unit),
     });
-    
+
     let mut i = 1;
     while i < inner_pairs.len() {
         if inner_pairs[i].as_rule() == Rule::op_and {
@@ -329,7 +358,7 @@ fn parse_bool_and_term(pair: Pair) -> ParseResult<Box<ast::BoolExpr>> {
                 pos: right_unit.pos,
                 inner: ast::BoolExprInner::BoolUnit(right_unit),
             });
-            
+
             expr = Box::new(ast::BoolExpr {
                 pos: expr.pos,
                 inner: ast::BoolExprInner::BoolBiOpExpr(Box::new(ast::BoolBiOpExpr {
@@ -343,14 +372,14 @@ fn parse_bool_and_term(pair: Pair) -> ParseResult<Box<ast::BoolExpr>> {
             i += 1;
         }
     }
-    
+
     Ok(expr)
 }
 
 fn parse_bool_unit_atom(pair: Pair) -> ParseResult<Box<ast::BoolUnit>> {
     let pos = get_pos(&pair);
     let inner_pairs: Vec<_> = pair.into_inner().collect();
-    
+
     if inner_pairs.len() == 2 && inner_pairs[0].as_rule() == Rule::op_not {
         let cond = parse_bool_unit_atom(inner_pairs[1].clone())?;
         return Ok(Box::new(ast::BoolUnit {
@@ -361,7 +390,7 @@ fn parse_bool_unit_atom(pair: Pair) -> ParseResult<Box<ast::BoolUnit>> {
             })),
         }));
     }
-    
+
     for inner in inner_pairs {
         match inner.as_rule() {
             Rule::bool_unit_paren => {
@@ -373,55 +402,73 @@ fn parse_bool_unit_atom(pair: Pair) -> ParseResult<Box<ast::BoolUnit>> {
             _ => {}
         }
     }
-    
+
     Err("Invalid bool_unit_atom".to_string())
 }
 
 fn parse_bool_unit_paren(pair: Pair) -> ParseResult<Box<ast::BoolUnit>> {
     let pos = get_pos(&pair);
     let inner_pairs: Vec<_> = pair.into_inner().collect();
-    
-    let filtered: Vec<_> = inner_pairs.into_iter()
+
+    let filtered: Vec<_> = inner_pairs
+        .into_iter()
         .filter(|p| p.as_rule() != Rule::lparen && p.as_rule() != Rule::rparen)
         .collect();
-    
+
     if filtered.len() == 1 && filtered[0].as_rule() == Rule::bool_expr {
         return Ok(Box::new(ast::BoolUnit {
             pos,
             inner: ast::BoolUnitInner::BoolExpr(parse_bool_expr(filtered[0].clone())?),
         }));
     }
-    
+
     if filtered.len() == 3 {
-        return parse_comparison_to_bool_unit(pos, filtered[0].clone(), filtered[1].clone(), filtered[2].clone());
+        return parse_comparison_to_bool_unit(
+            pos,
+            filtered[0].clone(),
+            filtered[1].clone(),
+            filtered[2].clone(),
+        );
     }
-    
-    Err(format!("Invalid bool_unit_paren with {} filtered elements", filtered.len()))
+
+    Err(format!(
+        "Invalid bool_unit_paren with {} filtered elements",
+        filtered.len()
+    ))
 }
 
 fn parse_bool_comparison(pair: Pair) -> ParseResult<Box<ast::BoolUnit>> {
     let pos = get_pos(&pair);
     let inner_pairs: Vec<_> = pair.into_inner().collect();
-    
+
     if inner_pairs.len() == 3 {
-        return parse_comparison_to_bool_unit(pos, inner_pairs[0].clone(), inner_pairs[1].clone(), inner_pairs[2].clone());
+        return parse_comparison_to_bool_unit(
+            pos,
+            inner_pairs[0].clone(),
+            inner_pairs[1].clone(),
+            inner_pairs[2].clone(),
+        );
     }
-    
-    Err(format!("Invalid bool_comparison with {} elements", inner_pairs.len()))
+
+    Err(format!(
+        "Invalid bool_comparison with {} elements",
+        inner_pairs.len()
+    ))
 }
 
-fn parse_comparison_to_bool_unit(pos: usize, left_pair: Pair, op_pair: Pair, right_pair: Pair) -> ParseResult<Box<ast::BoolUnit>> {
+fn parse_comparison_to_bool_unit(
+    pos: usize,
+    left_pair: Pair,
+    op_pair: Pair,
+    right_pair: Pair,
+) -> ParseResult<Box<ast::BoolUnit>> {
     let left = parse_expr_unit(left_pair)?;
     let op = parse_comp_op(op_pair)?;
     let right = parse_expr_unit(right_pair)?;
-    
+
     Ok(Box::new(ast::BoolUnit {
         pos,
-        inner: ast::BoolUnitInner::ComExpr(Box::new(ast::ComExpr {
-            op,
-            left,
-            right,
-        })),
+        inner: ast::BoolUnitInner::ComExpr(Box::new(ast::ComExpr { op, left, right })),
     }))
 }
 
@@ -442,19 +489,19 @@ fn parse_comp_op(pair: Pair) -> ParseResult<ast::ComOp> {
 
 fn parse_arith_expr(pair: Pair) -> ParseResult<Box<ast::ArithExpr>> {
     let inner_pairs: Vec<_> = pair.into_inner().collect();
-    
+
     if inner_pairs.is_empty() {
         return Err("Empty arith_expr".to_string());
     }
-    
+
     let mut expr = parse_arith_term(inner_pairs[0].clone())?;
-    
+
     let mut i = 1;
     while i < inner_pairs.len() {
         if inner_pairs[i].as_rule() == Rule::arith_add_op {
             let op = parse_arith_add_op(inner_pairs[i].clone())?;
             let right = parse_arith_term(inner_pairs[i + 1].clone())?;
-            
+
             expr = Box::new(ast::ArithExpr {
                 pos: expr.pos,
                 inner: ast::ArithExprInner::ArithBiOpExpr(Box::new(ast::ArithBiOpExpr {
@@ -468,23 +515,23 @@ fn parse_arith_expr(pair: Pair) -> ParseResult<Box<ast::ArithExpr>> {
             i += 1;
         }
     }
-    
+
     Ok(expr)
 }
 
 fn parse_arith_term(pair: Pair) -> ParseResult<Box<ast::ArithExpr>> {
     let inner_pairs: Vec<_> = pair.into_inner().collect();
-    
+
     if inner_pairs.is_empty() {
         return Err("Empty arith_term".to_string());
     }
-    
+
     let first_unit = parse_expr_unit(inner_pairs[0].clone())?;
     let mut expr = Box::new(ast::ArithExpr {
         pos: first_unit.pos,
         inner: ast::ArithExprInner::ExprUnit(first_unit),
     });
-    
+
     let mut i = 1;
     while i < inner_pairs.len() {
         if inner_pairs[i].as_rule() == Rule::arith_mul_op {
@@ -494,7 +541,7 @@ fn parse_arith_term(pair: Pair) -> ParseResult<Box<ast::ArithExpr>> {
                 pos: right_unit.pos,
                 inner: ast::ArithExprInner::ExprUnit(right_unit),
             });
-            
+
             expr = Box::new(ast::ArithExpr {
                 pos: expr.pos,
                 inner: ast::ArithExprInner::ArithBiOpExpr(Box::new(ast::ArithBiOpExpr {
@@ -508,7 +555,7 @@ fn parse_arith_term(pair: Pair) -> ParseResult<Box<ast::ArithExpr>> {
             i += 1;
         }
     }
-    
+
     Ok(expr)
 }
 
@@ -537,34 +584,38 @@ fn parse_arith_mul_op(pair: Pair) -> ParseResult<ast::ArithBiOp> {
 fn parse_expr_unit(pair: Pair) -> ParseResult<Box<ast::ExprUnit>> {
     let pos = get_pos(&pair);
     let inner_pairs: Vec<_> = pair.into_inner().collect();
-    
-    let filtered: Vec<_> = inner_pairs.iter()
+
+    let filtered: Vec<_> = inner_pairs
+        .iter()
         .filter(|p| !matches!(p.as_rule(), Rule::lparen | Rule::rparen))
         .cloned()
         .collect();
-    
-    if filtered.len() == 2 && filtered[0].as_rule() == Rule::op_sub && filtered[1].as_rule() == Rule::num {
+
+    if filtered.len() == 2
+        && filtered[0].as_rule() == Rule::op_sub
+        && filtered[1].as_rule() == Rule::num
+    {
         let num = parse_num(filtered[1].clone())?;
         return Ok(Box::new(ast::ExprUnit {
             pos,
             inner: ast::ExprUnitInner::Num(-num),
         }));
     }
-    
+
     if filtered.len() == 1 && filtered[0].as_rule() == Rule::arith_expr {
         return Ok(Box::new(ast::ExprUnit {
             pos,
             inner: ast::ExprUnitInner::ArithExpr(parse_arith_expr(filtered[0].clone())?),
         }));
     }
-    
+
     if filtered.len() >= 1 && filtered[0].as_rule() == Rule::fn_call {
         return Ok(Box::new(ast::ExprUnit {
             pos,
             inner: ast::ExprUnitInner::FnCall(parse_fn_call(filtered[0].clone())?),
         }));
     }
-    
+
     if filtered.len() == 1 && filtered[0].as_rule() == Rule::num {
         let num = parse_num(filtered[0].clone())?;
         return Ok(Box::new(ast::ExprUnit {
@@ -572,15 +623,15 @@ fn parse_expr_unit(pair: Pair) -> ParseResult<Box<ast::ExprUnit>> {
             inner: ast::ExprUnitInner::Num(num),
         }));
     }
-    
+
     if inner_pairs.len() >= 1 && inner_pairs[0].as_rule() == Rule::identifier {
         let id = inner_pairs[0].as_str().to_string();
-        
+
         let mut base = Box::new(ast::LeftVal {
             pos,
             inner: ast::LeftValInner::Id(id),
         });
-        
+
         let mut i = 1;
         while i < inner_pairs.len() {
             match inner_pairs[i].as_rule() {
@@ -591,16 +642,23 @@ fn parse_expr_unit(pair: Pair) -> ParseResult<Box<ast::ExprUnit>> {
                 _ => break,
             }
         }
-        
+
         return left_val_to_expr_unit(base);
     }
-    
-    Err(format!("Invalid expr_unit with {} parts, filtered: {}", inner_pairs.len(), filtered.len()))
+
+    Err(format!(
+        "Invalid expr_unit with {} parts, filtered: {}",
+        inner_pairs.len(),
+        filtered.len()
+    ))
 }
 
-fn parse_expr_suffix_to_left_val(base: Box<ast::LeftVal>, suffix: Pair) -> ParseResult<Box<ast::LeftVal>> {
+fn parse_expr_suffix_to_left_val(
+    base: Box<ast::LeftVal>,
+    suffix: Pair,
+) -> ParseResult<Box<ast::LeftVal>> {
     let pos = base.pos;
-    
+
     for inner in suffix.into_inner() {
         match inner.as_rule() {
             Rule::lbracket | Rule::rbracket | Rule::dot => continue,
@@ -627,32 +685,26 @@ fn parse_expr_suffix_to_left_val(base: Box<ast::LeftVal>, suffix: Pair) -> Parse
             _ => {}
         }
     }
-    
+
     Ok(base)
 }
 
 fn left_val_to_expr_unit(lval: Box<ast::LeftVal>) -> ParseResult<Box<ast::ExprUnit>> {
     let pos = lval.pos;
-    
+
     match &lval.inner {
-        ast::LeftValInner::Id(id) => {
-            Ok(Box::new(ast::ExprUnit {
-                pos,
-                inner: ast::ExprUnitInner::Id(id.clone()),
-            }))
-        }
-        ast::LeftValInner::ArrayExpr(arr_expr) => {
-            Ok(Box::new(ast::ExprUnit {
-                pos,
-                inner: ast::ExprUnitInner::ArrayExpr(arr_expr.clone()),
-            }))
-        }
-        ast::LeftValInner::MemberExpr(mem_expr) => {
-            Ok(Box::new(ast::ExprUnit {
-                pos,
-                inner: ast::ExprUnitInner::MemberExpr(mem_expr.clone()),
-            }))
-        }
+        ast::LeftValInner::Id(id) => Ok(Box::new(ast::ExprUnit {
+            pos,
+            inner: ast::ExprUnitInner::Id(id.clone()),
+        })),
+        ast::LeftValInner::ArrayExpr(arr_expr) => Ok(Box::new(ast::ExprUnit {
+            pos,
+            inner: ast::ExprUnitInner::ArrayExpr(arr_expr.clone()),
+        })),
+        ast::LeftValInner::MemberExpr(mem_expr) => Ok(Box::new(ast::ExprUnit {
+            pos,
+            inner: ast::ExprUnitInner::MemberExpr(mem_expr.clone()),
+        })),
     }
 }
 
@@ -696,7 +748,7 @@ fn parse_module_prefixed_call(pair: Pair) -> ParseResult<Box<ast::FnCall>> {
     let mut module_prefix = None;
     let mut name = String::new();
     let mut vals = Vec::new();
-    
+
     for inner in inner_pairs {
         match inner.as_rule() {
             Rule::identifier => {
@@ -710,7 +762,7 @@ fn parse_module_prefixed_call(pair: Pair) -> ParseResult<Box<ast::FnCall>> {
             _ => {}
         }
     }
-    
+
     Ok(Box::new(ast::FnCall {
         module_prefix,
         name,
@@ -721,7 +773,7 @@ fn parse_module_prefixed_call(pair: Pair) -> ParseResult<Box<ast::FnCall>> {
 fn parse_local_call(pair: Pair) -> ParseResult<Box<ast::FnCall>> {
     let mut name = String::new();
     let mut vals = Vec::new();
-    
+
     for inner in pair.into_inner() {
         match inner.as_rule() {
             Rule::identifier => name = inner.as_str().to_string(),
@@ -729,7 +781,7 @@ fn parse_local_call(pair: Pair) -> ParseResult<Box<ast::FnCall>> {
             _ => {}
         }
     }
-    
+
     Ok(Box::new(ast::FnCall {
         module_prefix: None,
         name,
@@ -740,18 +792,18 @@ fn parse_local_call(pair: Pair) -> ParseResult<Box<ast::FnCall>> {
 fn parse_left_val(pair: Pair) -> ParseResult<Box<ast::LeftVal>> {
     let pos = get_pos(&pair);
     let inner_pairs: Vec<_> = pair.into_inner().collect();
-    
+
     if inner_pairs.is_empty() {
         return Err("Empty left_val".to_string());
     }
-    
+
     let id = inner_pairs[0].as_str().to_string();
-    
+
     let mut base = Box::new(ast::LeftVal {
         pos,
         inner: ast::LeftValInner::Id(id),
     });
-    
+
     let mut i = 1;
     while i < inner_pairs.len() {
         match inner_pairs[i].as_rule() {
@@ -762,13 +814,13 @@ fn parse_left_val(pair: Pair) -> ParseResult<Box<ast::LeftVal>> {
             _ => break,
         }
     }
-    
+
     Ok(base)
 }
 
 fn parse_left_val_suffix(base: Box<ast::LeftVal>, suffix: Pair) -> ParseResult<Box<ast::LeftVal>> {
     let pos = base.pos;
-    
+
     for inner in suffix.into_inner() {
         match inner.as_rule() {
             Rule::lbracket | Rule::rbracket | Rule::dot => continue,
@@ -795,7 +847,7 @@ fn parse_left_val_suffix(base: Box<ast::LeftVal>, suffix: Pair) -> ParseResult<B
             _ => {}
         }
     }
-    
+
     Ok(base)
 }
 
@@ -807,7 +859,7 @@ fn parse_fn_decl_stmt(pair: Pair) -> ParseResult<Box<ast::FnDeclStmt>> {
             }));
         }
     }
-    
+
     Err("Invalid fn_decl_stmt".to_string())
 }
 
@@ -815,7 +867,7 @@ fn parse_fn_decl(pair: Pair) -> ParseResult<Box<ast::FnDecl>> {
     let mut identifier = String::new();
     let mut param_decl = None;
     let mut return_dtype = Rc::new(None);
-    
+
     for inner in pair.into_inner() {
         match inner.as_rule() {
             Rule::identifier => identifier = inner.as_str().to_string(),
@@ -824,7 +876,7 @@ fn parse_fn_decl(pair: Pair) -> ParseResult<Box<ast::FnDecl>> {
             _ => {}
         }
     }
-    
+
     Ok(Box::new(ast::FnDecl {
         identifier,
         param_decl,
@@ -846,7 +898,7 @@ fn parse_param_decl(pair: Pair) -> ParseResult<Box<ast::ParamDecl>> {
 fn parse_fn_def(pair: Pair) -> ParseResult<Box<ast::FnDef>> {
     let mut fn_decl = None;
     let mut stmts = Vec::new();
-    
+
     for inner in pair.into_inner() {
         match inner.as_rule() {
             Rule::fn_decl => fn_decl = Some(parse_fn_decl(inner)?),
@@ -854,7 +906,7 @@ fn parse_fn_def(pair: Pair) -> ParseResult<Box<ast::FnDef>> {
             _ => {}
         }
     }
-    
+
     Ok(Box::new(ast::FnDef {
         fn_decl: fn_decl.ok_or("Missing fn_decl in fn_def")?,
         stmts,
@@ -914,14 +966,14 @@ fn parse_code_block_stmt(pair: Pair) -> ParseResult<Box<ast::CodeBlockStmt>> {
             _ => {}
         }
     }
-    
+
     Err("Invalid code_block_stmt".to_string())
 }
 
 fn parse_assignment_stmt(pair: Pair) -> ParseResult<Box<ast::AssignmentStmt>> {
     let mut left_val = None;
     let mut right_val = None;
-    
+
     for inner in pair.into_inner() {
         match inner.as_rule() {
             Rule::left_val => left_val = Some(parse_left_val(inner)?),
@@ -929,7 +981,7 @@ fn parse_assignment_stmt(pair: Pair) -> ParseResult<Box<ast::AssignmentStmt>> {
             _ => {}
         }
     }
-    
+
     Ok(Box::new(ast::AssignmentStmt {
         left_val: left_val.ok_or("Missing left_val")?,
         right_val: right_val.ok_or("Missing right_val")?,
@@ -944,19 +996,19 @@ fn parse_call_stmt(pair: Pair) -> ParseResult<Box<ast::CallStmt>> {
             }));
         }
     }
-    
+
     Err("Invalid call_stmt".to_string())
 }
 
 fn parse_return_stmt(pair: Pair) -> ParseResult<Box<ast::ReturnStmt>> {
     let mut val = None;
-    
+
     for inner in pair.into_inner() {
         if inner.as_rule() == Rule::right_val {
             val = Some(parse_right_val(inner)?);
         }
     }
-    
+
     Ok(Box::new(ast::ReturnStmt { val }))
 }
 
@@ -965,7 +1017,7 @@ fn parse_if_stmt(pair: Pair) -> ParseResult<Box<ast::IfStmt>> {
     let mut if_stmts = Vec::new();
     let mut else_stmts = None;
     let mut in_else = false;
-    
+
     for inner in pair.into_inner() {
         match inner.as_rule() {
             Rule::bool_expr => {
@@ -981,7 +1033,10 @@ fn parse_if_stmt(pair: Pair) -> ParseResult<Box<ast::IfStmt>> {
                     if else_stmts.is_none() {
                         else_stmts = Some(Vec::new());
                     }
-                    else_stmts.as_mut().unwrap().push(*parse_code_block_stmt(inner)?);
+                    else_stmts
+                        .as_mut()
+                        .unwrap()
+                        .push(*parse_code_block_stmt(inner)?);
                 } else {
                     if_stmts.push(*parse_code_block_stmt(inner)?);
                 }
@@ -992,7 +1047,7 @@ fn parse_if_stmt(pair: Pair) -> ParseResult<Box<ast::IfStmt>> {
             _ => {}
         }
     }
-    
+
     Ok(Box::new(ast::IfStmt {
         bool_unit: bool_unit.ok_or("Missing bool_unit")?,
         if_stmts,
@@ -1003,7 +1058,7 @@ fn parse_if_stmt(pair: Pair) -> ParseResult<Box<ast::IfStmt>> {
 fn parse_while_stmt(pair: Pair) -> ParseResult<Box<ast::WhileStmt>> {
     let mut bool_unit = None;
     let mut stmts = Vec::new();
-    
+
     for inner in pair.into_inner() {
         match inner.as_rule() {
             Rule::bool_expr => {
@@ -1020,10 +1075,9 @@ fn parse_while_stmt(pair: Pair) -> ParseResult<Box<ast::WhileStmt>> {
             _ => {}
         }
     }
-    
+
     Ok(Box::new(ast::WhileStmt {
         bool_unit: bool_unit.ok_or("Missing bool_unit")?,
         stmts,
     }))
 }
-

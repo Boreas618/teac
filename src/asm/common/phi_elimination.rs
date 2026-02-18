@@ -53,10 +53,7 @@ impl<'a> PhiEliminator<'a> {
     }
 
     fn parse_blocks(&self) -> Vec<ParsedBlock> {
-        self.blocks
-            .iter()
-            .map(ParsedBlock::from_block)
-            .collect()
+        self.blocks.iter().map(ParsedBlock::from_block).collect()
     }
 
     fn build_phi_loads(
