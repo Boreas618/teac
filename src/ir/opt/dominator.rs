@@ -2,25 +2,21 @@ use super::cfg::Graph;
 use std::collections::HashSet;
 
 pub struct DominatorInfo {
-    dom: Vec<HashSet<usize>>,
     idom: Vec<Option<usize>>,
     children: Vec<Vec<usize>>,
     frontiers: Vec<HashSet<usize>>,
 }
-
 
 impl DominatorInfo {
     pub fn compute(graph: &Graph) -> Self {
         let preds = graph.preds_vec();
         let succs = graph.succs_vec();
 
-        let dom = Self::compute_dominators(preds);
         let idom = Self::compute_idom(preds, succs);
         let children = Self::build_dom_tree(&idom);
         let frontiers = Self::compute_dominance_frontiers(succs, &idom, &children);
 
         Self {
-            dom,
             idom,
             children,
             frontiers,
@@ -28,7 +24,16 @@ impl DominatorInfo {
     }
 
     pub fn dominates(&self, dominator: usize, block: usize) -> bool {
-        self.dom[block].contains(&dominator)
+        let mut cur = block;
+        loop {
+            if cur == dominator {
+                return true;
+            }
+            match self.idom[cur] {
+                Some(parent) => cur = parent,
+                None => return false,
+            }
+        }
     }
 
     pub fn immediate_dominator(&self, block: usize) -> Option<usize> {
@@ -43,10 +48,6 @@ impl DominatorInfo {
         &self.frontiers[block]
     }
 
-    pub fn dominators(&self, block: usize) -> &HashSet<usize> {
-        &self.dom[block]
-    }
-
     pub fn dom_tree_roots(&self) -> impl Iterator<Item = usize> + '_ {
         self.idom
             .iter()
@@ -54,49 +55,47 @@ impl DominatorInfo {
             .filter_map(|(i, idom)| if idom.is_none() { Some(i) } else { None })
     }
 
-    fn compute_dominators(preds: &[Vec<usize>]) -> Vec<HashSet<usize>> {
-        let n = preds.len();
-        let mut dom = vec![HashSet::new(); n];
-
-        for i in 0..n {
-            if i == 0 {
-                dom[i].insert(0);
-            } else {
-                dom[i] = (0..n).collect();
-            }
-        }
-
-        let mut changed = true;
-        while changed {
-            changed = false;
-            for i in 1..n {
-                let new_dom = if preds[i].is_empty() {
-                    let mut set = HashSet::new();
-                    set.insert(i);
-                    set
-                } else {
-                    let mut iter = preds[i].iter();
-                    let first = *iter.next().unwrap();
-                    let mut intersect = dom[first].clone();
-                    for &p in iter {
-                        intersect = intersect
-                            .intersection(&dom[p])
-                            .copied()
-                            .collect::<HashSet<_>>();
-                    }
-                    intersect.insert(i);
-                    intersect
-                };
-                if new_dom != dom[i] {
-                    dom[i] = new_dom;
-                    changed = true;
-                }
-            }
-        }
-
-        dom
-    }
-
+    /// Computes the immediate dominator of every block using the algorithm from
+    /// Cooper, Harvey, and Kennedy, "A Simple, Fast Dominance Algorithm" (2001).
+    ///
+    /// **Definition.** Block `d` is the _immediate dominator_ (`idom`) of block
+    /// `n` if `d` strictly dominates `n` and does not strictly dominate any
+    /// other strict dominator of `n`.  In other words, `idom(n)` is the closest
+    /// dominator of `n` in the dominator tree.  The entry block has no
+    /// immediate dominator.
+    ///
+    /// The algorithm works as follows:
+    ///
+    /// 1. **Reverse postorder (RPO) numbering.**
+    ///    Perform a DFS from the entry block and record blocks in reverse
+    ///    postorder.  This guarantees that (in a reducible CFG) every block's
+    ///    dominator appears earlier in the ordering, so one pass usually
+    ///    suffices to reach the fixed point.
+    ///
+    /// 2. **Initialization.**
+    ///    - `idom(entry) = entry` — a sentinel that anchors the tree.
+    ///    - `idom(n) = None` for all other blocks.
+    ///
+    /// 3. **Fixed-point iteration.**  Traverse every non-entry block `b` in RPO:
+    ///    - Among `b`'s predecessors whose `idom` is already known, pick the
+    ///      first one as a tentative immediate dominator.
+    ///    - Fold the remaining processed predecessors in with the `intersect`
+    ///      helper: given two blocks, `intersect` walks both upward through
+    ///      the current `idom` chain (using RPO indices to decide which side
+    ///      to advance) until they meet.  The meeting point is the nearest
+    ///      common dominator of the two blocks.
+    ///    - If the newly computed `idom(b)` differs from the current one,
+    ///      record the change and mark the pass as dirty.
+    ///
+    ///    Repeat until a full pass produces no changes.
+    ///
+    /// 4. **Clean-up.**  Reset `idom(entry) = None`, since the entry block has
+    ///    no true immediate dominator (the sentinel was only needed by the
+    ///    iteration).
+    ///
+    /// **Complexity.** For reducible CFGs the algorithm converges in a single
+    /// pass, giving O(n) time.  In the worst case (irreducible CFGs) it may
+    /// require O(n²) time, but this is rare in practice.
     fn compute_idom(preds: &[Vec<usize>], succs: &[Vec<usize>]) -> Vec<Option<usize>> {
         let n = succs.len();
         if n == 0 {

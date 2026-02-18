@@ -2,12 +2,10 @@ use crate::ir::function::{BasicBlock, BlockLabel};
 use crate::ir::stmt::StmtInner;
 use std::collections::HashMap;
 
-
 pub struct Graph {
     succs: Vec<Vec<usize>>,
     preds: Vec<Vec<usize>>,
 }
-
 
 impl Graph {
     pub fn num_nodes(&self) -> usize {
@@ -31,12 +29,10 @@ impl Graph {
     }
 }
 
-
 pub struct Cfg {
     labels: Vec<BlockLabel>,
     graph: Graph,
 }
-
 
 impl Cfg {
     pub fn from_blocks(blocks: &[BasicBlock]) -> Self {
@@ -83,10 +79,7 @@ impl Cfg {
             .collect()
     }
 
-    fn build_graph(
-        blocks: &[BasicBlock],
-        label_map: &HashMap<String, usize>,
-    ) -> Graph {
+    fn build_graph(blocks: &[BasicBlock], label_map: &HashMap<String, usize>) -> Graph {
         let n = blocks.len();
         let mut succs: Vec<Vec<usize>> = vec![Vec::new(); n];
         let mut preds: Vec<Vec<usize>> = vec![Vec::new(); n];
@@ -110,7 +103,7 @@ impl Cfg {
         num_blocks: usize,
         label_map: &HashMap<String, usize>,
     ) -> Vec<usize> {
-        let term = block.stmts.iter().rev().next();
+        let term = block.stmts.last();
 
         match term.map(|s| &s.inner) {
             Some(StmtInner::Jump(j)) => vec![label_map[&j.target.key()]],

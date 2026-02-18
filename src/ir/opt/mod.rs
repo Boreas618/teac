@@ -7,12 +7,10 @@ mod mem2reg;
 
 pub use mem2reg::Mem2RegPass;
 
-/// Function-level optimization pass interface.
 pub trait FunctionPass {
     fn run(&self, func: &mut Function);
 }
 
-/// Simple ordered pass manager for function passes.
 #[derive(Default)]
 pub struct FunctionPassManager {
     passes: Vec<Box<dyn FunctionPass>>,

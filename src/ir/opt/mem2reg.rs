@@ -85,7 +85,6 @@ fn place_phis(
 }
 
 struct AllocaAnalysis {
-    
     candidates: HashSet<usize>,
     usage: HashMap<usize, VarUsage>,
 }
