@@ -96,12 +96,27 @@ struct AllocaAnalysis {
 }
 
 impl AllocaAnalysis {
+    /// Constructs an `AllocaAnalysis` by scanning all basic blocks.
+    ///
+    /// First identifies alloca instructions that allocate i32 pointers as
+    /// promotion candidates, then analyzes their load/store usage patterns
+    /// across all blocks.
     fn from_blocks(blocks: &[BasicBlock]) -> Self {
         let candidates = Self::collect_candidates(blocks);
         let usage = Self::analyze_usage(blocks, &candidates);
         Self { usage }
     }
 
+    /// Returns the subset of analyzed variables that are safe to promote to SSA form.
+    ///
+    /// A variable is promotable if:
+    /// 1. It has at least one store (otherwise there's nothing to promote).
+    /// 2. It is not used in any invalid way (e.g., address taken for non-load/store).
+    /// 3. Every block that loads before storing is dominated by at least one
+    ///    definition block, ensuring reads always see a defined value.
+    ///
+    /// Single-definition variables are rate-limited to avoid exploding the
+    /// register allocator's interference graph on stress tests.
     fn promotable_vars(&self, dom_info: &DominatorInfo) -> HashMap<usize, VarUsage> {
         let mut multi_def = HashMap::new();
         let mut single_def = HashMap::new();
@@ -148,6 +163,11 @@ impl AllocaAnalysis {
         multi_def
     }
 
+    /// Scans all blocks for alloca instructions that produce `*i32` pointers.
+    ///
+    /// Returns the set of virtual register indices for these allocas. Only i32
+    /// pointer allocas are considered because the current implementation only
+    /// supports promoting scalar integer values.
     fn collect_candidates(blocks: &[BasicBlock]) -> HashSet<usize> {
         let mut candidates = HashSet::new();
         for stmt in blocks.iter().flat_map(|block| block.stmts.iter()) {
@@ -164,6 +184,15 @@ impl AllocaAnalysis {
         candidates
     }
 
+    /// Analyzes how each candidate alloca variable is used across all blocks.
+    ///
+    /// For each candidate, tracks:
+    /// - `def_blocks`: blocks containing stores (definitions).
+    /// - `load_before_store_blocks`: blocks that load the variable before any
+    ///   store within the same block (upward-exposed uses).
+    /// - `has_store` / `has_load`: whether stores/loads exist at all.
+    /// - `invalid`: set if the variable is used in a non-promotable way (e.g.,
+    ///   passed to a call or used as a general operand rather than load/store).
     fn analyze_usage(
         blocks: &[BasicBlock],
         candidates: &HashSet<usize>,
